@@ -1,0 +1,10 @@
+
+import { Role } from './types';
+
+export const ROLES = {
+  CLIENT: Role.CLIENT,
+  SALES_EMPLOYEE: Role.SALES_EMPLOYEE,
+  SALES_MANAGER: Role.SALES_MANAGER,
+  ACCOUNTING_MANAGER: Role.ACCOUNTING_MANAGER,
+  CEO: Role.CEO,
+};
