@@ -35,13 +35,13 @@ const Quotation: React.FC<QuotationProps> = ({ quotation }) => {
     };
 
     return (
-        <div id="quotation-pdf" dir="ltr" className="bg-white p-4 sm:p-8 rounded-lg shadow-lg max-w-4xl mx-auto my-8 border text-gray-800">
+        <div id="quotation-pdf" className="bg-white p-4 sm:p-8 rounded-lg shadow-lg max-w-4xl mx-auto my-8 border text-gray-800">
             <header className="flex flex-col-reverse text-center sm:text-inherit sm:flex-row justify-between items-start pb-6 border-b-2 border-gray-200 gap-6">
-                <div className="w-full sm:w-auto sm:text-left">
+                <div className="w-full sm:w-auto sm:text-right">
                     <h1 className="text-4xl font-bold text-[#10B981]">Quotation</h1>
                     <p className="text-gray-500 mt-2">عرض سعر</p>
                 </div>
-                <div className="w-full sm:w-auto sm:text-right">
+                <div className="w-full sm:w-auto sm:text-left">
                     <h2 className="text-2xl font-bold">انجاز للتكنولوجيا والمقاولات</h2>
                     <p className="text-sm">حلول إبداعية لنمو أعمالك</p>
                     <p className="text-sm">www.EnjazTec.com</p>

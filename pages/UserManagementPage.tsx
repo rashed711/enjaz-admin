@@ -82,19 +82,22 @@ const UserManagementPage: React.FC = () => {
         }
 
         // 1. Create the user in auth.users
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        // FIX: Supabase v2 signUp returns { data: { user, ... }, error }
+        const { data, error: signUpError } = await supabase.auth.signUp({
             email: editingUser.email,
             password: editingUser.password,
         });
 
         if (signUpError) throw signUpError;
-        if (!authData.user) throw new Error("User creation failed.");
+        if (!data.user) throw new Error("User creation failed.");
+        
+        const authUser = data.user;
 
         // 2. The trigger creates the profile, we just update it with name and role
         const { error: profileError } = await supabase
             .from('profiles')
             .update({ name: editingUser.name, role: editingUser.role })
-            .eq('id', authData.user.id);
+            .eq('id', authUser.id);
         
         if (profileError) {
           // This part is tricky. If this fails, we have an auth user without a proper profile.
@@ -125,7 +128,7 @@ const UserManagementPage: React.FC = () => {
         setEditingUser(prev => prev ? { ...prev, [name]: value } : null);
     };
 
-    const inputClasses = "border border-border bg-gray-50 text-dark-text p-3 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
+    const inputClasses = "border border-border bg-gray-50 text-dark-text p-3 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-colors";
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
@@ -148,7 +151,7 @@ const UserManagementPage: React.FC = () => {
                 {error && <p className="text-red-500 text-xs mt-4 text-center">{error}</p>}
                 <div className="mt-8 flex justify-end gap-4">
                     <button onClick={closeModal} className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-gray-400 transition-colors font-semibold" disabled={isSaving}>إلغاء</button>
-                    <button onClick={handleSave} className="bg-primary text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-primary transition-colors" disabled={isSaving}>
+                    <button onClick={handleSave} className="bg-[#10B981] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#10B981] transition-colors" disabled={isSaving}>
                         {isSaving ? 'جاري الحفظ...' : 'حفظ'}
                     </button>
                 </div>
@@ -165,7 +168,7 @@ const UserManagementPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-dark-text">قائمة المستخدمين</h2>
           <button 
               onClick={() => openModal(null)}
-              className="w-full sm:w-auto bg-primary text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-light-bg focus:ring-primary transition-all duration-200"
+              className="w-full sm:w-auto bg-[#10B981] text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-light-bg focus:ring-[#10B981] transition-all duration-200"
           >
               + إضافة مستخدم جديد
           </button>

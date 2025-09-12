@@ -39,27 +39,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    // Supabase v2: Use `getSession()` which is async.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       const user = await processSession(session);
       setCurrentUser(user);
       setLoading(false);
-    };
-    
-    getSession();
+    });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Supabase v2: The subscription is located in `data.subscription`.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const user = await processSession(session);
       setCurrentUser(user);
-      setLoading(false); // Ensure loading is false on auth changes
+      if (loading) setLoading(false);
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
-  }, []); // FIX: Changed dependency array to run only once on mount
+  }, []);
 
   const login = async (email: string, password: string) => {
+    // Supabase v2: Use `signInWithPassword` instead of `signIn`.
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -6,6 +7,7 @@ import HomeIcon from './icons/HomeIcon';
 import DocumentTextIcon from './icons/DocumentTextIcon';
 import UsersIcon from './icons/UsersIcon';
 import CubeIcon from './icons/CubeIcon';
+import UserCircleIcon from './icons/UserCircleIcon';
 import { ROLES } from '../constants';
 
 const BottomNav: React.FC = () => {
@@ -48,6 +50,10 @@ const BottomNav: React.FC = () => {
             <span className="text-xs">المستخدمون</span>
           </NavLink>
         )}
+        <NavLink to="/profile" className={navLinkClasses}>
+            <UserCircleIcon className="h-6 w-6 mb-1" />
+            <span className="text-xs">ملفي</span>
+        </NavLink>
       </div>
     </nav>
   );

@@ -67,7 +67,7 @@ const QuotationsListPage: React.FC = () => {
                 <h2 className="text-2xl font-bold text-dark-text">قائمة عروض الأسعار</h2>
                 <button 
                     onClick={() => navigate('/quotations/new')}
-                    className="w-full sm:w-auto bg-primary text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-light-bg focus:ring-primary transition-all duration-200"
+                    className="w-full sm:w-auto bg-[#10B981] text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-light-bg focus:ring-[#10B981] transition-all duration-200"
                 >
                     + إنشاء عرض سعر جديد
                 </button>

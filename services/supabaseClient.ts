@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // These values are taken from your project settings in the Supabase dashboard.

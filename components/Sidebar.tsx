@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -6,6 +7,7 @@ import HomeIcon from './icons/HomeIcon';
 import DocumentTextIcon from './icons/DocumentTextIcon';
 import UsersIcon from './icons/UsersIcon';
 import CubeIcon from './icons/CubeIcon';
+import UserCircleIcon from './icons/UserCircleIcon';
 import { ROLES } from '../constants';
 
 const Sidebar: React.FC = () => {
@@ -14,7 +16,7 @@ const Sidebar: React.FC = () => {
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center px-4 py-3 text-lg rounded-lg transition-colors duration-200 ${
       isActive
-        ? 'bg-primary text-white'
+        ? 'bg-[#10B981] text-white'
         : 'text-dark-text hover:bg-gray-100'
     }`;
 
@@ -26,7 +28,7 @@ const Sidebar: React.FC = () => {
             <p className="text-muted-text text-sm">للتكنولوجيا والمقاولات</p>
         </div>
       </div>
-      <nav className="flex flex-col space-y-4">
+      <nav className="flex flex-col space-y-4 flex-grow">
         <NavLink to="/" className={navLinkClasses}>
           <HomeIcon className="ml-3" />
           <span>لوحة التحكم</span>
@@ -53,6 +55,12 @@ const Sidebar: React.FC = () => {
           </NavLink>
         )}
       </nav>
+       <div className="pt-4 border-t border-border">
+        <NavLink to="/profile" className={navLinkClasses}>
+          <UserCircleIcon className="ml-3 h-5 w-5" />
+          <span>الملف الشخصي</span>
+        </NavLink>
+      </div>
     </aside>
   );
 };

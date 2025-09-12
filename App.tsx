@@ -9,6 +9,7 @@ import QuotationsListPage from './pages/QuotationsListPage';
 import QuotationEditorPage from './pages/QuotationEditorPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ProductsListPage from './pages/ProductsListPage';
+import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -30,6 +31,16 @@ const AppRoutes: React.FC = () => {
             </Layout>
           </ProtectedRoute>
         } 
+      />
+       <Route 
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Layout title="الملف الشخصي">
+              <ProfilePage />
+            </Layout>
+          </ProtectedRoute>
+        }
       />
       {currentUser && [ROLES.SALES_EMPLOYEE, ROLES.SALES_MANAGER, ROLES.CEO].includes(currentUser.role) && (
         <>

@@ -26,6 +26,7 @@ const QuotationEditorPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isProcessingPdf, setIsProcessingPdf] = useState(false);
 
     const isNew = idParam === 'new';
     
@@ -38,8 +39,6 @@ const QuotationEditorPage: React.FC = () => {
             desc += ` (${item.length} x ${item.width})`;
         } else if (p.productType === ProductType.CABLE_TRAY && item.width && item.height) {
             desc += ` (${item.width} x ${item.height})`;
-        } else {
-            desc = p.description; // Fallback to original product description
         }
         return desc;
     }, [products]);
@@ -79,19 +78,21 @@ const QuotationEditorPage: React.FC = () => {
             
             const augmentedItems: QuotationItemState[] = itemsData ? itemsData.map(item => {
                 const product = products.find(p => p.id === item.product_id);
-                return {
+                const fetchedItem: QuotationItemState = {
                     id: item.id,
                     productId: item.product_id,
                     description: item.description,
                     quantity: item.quantity,
                     unitPrice: item.unit_price,
                     total: item.total,
-                    unit: item.unit as Unit || (product ? product.unit : Unit.COUNT),
+                    unit: (item.unit as Unit) || (product ? product.unit : Unit.COUNT),
                     productType: product ? product.productType : ProductType.SIMPLE,
                     length: item.length,
                     width: item.width,
                     height: item.height,
                 };
+                fetchedItem.description = updateItemDescription(fetchedItem, product);
+                return fetchedItem;
             }) : [];
 
             const fetchedQuotation: Omit<Quotation, 'items'> & { items: QuotationItemState[] } = {
@@ -114,31 +115,107 @@ const QuotationEditorPage: React.FC = () => {
 
         if (isNew) {
             createNewQuotation();
-        } else if (idParam && products.length > 0) { // Ensure products are loaded before fetching
+        } else if (idParam && products.length > 0) {
             fetchQuotation(parseInt(idParam, 10));
         }
-    }, [idParam, navigate, currentUser, isNew, products]);
+    }, [idParam, navigate, currentUser, isNew, products, updateItemDescription]);
 
-    const handleExportToPDF = () => {
+    const generatePdfBlob = async (): Promise<Blob | null> => {
         const input = document.getElementById('quotation-pdf');
-        if (input) {
-            html2canvas(input, { scale: 2 }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`${quotation?.quotationNumber}.pdf`);
-            });
+        if (!input) return null;
+    
+        const originalWidth = input.style.width;
+        input.style.width = '1024px';
+    
+        try {
+            const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+            
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const ratio = canvasWidth / pdfWidth;
+            
+            let canvasPosition = 0;
+            while (canvasPosition < canvasHeight) {
+                const pageHeightInCanvas = Math.min(pdfHeight * ratio, canvasHeight - canvasPosition);
+                const pageCanvas = document.createElement('canvas');
+                pageCanvas.width = canvasWidth;
+                pageCanvas.height = pageHeightInCanvas;
+                
+                const ctx = pageCanvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(canvas, 0, canvasPosition, canvasWidth, pageHeightInCanvas, 0, 0, canvasWidth, pageHeightInCanvas);
+                    const imgData = pageCanvas.toDataURL('image/png');
+                    const pageHeightInPDF = pageHeightInCanvas / ratio;
+                    if (canvasPosition > 0) pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pageHeightInPDF);
+                    canvasPosition += pageHeightInCanvas;
+                } else {
+                    return null;
+                }
+            }
+            return pdf.output('blob');
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            return null;
+        } finally {
+            input.style.width = originalWidth;
         }
     };
+
+    const handleExportToPDF = async () => {
+        setIsProcessingPdf(true);
+        const blob = await generatePdfBlob();
+        if (blob && quotation) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${quotation.quotationNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else {
+            alert("حدث خطأ أثناء إنشاء ملف PDF.");
+        }
+        setIsProcessingPdf(false);
+    };
     
-    const handleShare = () => {
-        if(quotation) {
-            const message = encodeURIComponent(`مرحباً،\n\nتجدون مرفقاً عرض السعر رقم ${quotation.quotationNumber} من شركة إنجاز.\n\nشكراً لكم.`);
+    const handleShare = async () => {
+        if (!quotation) return;
+    
+        setIsProcessingPdf(true);
+        const blob = await generatePdfBlob();
+        if (!blob) {
+            alert("لا يمكن إنشاء ملف PDF للمشاركة.");
+            setIsProcessingPdf(false);
+            return;
+        }
+    
+        const fileName = `${quotation.quotationNumber}.pdf`;
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        const shareData = {
+            files: [file],
+            title: `عرض سعر ${quotation.quotationNumber}`,
+            text: `مرحباً،\n\nتجدون مرفقاً عرض السعر رقم ${quotation.quotationNumber} من شركة إنجاز.\n\nشكراً لكم.`,
+        };
+    
+        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+            try {
+                await navigator.share(shareData);
+            } catch (error) {
+                console.error('Error sharing:', error);
+            }
+        } else {
+            alert("مشاركة الملفات غير مدعومة على هذا المتصفح. سيتم فتح واتساب مع رسالة نصية.");
+            const message = encodeURIComponent(shareData.text);
             window.open(`https://wa.me/?text=${message}`, '_blank');
         }
-    }
+        setIsProcessingPdf(false);
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -167,11 +244,11 @@ const QuotationEditorPage: React.FC = () => {
                 itemToUpdate.description = updateItemDescription(itemToUpdate);
             }
             
-            itemToUpdate.total = itemToUpdate.quantity * itemToUpdate.unitPrice;
+            itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
             newItems[index] = itemToUpdate;
             const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
 
-            setQuotation({ ...quotation, items: newItems, totalAmount: newTotalAmount });
+            setQuotation({ ...quotation, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) });
         }
     };
 
@@ -199,7 +276,7 @@ const QuotationEditorPage: React.FC = () => {
                 itemToUpdate = {
                     ...itemToUpdate,
                     productId: product.id,
-                    description: product.description,
+                    description: product.name,
                     unitPrice: product.unitPrice,
                     unit: product.unit,
                     productType: product.productType,
@@ -211,10 +288,10 @@ const QuotationEditorPage: React.FC = () => {
             }
         }
         
-        itemToUpdate.total = itemToUpdate.quantity * itemToUpdate.unitPrice;
+        itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
         newItems[itemIndex] = itemToUpdate;
         const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setQuotation({ ...quotation, items: newItems, totalAmount: newTotalAmount });
+        setQuotation({ ...quotation, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) });
     };
 
     const addItem = () => {
@@ -235,7 +312,7 @@ const QuotationEditorPage: React.FC = () => {
         if (quotation) {
             const newItems = quotation.items.filter((_, i) => i !== index);
             const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-            setQuotation({ ...quotation, items: newItems, totalAmount: newTotalAmount });
+            setQuotation({ ...quotation, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) });
         }
     };
     
@@ -293,16 +370,17 @@ const QuotationEditorPage: React.FC = () => {
     
                 setIsEditing(false);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save quotation:", error);
-            alert("حدث خطأ أثناء حفظ عرض السعر.");
+            const errorMessage = error?.message || "An unexpected error occurred.";
+            alert(`حدث خطأ أثناء حفظ عرض السعر: ${errorMessage}`);
         } finally {
             setIsSaving(false);
         }
     };
     
     const inputClasses = "border border-border bg-gray-50 text-dark-text p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-colors";
-    const buttonClasses = "px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white font-semibold";
+    const buttonClasses = "px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed";
 
 
     if (loading || !quotation) {
@@ -424,26 +502,32 @@ const QuotationEditorPage: React.FC = () => {
                  <button
                     onClick={() => navigate('/quotations')}
                     className={`w-full sm:w-auto bg-gray-500 hover:bg-gray-600 text-white ${buttonClasses}`}
+                    disabled={isProcessingPdf}
                 >
                     العودة للقائمة
                 </button>
                 <button
                     onClick={() => setIsEditing(true)}
                     className={`w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-dark-text ${buttonClasses}`}
+                    disabled={isProcessingPdf}
                 >
                     تعديل
                 </button>
                 <button
                     onClick={handleShare}
                     className={`w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white ${buttonClasses}`}
+                    disabled={isProcessingPdf}
+                    aria-busy={isProcessingPdf}
                 >
-                    مشاركة عبر واتساب
+                    {isProcessingPdf ? 'جاري التحضير...' : 'مشاركة عبر واتساب'}
                 </button>
                 <button
                     onClick={handleExportToPDF}
                     className={`w-full sm:w-auto bg-[#10B981] hover:bg-[#059669] text-white ${buttonClasses}`}
+                    disabled={isProcessingPdf}
+                    aria-busy={isProcessingPdf}
                 >
-                    تصدير PDF
+                    {isProcessingPdf ? 'جاري التحضير...' : 'تصدير PDF'}
                 </button>
             </div>
             <QuotationComponent quotation={quotation as Quotation} />
