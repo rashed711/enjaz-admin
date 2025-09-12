@@ -1,10 +1,12 @@
+
 import React, { useState, useCallback } from 'react';
-import { Product, ProductType, Unit, Currency } from '../types';
+import { Product, ProductType, Unit, Currency, DocumentItemState } from '../types';
 import { useProducts } from '../contexts/ProductContext';
+import { useAuth } from '../hooks/useAuth';
 import AddProductModal from './AddProductModal';
-import { QuotationState, QuotationItemState } from '../pages/QuotationEditorPage';
+import { QuotationState } from '../pages/QuotationEditorPage';
 import Spinner from './Spinner';
-import QuotationItemRow from './QuotationItemRow';
+import DocumentItemRow from './QuotationItemRow';
 
 interface QuotationEditorFormProps {
     quotation: QuotationState;
@@ -17,9 +19,15 @@ interface QuotationEditorFormProps {
 
 const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, setQuotation, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
+    const { currentUser } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const updateItemDescription = useCallback((item: QuotationItemState, product?: Product): string => {
+    const updateQuotationItems = useCallback((newItems: DocumentItemState[]) => {
+        const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
+        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
+    }, [setQuotation]);
+
+    const updateItemDescription = useCallback((item: DocumentItemState, product?: Product): string => {
         const p = product || products.find(prod => prod.id === item.productId);
         if (!p) return item.description;
 
@@ -61,9 +69,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
         
         itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
         newItems[index] = itemToUpdate;
-        const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-
-        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
+        updateQuotationItems(newItems);
     };
 
     const handleProductSelection = (itemIndex: number, selectedProductId: string) => {
@@ -81,9 +87,14 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
             if (product) {
                 itemToUpdate = {
                     ...itemToUpdate,
-                    productId: product.id, description: product.name, unitPrice: product.unitPrice,
-                    unit: product.unit, productType: product.productType,
-                    length: undefined, width: undefined, height: undefined,
+                    productId: product.id,
+                    description: product.name,
+                    unitPrice: product.sellingPrice,
+                    unit: product.unit,
+                    productType: product.productType,
+                    length: undefined,
+                    width: undefined,
+                    height: undefined,
                 };
                 itemToUpdate.description = updateItemDescription(itemToUpdate, product);
             }
@@ -91,21 +102,26 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
         
         itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
         newItems[itemIndex] = itemToUpdate;
-        const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
+        updateQuotationItems(newItems);
     };
 
     const addItem = () => {
-        const newItem: QuotationItemState = {
+        const newItem: DocumentItemState = {
             description: '', quantity: 1, unitPrice: 0, total: 0, unit: Unit.COUNT, productType: ProductType.SIMPLE
         };
-        setQuotation(prev => prev ? { ...prev, items: [...prev.items, newItem] } : null);
+        updateQuotationItems([...quotation.items, newItem]);
     };
     
     const removeItem = (index: number) => {
         const newItems = quotation.items.filter((_, i) => i !== index);
-        const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
+        updateQuotationItems(newItems);
+    };
+
+    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => {
+        if (!currentUser) {
+            return { product: null, error: "User not authenticated to add a product." };
+        }
+        return addProduct(productData, currentUser.id);
     };
 
     const inputClasses = "border border-border bg-white text-text-primary p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
@@ -116,7 +132,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
             <AddProductModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
-                onSave={addProduct} 
+                onSave={handleAddProduct} 
             />
             <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
                  <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
@@ -146,7 +162,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                  </div>
 
                  {quotation.items.map((item, index) => (
-                    <QuotationItemRow
+                    <DocumentItemRow
                         key={index}
                         item={item}
                         index={index}
@@ -159,8 +175,8 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                  ))}
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
-                    <button onClick={addItem} className="text-primary hover:text-primary-hover font-semibold transition-colors">+ إضافة بند جديد</button>
-                    <button onClick={() => setIsModalOpen(true)} className="text-green-500 hover:text-green-400 font-semibold transition-colors">+ إضافة منتج للقائمة</button>
+                    <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
+                    <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
                 </div>
 
                 <div className="mt-8">

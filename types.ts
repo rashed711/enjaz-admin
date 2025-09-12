@@ -38,47 +38,15 @@ export enum Unit {
 export interface Product {
   id: number;
   name: string;
-  description: string;
-  unitPrice: number;
-  productType: ProductType; // ADDED
-  unit: Unit; // ADDED
+  sellingPrice: number;
+  productType: ProductType;
+  unit: Unit;
+  averagePurchasePrice?: number;
+  averageSellingPrice?: number;
 }
 
-export interface QuotationItem {
-  id?: number;
-  productId?: number;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  unit?: Unit; // ADDED
-  length?: number; // ADDED
-  width?: number; // ADDED
-  height?: number; // ADDED
-}
-
-export interface Quotation {
-  id?: number;
-  quotationNumber: string;
-  clientName: string;
-  company: string;
-  project: string;
-  quotationType: string;
-  date: string;
-  currency: Currency;
-  items: QuotationItem[];
-  totalAmount: number;
-  createdBy: string; // Stays string for Supabase UUID
-}
-
-// --- New Interfaces for Purchase Invoices ---
-export enum PurchaseInvoiceStatus {
-  DRAFT = 'Draft',
-  PAID = 'Paid',
-  CANCELLED = 'Cancelled',
-}
-
-export interface PurchaseInvoiceItem {
+// Refactored: Generic DocumentItem to replace duplicated item interfaces
+export interface DocumentItem {
   id?: number;
   productId?: number;
   description: string;
@@ -91,6 +59,32 @@ export interface PurchaseInvoiceItem {
   height?: number;
 }
 
+// Refactored: Generic DocumentItemState for use in editors
+export interface DocumentItemState extends DocumentItem {
+  productType?: ProductType;
+}
+
+export interface Quotation {
+  id?: number;
+  quotationNumber: string;
+  clientName: string;
+  company: string;
+  project: string;
+  quotationType: string;
+  date: string;
+  currency: Currency;
+  items: DocumentItem[];
+  totalAmount: number;
+  createdBy: string; // Stays string for Supabase UUID
+}
+
+// --- New Interfaces for Purchase Invoices ---
+export enum PurchaseInvoiceStatus {
+  DRAFT = 'Draft',
+  PAID = 'Paid',
+  CANCELLED = 'Cancelled',
+}
+
 export interface PurchaseInvoice {
   id?: number;
   invoiceNumber: string;
@@ -98,7 +92,59 @@ export interface PurchaseInvoice {
   date: string;
   currency: Currency;
   status: PurchaseInvoiceStatus;
-  items: PurchaseInvoiceItem[];
+  items: DocumentItem[];
   totalAmount: number;
   createdBy: string;
 }
+
+// --- New Interfaces for Sales Invoices ---
+export enum SalesInvoiceStatus {
+  DRAFT = 'Draft',
+  SENT = 'Sent',
+  PAID = 'Paid',
+  OVERDUE = 'Overdue',
+  CANCELLED = 'Cancelled',
+}
+
+export interface SalesInvoice {
+  id?: number;
+  invoiceNumber: string;
+  clientName: string;
+  company: string;
+  project: string;
+  date: string;
+  currency: Currency;
+  status: SalesInvoiceStatus;
+  items: DocumentItem[];
+  totalAmount: number;
+  createdBy: string;
+  quotationId?: number; // Link to the original quotation
+}
+
+// --- New Types for Permissions System ---
+export enum PermissionModule {
+  QUOTATIONS = 'عروض الأسعار',
+  SALES_INVOICES = 'فواتير المبيعات',
+  PURCHASE_INVOICES = 'فواتير المشتريات',
+  PRODUCTS = 'المنتجات',
+  USERS = 'المستخدمين',
+  PERMISSIONS = 'الصلاحيات',
+}
+
+export enum PermissionAction {
+  CREATE = 'create',
+  VIEW_OWN = 'view_own',
+  VIEW_ALL = 'view_all',
+  EDIT_OWN = 'edit_own',
+  EDIT_ALL = 'edit_all',
+  DELETE_OWN = 'delete_own',
+  DELETE_ALL = 'delete_all',
+  CHANGE_STATUS = 'change_status',
+  MANAGE = 'manage', // A general 'manage' permission
+}
+
+export type PermissionsConfig = {
+  [key in Role]?: {
+    [key in PermissionModule]?: PermissionAction[];
+  };
+};

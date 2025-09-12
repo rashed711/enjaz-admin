@@ -51,8 +51,8 @@ export const generatePdfBlob = async (elementId: string): Promise<Blob | null> =
             }
         }
         return pdf.output('blob');
-    } catch (error) {
-        console.error("Error generating PDF:", error);
+    } catch (error: any) {
+        console.error("Error generating PDF:", error.message);
         return null;
     } finally {
         // Restore original width

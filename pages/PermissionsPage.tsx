@@ -1,0 +1,81 @@
+import React from 'react';
+import { Role, PermissionModule, PermissionAction } from '../types';
+import { permissionsConfig } from '../utils/permissionsConfig';
+
+const PermissionsPage: React.FC = () => {
+  const roles = Object.values(Role);
+  const modules = Object.values(PermissionModule);
+
+  const getPermissionLabel = (permissions: PermissionAction[] = []): React.ReactNode => {
+    if (permissions.includes(PermissionAction.MANAGE)) {
+      return <span className="font-bold text-primary">إدارة كاملة</span>;
+    }
+    if (permissions.length === 0) {
+      return <span className="text-text-secondary">-</span>;
+    }
+    
+    const labels: string[] = [];
+    if (permissions.includes(PermissionAction.CREATE)) labels.push('إنشاء');
+    if (permissions.includes(PermissionAction.VIEW_ALL)) labels.push('عرض الكل');
+    else if (permissions.includes(PermissionAction.VIEW_OWN)) labels.push('عرض الخاص به');
+
+    if (permissions.includes(PermissionAction.EDIT_ALL)) labels.push('تعديل الكل');
+    else if (permissions.includes(PermissionAction.EDIT_OWN)) labels.push('تعديل الخاص به');
+
+    if (permissions.includes(PermissionAction.DELETE_ALL)) labels.push('حذف الكل');
+    else if (permissions.includes(PermissionAction.DELETE_OWN)) labels.push('حذف الخاص به');
+
+    if (permissions.includes(PermissionAction.CHANGE_STATUS)) labels.push('تغيير الحالة');
+    
+    return labels.join('، ');
+  };
+
+  return (
+    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+      <div className="mb-6 border-b border-border pb-4">
+        <h2 className="text-2xl font-bold text-text-primary">إدارة الصلاحيات</h2>
+        <p className="text-text-secondary mt-1">
+          هنا يمكنك عرض الصلاحيات الممنوحة لكل دور في النظام. هذه الإعدادات حاليًا للقراءة فقط ومُعرفة في الكود.
+        </p>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1000px] text-right text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-3 py-3 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border z-10">الدور</th>
+              {modules.map(moduleName => (
+                <th key={moduleName} className="px-3 py-3 font-bold text-text-secondary text-center">{moduleName}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="text-text-primary divide-y divide-border">
+            {roles.map(roleName => (
+              <tr key={roleName} className="hover:bg-slate-50">
+                <td className="px-3 py-4 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border z-10">{roleName}</td>
+                {modules.map(moduleName => (
+                  <td key={`${roleName}-${moduleName}`} className="px-3 py-4 text-center">
+                    {getPermissionLabel(permissionsConfig[roleName]?.[moduleName])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+       <div className="mt-6 text-left">
+          <button 
+              disabled 
+              className="bg-primary text-white font-semibold px-6 py-2 rounded-lg disabled:bg-primary/50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-primary"
+              title="سيتم تفعيل الحفظ عند ربط الصلاحيات بقاعدة البيانات"
+          >
+              حفظ التغييرات
+          </button>
+      </div>
+
+    </div>
+  );
+};
+
+export default PermissionsPage;

@@ -1,9 +1,9 @@
 import React from 'react';
-import { PurchaseInvoiceItemState } from '../pages/PurchaseInvoiceEditorPage';
-import { Product, ProductType, Unit } from '../types';
+// FIX: Imported DocumentItemState from types.ts as it is the correct type for a single document item.
+import { DocumentItemState, Product, ProductType, Unit } from '../types';
 
 interface PurchaseInvoiceItemRowProps {
-    item: PurchaseInvoiceItemState;
+    item: DocumentItemState;
     index: number;
     onItemChange: (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
     onProductSelection: (index: number, productId: string) => void;

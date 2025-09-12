@@ -6,4 +6,4 @@ const ReceiptIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default ReceiptIcon;
+export default React.memo(ReceiptIcon);

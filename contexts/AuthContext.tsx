@@ -1,4 +1,4 @@
-import React, { createContext, useState, ReactNode, useEffect, useContext, useMemo } from 'react';
+import React, { createContext, useState, ReactNode, useEffect, useContext, useMemo, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
 // Re-enable import for Session type from supabase-js v2
@@ -71,21 +71,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     // Use `signInWithPassword` which is the correct method for supabase-js v2
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     return { success: !error, error: error ? error.message : null };
-  };
+  }, []);
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        console.error("Error logging out:", error.message);
+    }
     setCurrentUser(null);
-  };
+  }, []);
   
-  const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading]);
+  const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading, login, logout]);
 
   return (
     <AuthContext.Provider value={value}>

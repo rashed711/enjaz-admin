@@ -8,4 +8,4 @@ const EyeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default EyeIcon;
+export default React.memo(EyeIcon);

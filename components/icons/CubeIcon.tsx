@@ -7,4 +7,4 @@ const CubeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     </svg>
 );
 
-export default CubeIcon;
+export default React.memo(CubeIcon);

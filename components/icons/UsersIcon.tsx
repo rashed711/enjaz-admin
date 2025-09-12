@@ -7,4 +7,4 @@ const UsersIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     </svg>
 );
 
-export default UsersIcon;
+export default React.memo(UsersIcon);

@@ -1,24 +1,20 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PurchaseInvoice, PurchaseInvoiceItem, Currency, Product, ProductType, Unit, PurchaseInvoiceStatus } from '../types';
+import { PurchaseInvoice, Currency, Product, ProductType, Unit, PurchaseInvoiceStatus, DocumentItemState } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../contexts/ProductContext';
 import { supabase } from '../services/supabaseClient';
 import PurchaseInvoiceViewer from '../components/PurchaseInvoiceViewer';
 import PurchaseInvoiceEditorForm from '../components/PurchaseInvoiceEditorForm';
 
-// Extend PurchaseInvoiceItem for editor-specific state
-export interface PurchaseInvoiceItemState extends PurchaseInvoiceItem {
-    productType?: ProductType;
-}
-
-export type PurchaseInvoiceState = Omit<PurchaseInvoice, 'items'> & { items: PurchaseInvoiceItemState[] };
+export type PurchaseInvoiceState = Omit<PurchaseInvoice, 'items'> & { items: DocumentItemState[] };
 
 const PurchaseInvoiceEditorPage: React.FC = () => {
     const { id: idParam, mode } = useParams<{ id: string; mode?: string }>();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
-    const { products } = useProducts();
+    const { products, fetchProducts } = useProducts();
 
     const [invoice, setInvoice] = useState<PurchaseInvoiceState | null>(null);
     const [loading, setLoading] = useState(true);
@@ -55,9 +51,9 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
                 const { data: itemsData, error: itemsError } = await supabase.from('purchase_invoice_items').select('*').eq('invoice_id', invoiceId);
                 if (itemsError) throw itemsError;
                 
-                const augmentedItems: PurchaseInvoiceItemState[] = itemsData ? itemsData.map(item => {
+                const augmentedItems: DocumentItemState[] = itemsData ? itemsData.map(item => {
                     const product = products.find(p => p.id === item.product_id);
-                    const fetchedItem: PurchaseInvoiceItemState = {
+                    const fetchedItem: DocumentItemState = {
                         id: item.id,
                         productId: item.product_id,
                         description: item.description,
@@ -88,7 +84,7 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
                 setInvoice(fetchedInvoice);
 
             } catch (error: any) {
-                console.error('Error fetching invoice details:', error);
+                console.error('Error fetching invoice details:', error.message);
                 navigate('/404');
             } finally {
                 setLoading(false);
@@ -132,6 +128,7 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
             if (itemsError) throw itemsError;
         }
 
+        await fetchProducts();
         navigate(`/invoices/${newI.id}/view`);
     };
 
@@ -167,6 +164,7 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
             if (itemsError) throw itemsError;
         }
 
+        await fetchProducts();
         navigate(`/invoices/${inv.id}/view`, { replace: true });
     };
 
@@ -182,7 +180,7 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
                 await updateInvoice(invoice);
             }
         } catch (error: any) {
-            console.error("Failed to save invoice:", error);
+            console.error("Failed to save invoice:", error.message);
             let errorMessage = "An unexpected error occurred. Check the console for details.";
             if (error) {
                 errorMessage = typeof error.message === 'string' ? error.message : JSON.stringify(error);

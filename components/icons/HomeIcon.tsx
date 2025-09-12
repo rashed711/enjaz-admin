@@ -7,4 +7,4 @@ const HomeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default HomeIcon;
+export default React.memo(HomeIcon);

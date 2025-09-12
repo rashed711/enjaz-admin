@@ -6,4 +6,4 @@ const WhatsappIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default WhatsappIcon;
+export default React.memo(WhatsappIcon);

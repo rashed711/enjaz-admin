@@ -7,4 +7,4 @@ const UserCircleIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default UserCircleIcon;
+export default React.memo(UserCircleIcon);

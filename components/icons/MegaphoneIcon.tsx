@@ -6,4 +6,4 @@ const MegaphoneIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default MegaphoneIcon;
+export default React.memo(MegaphoneIcon);

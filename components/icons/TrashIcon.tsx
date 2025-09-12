@@ -7,4 +7,4 @@ const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default TrashIcon;
+export default React.memo(TrashIcon);

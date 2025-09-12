@@ -1,9 +1,13 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
 import UserModal, { UserFormData } from '../components/UserModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import EmptyState from '../components/EmptyState';
 import UserCircleIcon from '../components/icons/UserCircleIcon';
+import UsersIcon from '../components/icons/UsersIcon';
 import Spinner from '../components/Spinner';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
@@ -40,7 +44,7 @@ const UserManagementPage: React.FC = () => {
         }
 
     } catch (err: any) {
-        console.error("Failed to load user list:", err);
+        console.error("Failed to load user list:", err.message);
         setPageError(`فشل تحميل قائمة المستخدمين. قد تكون هناك مشكلة في صلاحيات الوصول (RLS) على جدول 'profiles'.\n\nالخطأ الفني: ${err.message}`);
         setUsers([]);
     } finally {
@@ -152,7 +156,7 @@ const UserManagementPage: React.FC = () => {
         }
         closeModal();
     } catch (e: any) {
-        console.error('Save operation failed:', e);
+        console.error('Save operation failed:', e.message);
         setModalError(e?.message || 'حدث خطأ غير متوقع.');
     } finally {
         setIsSaving(false);
@@ -187,7 +191,7 @@ const UserManagementPage: React.FC = () => {
         setUserToDelete(null); 
 
     } catch (e: any) {
-        console.error('Error deleting user:', e);
+        console.error('Error deleting user:', e.message);
         showNotification(`فشل حذف المستخدم: ${e.message || "حدث خطأ غير متوقع."}`);
     } finally {
         setIsDeleting(false);
@@ -221,7 +225,7 @@ const UserManagementPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-text-primary">قائمة المستخدمين</h2>
           <button 
               onClick={() => openModal(null)}
-              className="w-full sm:w-auto bg-[#4F46E5] text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#4338CA] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-[#4F46E5] transition-all duration-200"
+              className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
           >
               + إضافة مستخدم جديد
           </button>
@@ -240,74 +244,47 @@ const UserManagementPage: React.FC = () => {
       ) : pageError ? (
            <p className="p-4 text-left text-red-500 bg-red-50/10 border border-red-500/30 rounded-lg whitespace-pre-wrap font-mono">{pageError}</p>
       ) : users.length === 0 ? (
-          <div className="bg-card rounded-lg shadow-sm border border-border p-8 text-center">
-            <p className="text-text-secondary">لا يوجد مستخدمين لعرضهم.</p>
-          </div>
+            <EmptyState
+                Icon={UsersIcon}
+                title="لا يوجد مستخدمين"
+                message="ابدأ بإضافة مستخدمين جدد إلى النظام وتعيين أدوارهم."
+                action={{
+                    label: '+ إضافة مستخدم جديد',
+                    onClick: () => openModal(null)
+                }}
+            />
       ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="bg-card rounded-lg shadow-sm overflow-x-auto hidden md:block border border-border">
-                <table className="w-full text-right min-w-[640px]">
-                    <thead className="border-b border-border bg-slate-50">
-                        <tr>
-                            <th className="p-5 font-bold text-text-secondary text-sm uppercase tracking-wider">الاسم</th>
-                            <th className="p-5 font-bold text-text-secondary text-sm uppercase tracking-wider">البريد الإلكتروني</th>
-                            <th className="p-5 font-bold text-text-secondary text-sm uppercase tracking-wider">الدور</th>
-                            <th className="p-5 font-bold text-text-secondary text-sm uppercase tracking-wider text-center">إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {users.map((user) => (
-                            <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-200">
-                                <td className="p-5 whitespace-nowrap">
-                                    <div className="font-semibold text-text-primary">{user.name}</div>
-                                </td>
-                                <td className="p-5 whitespace-nowrap text-text-secondary">{user.email}</td>
-                                <td className="p-5 whitespace-nowrap text-text-secondary">{user.role}</td>
-                                <td className="p-5 whitespace-nowrap text-center">
-                                    <div className="flex items-center justify-center gap-2">
-                                        <button onClick={() => openModal(user)} title="تعديل" className="p-2 text-primary rounded-full hover:bg-primary/10 transition-colors">
-                                            <PencilIcon className="w-5 h-5" />
-                                        </button>
-                                        <button onClick={() => setUserToDelete(user)} title="حذف" className="p-2 text-red-500 rounded-full hover:bg-red-100 transition-colors">
-                                            <TrashIcon className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4">
-                {users.map(user => (
-                   <div key={user.id} className="bg-card rounded-lg shadow-sm p-4 border border-border">
-                        <div className="flex justify-between items-start gap-2">
-                            <div className="flex items-center gap-3">
-                                <UserCircleIcon className="w-10 h-10 text-text-secondary" />
-                                <div>
-                                    <p className="font-bold text-text-primary">{user.name}</p>
-                                    <p className="text-sm text-text-secondary">{user.role}</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-1">
-                                <button onClick={() => openModal(user)} title="تعديل" className="p-2 text-primary rounded-full hover:bg-primary/10 active:bg-primary/20 transition-colors">
-                                    <PencilIcon className="w-6 h-6" />
-                                </button>
-                                <button onClick={() => setUserToDelete(user)} title="حذف" className="p-2 text-red-500 rounded-full hover:bg-red-100 active:bg-red-200 transition-colors">
-                                    <TrashIcon className="w-6 h-6" />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-border">
-                            <p className="text-sm text-text-secondary text-right">{user.email}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-          </>
+          <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+              <table className="w-full text-right min-w-[640px] text-sm">
+                  <thead className="bg-slate-50">
+                      <tr>
+                          <th className="px-3 py-2 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">الاسم</th>
+                          <th className="px-3 py-2 font-bold text-text-secondary">البريد الإلكتروني</th>
+                          <th className="px-3 py-2 font-bold text-text-secondary">الدور</th>
+                          <th className="px-3 py-2 font-bold text-text-secondary text-left sticky left-0 bg-slate-50 border-r border-border">إجراءات</th>
+                      </tr>
+                  </thead>
+                  <tbody className="text-text-primary divide-y divide-border">
+                      {users.map((user) => (
+                          <tr key={user.id} className="hover:bg-slate-50">
+                              <td className="px-3 py-2 font-semibold whitespace-nowrap sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{user.name}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{user.email}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">{user.role}</td>
+                              <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
+                                  <div className="flex items-center justify-end gap-2">
+                                      <button onClick={() => openModal(user)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
+                                          <PencilIcon className="w-5 h-5" />
+                                      </button>
+                                      <button onClick={() => setUserToDelete(user)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
+                                          <TrashIcon className="w-5 h-5" />
+                                      </button>
+                                  </div>
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
       )}
     </>
   );

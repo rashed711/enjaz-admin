@@ -6,4 +6,4 @@ const DocumentArrowDownIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) =
   </svg>
 );
 
-export default DocumentArrowDownIcon;
+export default React.memo(DocumentArrowDownIcon);

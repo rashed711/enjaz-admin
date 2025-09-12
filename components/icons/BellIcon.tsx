@@ -6,4 +6,4 @@ const BellIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default BellIcon;
+export default React.memo(BellIcon);

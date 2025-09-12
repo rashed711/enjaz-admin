@@ -6,4 +6,4 @@ const PhoneIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default PhoneIcon;
+export default React.memo(PhoneIcon);

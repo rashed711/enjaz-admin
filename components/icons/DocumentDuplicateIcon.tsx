@@ -6,4 +6,4 @@ const DocumentDuplicateIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) =
   </svg>
 );
 
-export default DocumentDuplicateIcon;
+export default React.memo(DocumentDuplicateIcon);

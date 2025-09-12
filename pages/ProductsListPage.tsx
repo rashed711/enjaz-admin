@@ -1,14 +1,23 @@
+
 import React, { useState } from 'react';
 import { useProducts } from '../contexts/ProductContext';
+import { useAuth } from '../hooks/useAuth';
+import { usePermissions } from '../hooks/usePermissions';
 import AddProductModal from '../components/AddProductModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import { Product } from '../types';
+import EmptyState from '../components/EmptyState';
+// FIX: Import PermissionModule to use enum for type safety.
+import { Product, PermissionModule } from '../types';
 import Spinner from '../components/Spinner';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
+import SearchIcon from '../components/icons/SearchIcon';
+import CubeIcon from '../components/icons/CubeIcon';
 
 const ProductsListPage: React.FC = () => {
     const { products, loading, addProduct, updateProduct, deleteProduct } = useProducts();
+    const { currentUser } = useAuth();
+    const permissions = usePermissions();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +25,8 @@ const ProductsListPage: React.FC = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
+    // FIX: Use PermissionModule enum instead of string literal.
+    const canManage = permissions.can(PermissionModule.PRODUCTS, 'manage');
 
     const handleOpenModalForAdd = () => {
         setEditingProduct(null);
@@ -27,11 +38,14 @@ const ProductsListPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleSaveProduct = async (productData: Omit<Product, 'id'> & { id?: number }) => {
+    const handleSaveProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => {
+        if (!currentUser) {
+            return { product: null, error: "User not authenticated" };
+        }
         if (productData.id) {
-            return await updateProduct(productData as Product);
+            return updateProduct(productData as Product);
         } else {
-            return await addProduct(productData);
+            return addProduct(productData as Omit<Product, 'id'>, currentUser.id);
         }
     };
 
@@ -52,10 +66,14 @@ const ProductsListPage: React.FC = () => {
     };
 
     const filteredProducts = products.filter(product =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
     
+    const formatPrice = (price?: number) => {
+        if (price === undefined || price === null) return '-';
+        return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
     return (
         <>
             <AddProductModal 
@@ -83,20 +101,27 @@ const ProductsListPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary self-start sm:self-center">قائمة المنتجات</h2>
                 <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
-                    <input
-                        type="text"
-                        placeholder="ابحث بالاسم أو الوصف..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full sm:w-64 border border-border bg-card text-text-primary p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
-                        aria-label="Search products"
-                    />
-                    <button 
-                        onClick={handleOpenModalForAdd}
-                        className="w-full sm:w-auto bg-[#4F46E5] text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#4338CA] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-[#4F46E5] transition-all duration-200"
-                    >
-                        + إضافة منتج جديد
-                    </button>
+                     <div className="relative w-full sm:w-64">
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                            <SearchIcon className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="ابحث بالاسم..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full border border-border bg-card text-text-primary p-2 pl-3 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+                            aria-label="Search products"
+                        />
+                    </div>
+                    {canManage && (
+                        <button 
+                            onClick={handleOpenModalForAdd}
+                            className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
+                        >
+                            + إضافة منتج جديد
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -105,77 +130,59 @@ const ProductsListPage: React.FC = () => {
                     <Spinner />
                 </div>
             ) : filteredProducts.length === 0 ? (
-                 <div className="bg-card rounded-lg shadow-sm border border-border p-8 text-center">
-                    <p className="text-text-secondary">
-                        {searchQuery ? 'لا توجد منتجات تطابق بحثك.' : 'لا توجد منتجات لعرضها.'}
-                    </p>
-                </div>
+                 <EmptyState
+                    Icon={CubeIcon}
+                    title={searchQuery ? 'لا توجد نتائج' : 'لا توجد منتجات بعد'}
+                    message={
+                        searchQuery 
+                            ? 'لم نجد أي منتجات تطابق بحثك. حاول استخدام كلمات أخرى.' 
+                            : 'ابدأ بإضافة أول منتج لك في النظام لإدارة المخزون وعروض الأسعار بسهولة.'
+                    }
+                    action={!searchQuery && canManage ? {
+                        label: '+ إضافة منتج جديد',
+                        onClick: handleOpenModalForAdd
+                    } : undefined}
+                />
             ) : (
-                <>
-                    {/* Desktop Table View */}
-                    <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto hidden md:block">
-                        <table className="w-full text-right min-w-[640px]">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="p-4 font-bold text-text-secondary">اسم المنتج</th>
-                                    <th className="p-4 font-bold text-text-secondary">الوصف</th>
-                                    <th className="p-4 font-bold text-text-secondary">النوع</th>
-                                    <th className="p-4 font-bold text-text-secondary">الوحدة</th>
-                                    <th className="p-4 font-bold text-text-secondary">سعر الوحدة</th>
-                                    <th className="p-4 font-bold text-text-secondary text-left">إجراءات</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-text-primary divide-y divide-border">
-                                {filteredProducts.map((product) => (
-                                    <tr key={product.id} className="hover:bg-slate-50 transition-colors duration-200">
-                                        <td className="p-4 font-semibold">{product.name}</td>
-                                        <td className="p-4">{product.description}</td>
-                                        <td className="p-4">{product.productType}</td>
-                                        <td className="p-4">{product.unit}</td>
-                                        <td className="p-4">{product.unitPrice.toLocaleString()}</td>
-                                        <td className="p-4 text-left">
+                <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                    <table className="w-full text-right min-w-[800px] text-sm">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="px-3 py-2 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">اسم المنتج</th>
+                                <th className="px-3 py-2 font-bold text-text-secondary">التصنيف</th>
+                                <th className="px-3 py-2 font-bold text-text-secondary">الوحدة</th>
+                                <th className="px-3 py-2 font-bold text-text-secondary">سعر البيع</th>
+                                <th className="px-3 py-2 font-bold text-text-secondary">متوسط سعر الشراء</th>
+                                <th className="px-3 py-2 font-bold text-text-secondary">متوسط سعر البيع</th>
+                                {canManage && <th className="px-3 py-2 font-bold text-text-secondary text-left sticky left-0 bg-slate-50 border-r border-border">إجراءات</th>}
+                            </tr>
+                        </thead>
+                        <tbody className="text-text-primary divide-y divide-border">
+                            {filteredProducts.map((product) => (
+                                <tr key={product.id} className="hover:bg-slate-50">
+                                    <td className="px-3 py-2 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{product.name}</td>
+                                    <td className="px-3 py-2">{product.productType}</td>
+                                    <td className="px-3 py-2">{product.unit}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.sellingPrice)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
+                                    {canManage && (
+                                        <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => handleOpenModalForEdit(product)} title="تعديل" className="p-2 text-primary rounded-full hover:bg-primary/10 transition-colors">
+                                                <button onClick={() => handleOpenModalForEdit(product)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
                                                     <PencilIcon className="w-5 h-5" />
                                                 </button>
-                                                <button onClick={() => setProductToDelete(product)} title="حذف" className="p-2 text-red-500 rounded-full hover:bg-red-100 transition-colors">
+                                                <button onClick={() => setProductToDelete(product)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
                                                     <TrashIcon className="w-5 h-5" />
                                                 </button>
                                             </div>
                                         </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-4">
-                        {filteredProducts.map(product => (
-                            <div key={product.id} className="bg-card rounded-lg shadow-sm p-4 border border-border">
-                                <div className="flex justify-between items-start gap-2">
-                                    <h3 className="font-bold text-base text-text-primary">{product.name}</h3>
-                                    <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-1 rounded-full shrink-0">{product.productType}</span>
-                                </div>
-                                <p className="text-text-secondary my-2 text-sm">{product.description || 'لا يوجد وصف'}</p>
-                                <div className="flex justify-between items-center mt-4 pt-4 border-t border-border">
-                                    <div className="text-right">
-                                        <p className="font-bold text-lg text-primary">{product.unitPrice.toLocaleString()}</p>
-                                        <p className="text-xs text-text-secondary">/ {product.unit}</p>
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => handleOpenModalForEdit(product)} title="تعديل" className="p-2 text-primary rounded-full hover:bg-primary/10 active:bg-primary/20 transition-colors">
-                                            <PencilIcon className="w-6 h-6" />
-                                        </button>
-                                        <button onClick={() => setProductToDelete(product)} title="حذف" className="p-2 text-red-500 rounded-full hover:bg-red-100 active:bg-red-200 transition-colors">
-                                            <TrashIcon className="w-6 h-6" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </>
     );

@@ -1,20 +1,47 @@
-import React from 'react';
-import { PurchaseInvoice as PurchaseInvoiceType, Currency, Unit } from '../types';
+import React, { useState, useEffect } from 'react';
+import { SalesInvoice as SalesInvoiceType, Currency, Unit } from '../types';
+import { supabase } from '../services/supabaseClient';
 
-interface PurchaseInvoiceProps {
-    invoice: PurchaseInvoiceType;
+interface SalesInvoiceProps {
+    invoice: SalesInvoiceType;
 }
 
 const getTaxInfo = (currency: Currency): { rate: number; label: string } => {
     switch (currency) {
-        case Currency.EGP: return { rate: 0.14, label: 'الضريبة (14%)' };
-        case Currency.SAR: return { rate: 0.15, label: 'الضريبة (15%)' };
-        case Currency.USD: return { rate: 0, label: 'الضريبة (0%)' };
-        default: return { rate: 0, label: 'الضريبة' };
+        case Currency.EGP:
+            return { rate: 0.14, label: 'الضريبة (14%)' };
+        case Currency.SAR:
+            return { rate: 0.15, label: 'الضريبة (15%)' };
+        case Currency.USD:
+            return { rate: 0, label: 'الضريبة (0%)' };
+        default:
+            return { rate: 0, label: 'الضريبة' };
     }
 };
 
-const PurchaseInvoice: React.FC<PurchaseInvoiceProps> = ({ invoice }) => {
+const SalesInvoice: React.FC<SalesInvoiceProps> = ({ invoice }) => {
+    const [creatorName, setCreatorName] = useState<string>('');
+    
+    useEffect(() => {
+        const fetchCreatorName = async () => {
+            if (invoice.createdBy) {
+                try {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('name')
+                        .eq('id', invoice.createdBy)
+                        .single();
+                    if (error) throw error;
+                    if (data) setCreatorName(data.name);
+                } catch (error) {
+                    console.error("Failed to fetch creator name:", error);
+                    setCreatorName('غير معروف');
+                }
+            }
+        };
+        fetchCreatorName();
+    }, [invoice.createdBy]);
+
     const subTotal = invoice.items.reduce((acc, item) => acc + item.total, 0);
     const taxInfo = getTaxInfo(invoice.currency);
     const tax = subTotal * taxInfo.rate;
@@ -25,12 +52,12 @@ const PurchaseInvoice: React.FC<PurchaseInvoiceProps> = ({ invoice }) => {
     };
 
     return (
-        <div id="invoice-pdf" dir="ltr" className="bg-white text-gray-800 p-8 sm:p-12 rounded-lg shadow-lg max-w-4xl mx-auto my-8 border border-gray-100">
+        <div id="sales-invoice-pdf" dir="ltr" className="bg-white text-gray-800 p-8 sm:p-12 rounded-lg shadow-lg max-w-4xl mx-auto my-8 border border-gray-100">
             {/* Header Section */}
             <header className="flex justify-between items-center pb-6 mb-8 border-b-2 border-primary">
                 <div className="text-left">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-primary tracking-tight">INVOICE</h1>
-                    <p className="text-gray-500 mt-1 text-xl md:text-2xl">فاتورة شراء</p>
+                    <p className="text-gray-500 mt-1 text-xl md:text-2xl">فاتورة مبيعات</p>
                 </div>
                 <div className="text-right">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-800">انجاز للتكنولوجيا والمقاولات</h2>
@@ -38,11 +65,13 @@ const PurchaseInvoice: React.FC<PurchaseInvoiceProps> = ({ invoice }) => {
                 </div>
             </header>
 
-            {/* Supplier and Invoice Info Section */}
+            {/* Client and Invoice Info Section */}
             <section dir="rtl" className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mb-10 text-sm">
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div className="space-y-2">
-                        <p><span className="font-semibold text-gray-700 w-32 inline-block">المورد:</span> {invoice.supplierName}</p>
+                        <p><span className="font-semibold text-gray-700 w-32 inline-block">السادة شركة:</span> {invoice.company}</p>
+                        <p><span className="font-semibold text-gray-700 w-32 inline-block">السيد المهندس/ة:</span> {invoice.clientName}</p>
+                        <p><span className="font-semibold text-gray-700 w-32 inline-block">المشروع:</span> {invoice.project}</p>
                     </div>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
@@ -50,6 +79,7 @@ const PurchaseInvoice: React.FC<PurchaseInvoiceProps> = ({ invoice }) => {
                         <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم الفاتورة:</span> {invoice.invoiceNumber}</p>
                         <p><span className="font-semibold text-gray-700 w-32 inline-block">التاريخ:</span> {invoice.date}</p>
                         <p><span className="font-semibold text-gray-700 w-32 inline-block">الحالة:</span> {invoice.status}</p>
+                        <p><span className="font-semibold text-gray-700 w-32 inline-block">تم اصدارها بواسطة:</span> {creatorName || 'جاري التحميل...'}</p>
                     </div>
                 </div>
             </section>
@@ -130,4 +160,4 @@ const PurchaseInvoice: React.FC<PurchaseInvoiceProps> = ({ invoice }) => {
     );
 };
 
-export default PurchaseInvoice;
+export default SalesInvoice;

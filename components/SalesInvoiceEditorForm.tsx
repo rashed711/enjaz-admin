@@ -1,32 +1,32 @@
 
 import React, { useState, useCallback } from 'react';
 // FIX: Import PermissionModule to use enum for type safety.
-import { Product, ProductType, Unit, Currency, PurchaseInvoiceStatus, DocumentItemState, PermissionModule } from '../types';
+import { Product, ProductType, Unit, Currency, SalesInvoiceStatus, DocumentItemState, PermissionModule } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import AddProductModal from './AddProductModal';
-import { PurchaseInvoiceState } from '../pages/PurchaseInvoiceEditorPage';
+import { SalesInvoiceState } from '../pages/SalesInvoiceEditorPage';
 import Spinner from './Spinner';
 import DocumentItemRow from './QuotationItemRow';
 
-interface PurchaseInvoiceEditorFormProps {
-    invoice: PurchaseInvoiceState;
-    setInvoice: React.Dispatch<React.SetStateAction<PurchaseInvoiceState | null>>;
+interface SalesInvoiceEditorFormProps {
+    invoice: SalesInvoiceState;
+    setInvoice: React.Dispatch<React.SetStateAction<SalesInvoiceState | null>>;
     onSave: () => Promise<void>;
     isSaving: boolean;
     onCancel: () => void;
     saveError: string | null;
 }
 
-const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ invoice, setInvoice, onSave, isSaving, onCancel, saveError }) => {
+const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice, setInvoice, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
     const { currentUser } = useAuth();
     const permissions = usePermissions();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // FIX: Use PermissionModule enum instead of string literal.
-    const canChangeStatus = permissions.can(PermissionModule.PURCHASE_INVOICES, 'change_status');
+    const canChangeStatus = permissions.can(PermissionModule.SALES_INVOICES, 'change_status');
 
     const updateInvoiceItems = useCallback((newItems: DocumentItemState[]) => {
         const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
@@ -124,9 +124,7 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
     };
 
     const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => {
-        if (!currentUser) {
-            return { product: null, error: "User not authenticated to add a product." };
-        }
+        if (!currentUser) return { product: null, error: "User not authenticated." };
         return addProduct(productData, currentUser.id);
     };
 
@@ -141,16 +139,18 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
                 onSave={handleAddProduct} 
             />
             <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
-                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل الفاتورة</h2>
+                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل والفاتورة</h2>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input type="text" name="supplierName" placeholder="اسم المورد" value={invoice.supplierName} onChange={handleInputChange} className={inputClasses} />
+                    <input type="text" name="clientName" placeholder="اسم العميل" value={invoice.clientName} onChange={handleInputChange} className={inputClasses} />
+                    <input type="text" name="company" placeholder="الشركة" value={invoice.company} onChange={handleInputChange} className={inputClasses} />
+                    <input type="text" name="project" placeholder="المشروع" value={invoice.project} onChange={handleInputChange} className={inputClasses} />
                     <input type="date" name="date" value={invoice.date} onChange={handleInputChange} className={`${inputClasses}`} />
                     <select name="status" value={invoice.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
-                        {Object.values(PurchaseInvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        {Object.values(SalesInvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <select name="currency" value={invoice.currency} onChange={handleInputChange} className={inputClasses}>
-                        <option value={Currency.EGP}>جنيه مصري (EGP)</option>
                         <option value={Currency.SAR}>ريال سعودي (SAR)</option>
+                        <option value={Currency.EGP}>جنيه مصري (EGP)</option>
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
                     </select>
                  </div>
@@ -205,4 +205,4 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
     )
 }
 
-export default PurchaseInvoiceEditorForm;
+export default SalesInvoiceEditorForm;

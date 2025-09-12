@@ -12,7 +12,7 @@
             colors: {
               'primary': '#4F46E5',         // Indigo 600
               'primary-hover': '#4338CA',    // Indigo 700
-              'background': '#F1F5F9',      // Slate 100 (Light Gray)
+              'background': '#E2E8F0',      // Slate 200 (Cool Gray)
               'sidebar': '#FFFFFF',         // White
               'card': '#FFFFFF',            // White
               'text-primary': '#111827',    // Gray 900 (Dark Gray/Black)
@@ -28,8 +28,15 @@
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
       body {
         font-family: 'Cairo', sans-serif;
-        font-size: 15px; /* Modern, slightly smaller base font size */
-        background-color: #F1F5F9; /* Default light background */
+        font-size: 15px;
+        background-color: #E2E8F0;
+        color: #111827;
+      }
+      /* Add smooth transitions to key interactive elements */
+      button, a, [role="button"] {
+        transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 200ms;
       }
       /* Custom scrollbar for webkit browsers */
       ::-webkit-scrollbar {
@@ -37,15 +44,29 @@
         height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #F1F5F9; /* background color */
+        background: #E2E8F0;
       }
       ::-webkit-scrollbar-thumb {
-        background-color: #CBD5E1; /* slate-300 */
+        background-color: #CBD5E1;
         border-radius: 4px;
-        border: 2px solid #F1F5F9; /* background color */
+        border: 2px solid #E2E8F0;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background-color: #94A3B8; /* slate-400 */
+        background-color: #94A3B8;
+      }
+      /* Animation for modal */
+      @keyframes fadeInScale {
+          from {
+              transform: scale(0.95);
+              opacity: 0;
+          }
+          to {
+              transform: scale(1);
+              opacity: 1;
+          }
+      }
+      .animate-fade-in-scale {
+          animation: fadeInScale 0.2s ease-out forwards;
       }
     </style>
   <script type="importmap">

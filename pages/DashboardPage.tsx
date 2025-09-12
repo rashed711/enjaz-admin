@@ -3,8 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabaseClient';
 import UsersIcon from '../components/icons/UsersIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
-import BellIcon from '../components/icons/BellIcon';
-import MegaphoneIcon from '../components/icons/MegaphoneIcon';
+import ReceiptIcon from '../components/icons/ReceiptIcon';
 import PhoneIcon from '../components/icons/PhoneIcon';
 import DocumentDuplicateIcon from '../components/icons/DocumentDuplicateIcon';
 
@@ -16,52 +15,80 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => (
-  <div className="bg-card p-5 rounded-lg shadow-sm flex items-center gap-5 border border-border">
-    {React.cloneElement(icon, { className: "h-10 w-10 text-primary" })}
+  <div className="bg-card p-4 rounded-lg shadow-sm flex items-center gap-4 border border-border">
+    {React.cloneElement(icon, { className: "h-8 w-8 text-primary" })}
     <div className="text-right">
-      <p className="text-3xl font-bold text-text-primary">{value}</p>
-      <p className="text-text-secondary font-semibold mt-1">{title}</p>
+      <p className="text-2xl font-bold text-text-primary">{value}</p>
+      <p className="text-sm text-text-secondary font-semibold mt-1">{title}</p>
     </div>
   </div>
 );
 
 const DashboardPage: React.FC = () => {
   const { currentUser } = useAuth();
-  const [quotationCount, setQuotationCount] = useState(0);
+  const [stats, setStats] = useState({
+    quotations: 0,
+    salesInvoices: 0,
+    users: 0,
+    purchaseInvoices: 0,
+  });
 
   useEffect(() => {
-    const fetchQuotationCount = async () => {
+    const fetchDashboardStats = async () => {
         if (!currentUser) return;
 
         try {
-            const { count, error } = await supabase
-                .from('quotations')
-                .select('*', { count: 'exact', head: true })
-                .eq('created_by', currentUser.id);
-            
-            if (error) {
-                console.error('Error fetching quotation count:', error);
-            } else {
-                setQuotationCount(count ?? 0);
+            // Helper to get count and handle errors gracefully
+            const getCount = (res: { count: number | null, error: any }, tableName: string) => {
+                if (res.error) {
+                    if (res.error.message.includes('does not exist') || res.error.message.includes('in the schema cache')) {
+                        console.warn(`Dashboard: Table '${tableName}' not found. Defaulting count to 0.`);
+                        return 0;
+                    }
+                    console.error(`Error fetching count for ${tableName}:`, res.error);
+                    return 0;
+                }
+                return res.count ?? 0;
             }
+
+            // Fetch all stats concurrently
+            const [
+                quotationsRes,
+                salesInvoicesRes,
+                usersRes,
+                purchaseInvoicesRes
+            ] = await Promise.all([
+                supabase.from('quotations').select('*', { count: 'exact', head: true }).eq('created_by', currentUser.id),
+                supabase.from('sales_invoices').select('*', { count: 'exact', head: true }),
+                supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                supabase.from('purchase_invoices').select('*', { count: 'exact', head: true })
+            ]);
+
+            setStats({
+                quotations: getCount(quotationsRes, 'quotations'),
+                salesInvoices: getCount(salesInvoicesRes, 'sales_invoices'),
+                users: getCount(usersRes, 'profiles'),
+                purchaseInvoices: getCount(purchaseInvoicesRes, 'purchase_invoices'),
+            });
+
         } catch (e) {
-            console.error("An unexpected error occurred while fetching stats:", e);
+            console.error("An unexpected error occurred while fetching dashboard stats:", e);
         }
     };
 
     if (currentUser) {
-        fetchQuotationCount();
+        fetchDashboardStats();
     }
   }, [currentUser]);
 
   return (
     <div className="space-y-8">
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="عروض الأسعار" value={quotationCount} icon={<DocumentTextIcon />} />
-        <StatCard title="الإشعارات" value={0} icon={<BellIcon />} />
-        <StatCard title="المستخدمين" value={4} icon={<UsersIcon />} />
-        <StatCard title="الإعلانات" value={0} icon={<MegaphoneIcon />} />
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard title="عروض الأسعار" value={stats.quotations} icon={<DocumentTextIcon />} />
+        <StatCard title="فواتير المبيعات" value={stats.salesInvoices} icon={<DocumentTextIcon />} />
+        <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} />
+        <StatCard title="فواتير المشتريات" value={stats.purchaseInvoices} icon={<ReceiptIcon />} />
         <StatCard title="التواصل" value={0} icon={<PhoneIcon />} />
         <StatCard title="الصفحات" value={3} icon={<DocumentDuplicateIcon />} />
       </div>

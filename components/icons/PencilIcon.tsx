@@ -7,4 +7,4 @@ const PencilIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default PencilIcon;
+export default React.memo(PencilIcon);

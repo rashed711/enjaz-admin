@@ -1,24 +1,20 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Quotation, QuotationItem, Currency, Product, ProductType, Unit } from '../types';
+import { Quotation, Currency, Product, ProductType, Unit, DocumentItemState } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../contexts/ProductContext';
 import { supabase } from '../services/supabaseClient';
 import QuotationViewer from '../components/QuotationViewer';
 import QuotationEditorForm from '../components/QuotationEditorForm';
 
-// Extend QuotationItem for editor-specific state
-export interface QuotationItemState extends QuotationItem {
-    productType?: ProductType;
-}
-
-export type QuotationState = Omit<Quotation, 'items'> & { items: QuotationItemState[] };
+export type QuotationState = Omit<Quotation, 'items'> & { items: DocumentItemState[] };
 
 const QuotationEditorPage: React.FC = () => {
     const { id: idParam, mode } = useParams<{ id: string; mode?: string }>();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
-    const { products } = useProducts();
+    const { products, fetchProducts } = useProducts();
 
     const [quotation, setQuotation] = useState<QuotationState | null>(null);
     const [loading, setLoading] = useState(true);
@@ -53,16 +49,16 @@ const QuotationEditorPage: React.FC = () => {
             
             const { data: qData, error: qError } = await supabase.from('quotations').select('*').eq('id', quotationId).single();
             if (qError) {
-                console.error('Error fetching quotation:', qError);
+                console.error('Error fetching quotation:', qError.message);
                 return navigate('/404');
             }
             
             const { data: itemsData, error: itemsError } = await supabase.from('quotation_items').select('*').eq('quotation_id', quotationId);
-            if (itemsError) console.error('Error fetching items:', itemsError);
+            if (itemsError) console.error('Error fetching items:', itemsError.message);
             
-            const augmentedItems: QuotationItemState[] = itemsData ? itemsData.map(item => {
+            const augmentedItems: DocumentItemState[] = itemsData ? itemsData.map(item => {
                 const product = products.find(p => p.id === item.product_id);
-                const fetchedItem: QuotationItemState = {
+                const fetchedItem: DocumentItemState = {
                     id: item.id,
                     productId: item.product_id,
                     description: item.description,
@@ -133,6 +129,7 @@ const QuotationEditorPage: React.FC = () => {
         const { error: itemsError } = await supabase.from('quotation_items').insert(itemsWithId);
         if (itemsError) throw itemsError;
 
+        await fetchProducts();
         navigate(`/quotations/${newQ.id}/view`);
     };
 
@@ -170,6 +167,7 @@ const QuotationEditorPage: React.FC = () => {
             if (itemsError) throw itemsError;
         }
 
+        await fetchProducts();
         navigate(`/quotations/${q.id}/view`, { replace: true });
     };
 
@@ -185,7 +183,7 @@ const QuotationEditorPage: React.FC = () => {
                 await updateQuotation(quotation);
             }
         } catch (error: any) {
-            console.error("Failed to save quotation:", error);
+            console.error("Failed to save quotation:", error.message);
             const errorMessage = error?.message || "An unexpected error occurred.";
             setSaveError(`حدث خطأ أثناء حفظ عرض السعر: ${errorMessage}`);
         } finally {

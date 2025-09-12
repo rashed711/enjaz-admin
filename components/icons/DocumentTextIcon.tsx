@@ -7,4 +7,4 @@ const DocumentTextIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-export default DocumentTextIcon;
+export default React.memo(DocumentTextIcon);
