@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../services/supabaseClient';
 import UsersIcon from '../components/icons/UsersIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import BellIcon from '../components/icons/BellIcon';
@@ -26,12 +27,38 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => (
 
 const DashboardPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const [quotationCount, setQuotationCount] = useState(0);
+
+  useEffect(() => {
+    const fetchQuotationCount = async () => {
+        if (!currentUser) return;
+
+        try {
+            const { count, error } = await supabase
+                .from('quotations')
+                .select('*', { count: 'exact', head: true })
+                .eq('created_by', currentUser.id);
+            
+            if (error) {
+                console.error('Error fetching quotation count:', error);
+            } else {
+                setQuotationCount(count ?? 0);
+            }
+        } catch (e) {
+            console.error("An unexpected error occurred while fetching stats:", e);
+        }
+    };
+
+    if (currentUser) {
+        fetchQuotationCount();
+    }
+  }, [currentUser]);
 
   return (
     <div className="space-y-8">
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="المقالات" value={0} icon={<DocumentTextIcon />} />
+        <StatCard title="عروض الأسعار" value={quotationCount} icon={<DocumentTextIcon />} />
         <StatCard title="الإشعارات" value={0} icon={<BellIcon />} />
         <StatCard title="المستخدمين" value={4} icon={<UsersIcon />} />
         <StatCard title="الإعلانات" value={0} icon={<MegaphoneIcon />} />

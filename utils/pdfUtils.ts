@@ -3,12 +3,13 @@ import html2canvas from 'html2canvas';
 
 /**
  * Generates a PDF from an HTML element with a specific ID and returns it as a Blob.
+ * @param {string} elementId The ID of the HTML element to convert to PDF.
  * @returns {Promise<Blob | null>} A promise that resolves with the PDF Blob, or null if an error occurs.
  */
-export const generatePdfBlob = async (): Promise<Blob | null> => {
-    const input = document.getElementById('quotation-pdf');
+export const generatePdfBlob = async (elementId: string): Promise<Blob | null> => {
+    const input = document.getElementById(elementId);
     if (!input) {
-        console.error("PDF generation failed: Element with ID 'quotation-pdf' not found.");
+        console.error(`PDF generation failed: Element with ID '${elementId}' not found.`);
         return null;
     }
 

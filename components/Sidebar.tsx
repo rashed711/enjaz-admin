@@ -1,18 +1,17 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { navigationConfig } from '../navigation';
 import UserCircleIcon from './icons/UserCircleIcon';
 
 const Sidebar: React.FC = () => {
   const { currentUser, logout } = useAuth();
+  const location = useLocation();
 
-  const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center px-3 py-2.5 text-base rounded-lg transition-colors duration-200 group ${
-      isActive
-        ? 'bg-primary/10 text-primary font-semibold'
-        : 'text-text-secondary hover:bg-gray-100 hover:text-text-primary'
-    }`;
+  const profileLinkDestination = location.pathname === '/profile' ? '/' : '/profile';
+
+  const navLinkClasses = "flex items-center px-3 py-2.5 text-base rounded-lg transition-colors duration-200 group text-text-secondary hover:bg-gray-100 hover:text-text-primary";
+  const activeNavLinkClasses = "bg-primary/10 text-primary font-semibold";
 
   const canShowLink = (roles: string[]) => {
     if (!currentUser) return false;
@@ -21,7 +20,11 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside className="hidden md:flex w-64 bg-sidebar p-4 flex-col fixed top-0 right-0 h-screen shadow-lg z-30 border-l border-border">
-      <div className="flex items-center mb-10 pt-4 px-2">
+      <Link
+        to={profileLinkDestination}
+        className="flex items-center mb-10 pt-4 px-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+        aria-label={location.pathname === '/profile' ? 'العودة للوحة التحكم' : 'الانتقال للملف الشخصي'}
+      >
          <UserCircleIcon className="w-10 h-10 text-text-secondary" />
         <div className="text-right mr-3">
             <h1 className="font-semibold text-text-primary">
@@ -29,11 +32,16 @@ const Sidebar: React.FC = () => {
             </h1>
             <p className="text-text-secondary text-sm">{currentUser?.role}</p>
         </div>
-      </div>
+      </Link>
       <nav className="flex flex-col space-y-2 flex-grow">
         {navigationConfig.map(({ path, label, Icon, roles, inSidebar }) => (
           inSidebar && canShowLink(roles) && (
-            <NavLink key={path} to={path} className={navLinkClasses}>
+            <NavLink 
+              key={path} 
+              to={path} 
+              className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
+              end={path === '/'}
+            >
               <Icon className="ml-3 h-5 w-5" />
               <span>{label}</span>
             </NavLink>

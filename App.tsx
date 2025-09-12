@@ -16,42 +16,47 @@ const AppRoutes: React.FC = () => {
       if (!currentUser) return false;
       return roles.includes(currentUser.role);
   }
+  
+  const allRoutes = navigationConfig.flatMap(({ path, component: Component, roles, title, children }) => {
+      const parentRoute = userCanAccess(roles) ? [
+          <Route 
+              key={path}
+              path={path}
+              element={
+                  <ProtectedRoute>
+                      <Layout title={title}>
+                          <Component />
+                      </Layout>
+                  </ProtectedRoute>
+              }
+          />
+      ] : [];
+
+      const childRoutes = children?.flatMap(({ path: childPath, component: ChildComponent, roles: childRoles, title: childTitle }) => 
+          userCanAccess(childRoles) ? [
+              <Route 
+                  key={childPath}
+                  path={childPath}
+                  element={
+                      <ProtectedRoute>
+                          <Layout title={childTitle}>
+                              <ChildComponent />
+                          </Layout>
+                      </ProtectedRoute>
+                  }
+              />
+          ] : []
+      ) ?? [];
+
+      return [...parentRoute, ...childRoutes];
+  });
+
 
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       
-      {navigationConfig.map(({ path, component: Component, roles, title, children }) => (
-          userCanAccess(roles) && (
-              <React.Fragment key={path}>
-                  <Route 
-                      path={path}
-                      element={
-                          <ProtectedRoute>
-                              <Layout title={title}>
-                                  <Component />
-                              </Layout>
-                          </ProtectedRoute>
-                      }
-                  />
-                  {children?.map(({ path: childPath, component: ChildComponent, roles: childRoles, title: childTitle }) => (
-                      userCanAccess(childRoles) && (
-                           <Route 
-                              key={childPath}
-                              path={childPath}
-                              element={
-                                  <ProtectedRoute>
-                                      <Layout title={childTitle}>
-                                          <ChildComponent />
-                                      </Layout>
-                                  </ProtectedRoute>
-                              }
-                          />
-                      )
-                  ))}
-              </React.Fragment>
-          )
-      ))}
+      {allRoutes}
 
       <Route path="/404" element={<NotFoundPage />} />
       <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} />} />

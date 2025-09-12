@@ -4,12 +4,15 @@ import DocumentTextIcon from './components/icons/DocumentTextIcon';
 import CubeIcon from './components/icons/CubeIcon';
 import UsersIcon from './components/icons/UsersIcon';
 import UserCircleIcon from './components/icons/UserCircleIcon';
+import ReceiptIcon from './components/icons/ReceiptIcon'; // New Icon
 import DashboardPage from './pages/DashboardPage';
 import QuotationsListPage from './pages/QuotationsListPage';
 import QuotationEditorPage from './pages/QuotationEditorPage';
 import ProductsListPage from './pages/ProductsListPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ProfilePage from './pages/ProfilePage';
+import PurchaseInvoicesListPage from './pages/PurchaseInvoicesListPage'; // New Page
+import PurchaseInvoiceEditorPage from './pages/PurchaseInvoiceEditorPage'; // New Page
 import React from 'react';
 
 interface NavLink {
@@ -51,6 +54,24 @@ export const navigationConfig: NavLink[] = [
             roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.CEO],
             component: QuotationEditorPage,
             title: 'عرض / تعديل السعر'
+        }
+    ]
+  },
+  {
+    path: '/invoices',
+    label: 'فواتير المشتريات',
+    Icon: ReceiptIcon,
+    roles: [Role.ACCOUNTING_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.CEO],
+    inSidebar: true,
+    inBottomNav: true,
+    component: PurchaseInvoicesListPage,
+    title: 'فواتير المشتريات',
+    children: [
+        {
+            path: '/invoices/:id/:mode?',
+            roles: [Role.ACCOUNTING_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.CEO],
+            component: PurchaseInvoiceEditorPage,
+            title: 'عرض / تعديل فاتورة'
         }
     ]
   },

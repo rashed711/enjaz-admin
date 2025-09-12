@@ -1,6 +1,7 @@
 import React, { createContext, useState, ReactNode, useEffect, useContext, useMemo } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
+// Re-enable import for Session type from supabase-js v2
 import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -16,8 +17,9 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Use the correct Session type from v2
 const processSession = async (session: Session | null): Promise<User | null> => {
-  if (!session?.user) return null; // Simplified check
+  if (!session?.user) return null;
 
   const { user } = session;
 
@@ -57,42 +59,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Fetch the initial session
-    const fetchInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (isMounted) {
-          const user = await processSession(session);
-          setCurrentUser(user);
-        }
-      } catch (err: any) {
-        console.error("Failed to fetch initial session:", err.message);
-      } finally {
-        if (isMounted) {
-          setLoading(false); // Critical: ensure loading is always set to false
-        }
-      }
-    };
-    
-    fetchInitialSession();
-
-    // Listen for subsequent auth changes
+    // Correctly destructure the subscription object for supabase-js v2
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (isMounted) {
-        const user = await processSession(session);
-        setCurrentUser(user);
-      }
+      const user = await processSession(session);
+      setCurrentUser(user);
+      setLoading(false); // Set loading to false after the session has been processed.
     });
 
     return () => {
-      isMounted = false;
       subscription?.unsubscribe();
     };
   }, []);
 
   const login = async (email: string, password: string) => {
+    // Use `signInWithPassword` which is the correct method for supabase-js v2
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

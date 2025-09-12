@@ -1,29 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Quotation } from '../types';
-import QuotationComponent from './Quotation';
+import { PurchaseInvoice } from '../types';
+import PurchaseInvoiceComponent from './PurchaseInvoice';
 import Spinner from './Spinner';
 import { generatePdfBlob } from '../utils/pdfUtils';
 import WhatsappIcon from './icons/WhatsappIcon';
 import DocumentArrowDownIcon from './icons/DocumentArrowDownIcon';
 
-
-interface QuotationViewerProps {
-    quotation: Quotation;
+interface PurchaseInvoiceViewerProps {
+    invoice: PurchaseInvoice;
 }
 
-const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
+const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ invoice }) => {
     const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleExportToPDF = async () => {
         setIsProcessing(true);
-        const blob = await generatePdfBlob('quotation-pdf');
-        if (blob && quotation) {
+        const blob = await generatePdfBlob('invoice-pdf');
+        if (blob && invoice) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${quotation.quotationNumber}.pdf`;
+            a.download = `${invoice.invoiceNumber}.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -35,33 +34,27 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
     };
 
     const handleShare = async () => {
-        if (!quotation) return;
-
+        if (!invoice) return;
         setIsProcessing(true);
-        const blob = await generatePdfBlob('quotation-pdf');
-        setIsProcessing(false); // Stop processing indicator after blob is generated
+        const blob = await generatePdfBlob('invoice-pdf');
+        setIsProcessing(false);
 
         if (!blob) {
             alert("لا يمكن إنشاء ملف PDF للمشاركة.");
             return;
         }
 
-        const fileName = `${quotation.quotationNumber}.pdf`;
+        const fileName = `${invoice.invoiceNumber}.pdf`;
         const file = new File([blob], fileName, { type: 'application/pdf' });
         const shareData = {
             files: [file],
-            title: `عرض سعر ${quotation.quotationNumber}`,
-            text: `مرحباً،\n\nتجدون مرفقاً عرض السعر رقم ${quotation.quotationNumber} من شركة إنجاز.\n\nشكراً لكم.`,
+            title: `فاتورة مشتريات ${invoice.invoiceNumber}`,
+            text: `مرفق فاتورة المشتريات رقم ${invoice.invoiceNumber}.`,
         };
 
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share(shareData);
-            } catch (error) {
-                console.error('Error sharing:', error);
-            }
+            try { await navigator.share(shareData); } catch (error) { console.error('Error sharing:', error); }
         } else {
-            // Fallback for browsers that do not support sharing files (like desktop)
             const message = encodeURIComponent(shareData.text);
             window.open(`https://wa.me/?text=${message}`, '_blank');
         }
@@ -73,19 +66,19 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
     return (
         <>
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mb-6">
-                <button onClick={() => navigate('/quotations')} className={`bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-500 ${buttonClasses}`} disabled={isProcessing}>
+                <button onClick={() => navigate('/invoices')} className={`bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-500 ${buttonClasses}`} disabled={isProcessing}>
                     العودة للقائمة
                 </button>
-                <button onClick={handleShare} className={`bg-green-500 hover:bg-green-600 text-white focus:ring-green-500 ${iconButtonClasses}`} disabled={isProcessing} aria-busy={isProcessing} title="مشاركة عبر واتساب">
+                <button onClick={handleShare} className={`bg-green-500 hover:bg-green-600 text-white focus:ring-green-500 ${iconButtonClasses}`} disabled={isProcessing} title="مشاركة">
                     {isProcessing ? <Spinner /> : <WhatsappIcon className="w-5 h-5" />}
                 </button>
-                <button onClick={handleExportToPDF} className={`bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 ${iconButtonClasses}`} disabled={isProcessing} aria-busy={isProcessing} title="تصدير PDF">
+                <button onClick={handleExportToPDF} className={`bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 ${iconButtonClasses}`} disabled={isProcessing} title="تصدير PDF">
                      {isProcessing ? <Spinner /> : <DocumentArrowDownIcon className="w-5 h-5" />}
                 </button>
             </div>
-            <QuotationComponent quotation={quotation} />
+            <PurchaseInvoiceComponent invoice={invoice} />
         </>
     );
 };
 
-export default QuotationViewer;
+export default PurchaseInvoiceViewer;

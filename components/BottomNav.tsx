@@ -6,12 +6,8 @@ import { navigationConfig } from '../navigation';
 const BottomNav: React.FC = () => {
   const { currentUser } = useAuth();
 
-  const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
-    `flex flex-col items-center justify-center text-center px-2 py-1 rounded-md transition-colors duration-200 w-full ${
-      isActive
-        ? 'text-primary'
-        : 'text-text-secondary hover:text-primary'
-    }`;
+  const navLinkClasses = "flex flex-col items-center justify-center text-center px-2 py-1 rounded-md transition-colors duration-200 w-full text-text-secondary hover:text-primary";
+  const activeClasses = "text-primary";
     
   if (!currentUser) return null;
 
@@ -24,7 +20,12 @@ const BottomNav: React.FC = () => {
       <div className="flex justify-around items-center h-16">
         {navigationConfig.map(({ path, label, Icon, roles, inBottomNav, bottomNavLabel }) => (
           inBottomNav && canShowLink(roles) && (
-            <NavLink key={path} to={path} className={navLinkClasses}>
+            <NavLink 
+              key={path} 
+              to={path} 
+              className={({ isActive }) => `${navLinkClasses} ${isActive ? activeClasses : ''}`}
+              end={path === '/'}
+            >
               <Icon className="h-6 w-6 mb-1" />
               <span className="text-xs">{bottomNavLabel || label}</span>
             </NavLink>
