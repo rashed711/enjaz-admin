@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import Spinner from '../components/Spinner';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -69,8 +70,9 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#10B981] hover:bg-[#059669] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:bg-[#10B981]/70"
+              className="w-full bg-[#10B981] hover:bg-[#059669] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:bg-[#10B981]/70 flex items-center justify-center gap-2"
             >
+              {loading && <Spinner />}
               {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
             </button>
           </div>

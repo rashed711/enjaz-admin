@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { Product, ProductType, Unit } from '../types';
+import Spinner from './Spinner';
 
 interface AddProductModalProps {
     isOpen: boolean;
@@ -100,7 +100,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                 </div>
                 <div className="mt-8 flex justify-end gap-4">
                     <button onClick={onClose} className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-gray-400 transition-colors font-semibold" disabled={isSaving}>إلغاء</button>
-                    <button onClick={handleSaveClick} className="bg-[#10B981] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#10B981] transition-colors" disabled={isSaving}>
+                    <button onClick={handleSaveClick} className="bg-[#10B981] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#10B981] transition-colors flex items-center justify-center gap-2 w-40" disabled={isSaving}>
+                        {isSaving && <Spinner />}
                         {isSaving ? 'جاري الحفظ...' : (productToEdit ? 'حفظ التعديلات' : 'حفظ المنتج')}
                     </button>
                 </div>

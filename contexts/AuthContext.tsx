@@ -20,6 +20,10 @@ const processSession = async (session: Session | null): Promise<User | null> => 
   if (!session) return null;
 
   const { user } = session;
+  if (!user) { // Defensive check, user should exist in a valid session
+    return null;
+  }
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('name, role')
@@ -39,18 +43,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Supabase v2: Use `getSession()` which is async.
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const user = await processSession(session);
-      setCurrentUser(user);
-      setLoading(false);
-    });
-
-    // Supabase v2: The subscription is located in `data.subscription`.
+    setLoading(true);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const user = await processSession(session);
       setCurrentUser(user);
-      if (loading) setLoading(false);
+      setLoading(false);
     });
 
     return () => {
@@ -59,7 +56,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Supabase v2: Use `signInWithPassword` instead of `signIn`.
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

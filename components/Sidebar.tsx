@@ -1,14 +1,7 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { canManageUsers } from '../utils/permissions';
-import HomeIcon from './icons/HomeIcon';
-import DocumentTextIcon from './icons/DocumentTextIcon';
-import UsersIcon from './icons/UsersIcon';
-import CubeIcon from './icons/CubeIcon';
-import UserCircleIcon from './icons/UserCircleIcon';
-import { ROLES } from '../constants';
+import { navigationConfig } from '../navigation';
 
 const Sidebar: React.FC = () => {
   const { currentUser } = useAuth();
@@ -20,6 +13,11 @@ const Sidebar: React.FC = () => {
         : 'text-dark-text hover:bg-gray-100'
     }`;
 
+  const canShowLink = (roles: string[]) => {
+    if (!currentUser) return false;
+    return roles.includes(currentUser.role);
+  }
+
   return (
     <aside className="hidden md:flex w-64 bg-white p-6 flex-col fixed top-0 right-0 h-screen shadow-lg z-30 border-l border-border">
       <div className="flex justify-between items-center mb-10">
@@ -29,37 +27,25 @@ const Sidebar: React.FC = () => {
         </div>
       </div>
       <nav className="flex flex-col space-y-4 flex-grow">
-        <NavLink to="/" className={navLinkClasses}>
-          <HomeIcon className="ml-3" />
-          <span>لوحة التحكم</span>
-        </NavLink>
-        
-        {currentUser && [ROLES.SALES_EMPLOYEE, ROLES.SALES_MANAGER, ROLES.CEO].includes(currentUser.role) && (
-            <NavLink to="/quotations" className={navLinkClasses}>
-                <DocumentTextIcon className="ml-3" />
-                <span>عروض الأسعار</span>
+        {navigationConfig.map(({ path, label, Icon, roles, inSidebar }) => (
+          inSidebar && canShowLink(roles) && (
+            <NavLink key={path} to={path} className={navLinkClasses}>
+              <Icon className="ml-3" />
+              <span>{label}</span>
             </NavLink>
-        )}
-
-        {currentUser && [ROLES.SALES_EMPLOYEE, ROLES.SALES_MANAGER, ROLES.CEO].includes(currentUser.role) && (
-            <NavLink to="/products" className={navLinkClasses}>
-                <CubeIcon className="ml-3" />
-                <span>المنتجات</span>
-            </NavLink>
-        )}
-
-        {canManageUsers(currentUser) && (
-          <NavLink to="/users" className={navLinkClasses}>
-            <UsersIcon className="ml-3" />
-            <span>إدارة المستخدمين</span>
-          </NavLink>
-        )}
+          )
+        ))}
       </nav>
        <div className="pt-4 border-t border-border">
-        <NavLink to="/profile" className={navLinkClasses}>
-          <UserCircleIcon className="ml-3 h-5 w-5" />
-          <span>الملف الشخصي</span>
-        </NavLink>
+        {/* Profile link is handled separately in navigationConfig, so we filter for it */}
+        {navigationConfig.filter(l => l.path === '/profile').map(({ path, label, Icon, roles }) => (
+            canShowLink(roles) && (
+                 <NavLink key={path} to={path} className={navLinkClasses}>
+                    <Icon className="ml-3 h-5 w-5" />
+                    <span>{label}</span>
+                </NavLink>
+            )
+        ))}
       </div>
     </aside>
   );

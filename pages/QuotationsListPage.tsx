@@ -4,12 +4,16 @@ import { Quotation, Currency } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { canViewAllQuotations } from '../utils/permissions';
 import { supabase } from '../services/supabaseClient';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 const QuotationsListPage: React.FC = () => {
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [loading, setLoading] = useState(true);
     const { currentUser } = useAuth();
     const navigate = useNavigate();
+    const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchQuotations = async () => {
@@ -61,8 +65,59 @@ const QuotationsListPage: React.FC = () => {
         }
     }, [currentUser]);
 
+    const handleConfirmDelete = async () => {
+        if (!quotationToDelete || !quotationToDelete.id) return;
+    
+        setIsDeleting(true);
+        setDeleteError(null);
+    
+        try {
+            // First, delete all items associated with the quotation.
+            const { error: itemsError } = await supabase
+                .from('quotation_items')
+                .delete()
+                .eq('quotation_id', quotationToDelete.id);
+    
+            if (itemsError) throw itemsError;
+    
+            // Then, delete the quotation itself.
+            const { error: quotationError } = await supabase
+                .from('quotations')
+                .delete()
+                .eq('id', quotationToDelete.id);
+    
+            if (quotationError) throw quotationError;
+    
+            setQuotations(prev => prev.filter(q => q.id !== quotationToDelete.id));
+            setQuotationToDelete(null); 
+    
+        } catch (error: any) {
+            console.error("Error deleting quotation:", error);
+            setDeleteError(error.message || "فشل حذف عرض السعر. يرجى المحاولة مرة أخرى.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <>
+            <DeleteConfirmationModal
+                isOpen={!!quotationToDelete}
+                onClose={() => {
+                    setQuotationToDelete(null);
+                    setDeleteError(null);
+                }}
+                onConfirm={handleConfirmDelete}
+                title="تأكيد الحذف"
+                message={
+                    <>
+                        هل أنت متأكد أنك تريد حذف عرض السعر رقم <span className="font-bold text-dark-text">{quotationToDelete?.quotationNumber}</span>؟ سيتم حذف جميع البنود المرتبطة به.
+                    </>
+                }
+                isProcessing={isDeleting}
+                error={deleteError}
+            />
+
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-dark-text">قائمة عروض الأسعار</h2>
                 <button 
@@ -100,10 +155,13 @@ const QuotationsListPage: React.FC = () => {
                                         <td className="p-4">{q.project}</td>
                                         <td className="p-4">{q.date}</td>
                                         <td className="p-4">{q.totalAmount?.toLocaleString()} {q.currency}</td>
-                                        <td className="p-4 text-center">
+                                        <td className="p-4 text-center whitespace-nowrap">
                                             <Link to={`/quotations/${q.id}`} className="text-primary hover:underline font-semibold">
                                                 عرض / تعديل
                                             </Link>
+                                            <button onClick={() => setQuotationToDelete(q)} className="text-red-500 hover:underline font-semibold mr-4">
+                                                حذف
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -125,7 +183,10 @@ const QuotationsListPage: React.FC = () => {
                                 <p className="my-2 text-sm text-dark-text">{q.project}</p>
                                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-border">
                                     <p className="font-bold text-lg text-primary">{q.totalAmount?.toLocaleString()} {q.currency}</p>
-                                    <Link to={`/quotations/${q.id}`} className="bg-primary/10 text-primary px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-primary/20 transition-colors">عرض</Link>
+                                    <div className="flex gap-2">
+                                        <Link to={`/quotations/${q.id}`} className="bg-primary/10 text-primary px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-primary/20 transition-colors">عرض</Link>
+                                        <button onClick={() => setQuotationToDelete(q)} className="bg-red-500/10 text-red-500 px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-red-500/20 transition-colors">حذف</button>
+                                    </div>
                                 </div>
                             </div>
                         ))}

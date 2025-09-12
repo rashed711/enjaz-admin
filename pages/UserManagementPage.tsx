@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
+import UserModal, { UserFormData } from '../components/UserModal';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 // We can't fetch emails for all users from the client-side for security reasons.
 // So we'll define a type for what we can display.
 type DisplayUser = Omit<User, 'email'>;
 
-// A type for the form data, including password for new users.
-type UserFormData = {
-  id?: string;
-  name: string;
-  email: string;
-  role: Role;
-  password?: string;
-};
-
+// --- UserManagementPage Component ---
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<DisplayUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +16,8 @@ const UserManagementPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<UserFormData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<DisplayUser | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
 
   const fetchUsers = async () => {
@@ -48,7 +44,7 @@ const UserManagementPage: React.FC = () => {
       // For editing, we don't have the email, which is fine as we won't allow editing it.
       setEditingUser({ id: user.id, name: user.name, role: user.role, email: '' });
     } else {
-      // For adding new user
+      // For adding new user, prepare a blank form object
       setEditingUser({ name: '', email: '', role: Role.CLIENT, password: '' });
     }
     setIsModalOpen(true);
@@ -60,110 +56,119 @@ const UserManagementPage: React.FC = () => {
     setError(null);
   };
 
-  const handleSave = async () => {
-    if (!editingUser) return;
+  const handleSave = async (userData: UserFormData) => {
+    if (!userData) return;
     setIsSaving(true);
     setError(null);
 
     try {
-      if (editingUser.id) {
-        // Update user
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ name: editingUser.name, role: editingUser.role })
-          .eq('id', editingUser.id);
+        if (userData.id) {
+            // --- UPDATE EXISTING USER ---
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ name: userData.name, role: userData.role })
+                .eq('id', userData.id);
 
-        if (updateError) throw updateError;
-        
-      } else {
-        // Create new user
-        if (!editingUser.email || !editingUser.password) {
-            throw new Error('Email and password are required for new users.');
+            if (updateError) throw updateError;
+            
+            setUsers(currentUsers =>
+                currentUsers.map(u =>
+                    u.id === userData.id ? { ...u, name: userData.name, role: userData.role } : u
+                )
+            );
+            closeModal();
+
+        } else {
+            // --- CREATE NEW USER ---
+            if (!userData.email || !userData.password) {
+                throw new Error('البريد الإلكتروني وكلمة المرور مطلوبان للمستخدمين الجدد.');
+            }
+            
+            if (userData.password.length < 6) {
+                throw new Error('يجب أن تكون كلمة المرور 6 أحرف على الأقل.');
+            }
+
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                email: userData.email,
+                password: userData.password,
+                options: {
+                    data: {
+                        name: userData.name,
+                        role: userData.role,
+                    },
+                },
+            });
+
+            if (signUpError) throw signUpError;
+            
+            if (signUpData.user) {
+                const newUserForDisplay: DisplayUser = {
+                    id: signUpData.user.id,
+                    name: userData.name,
+                    role: userData.role,
+                };
+                setUsers(currentUsers => [newUserForDisplay, ...currentUsers]);
+            }
+            
+            closeModal();
         }
-
-        // 1. Create the user in auth.users
-        // FIX: Supabase v2 signUp returns { data: { user, ... }, error }
-        const { data, error: signUpError } = await supabase.auth.signUp({
-            email: editingUser.email,
-            password: editingUser.password,
-        });
-
-        if (signUpError) throw signUpError;
-        if (!data.user) throw new Error("User creation failed.");
-        
-        const authUser = data.user;
-
-        // 2. The trigger creates the profile, we just update it with name and role
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ name: editingUser.name, role: editingUser.role })
-            .eq('id', authUser.id);
-        
-        if (profileError) {
-          // This part is tricky. If this fails, we have an auth user without a proper profile.
-          // For now, we just log the error. In a real app, this needs more robust handling.
-          console.error("Failed to update profile for new user:", profileError);
-          throw new Error("User was created, but setting the profile failed.");
-        }
-      }
-
-      await fetchUsers(); // Refresh the list
-      closeModal();
 
     } catch (e: any) {
         console.error('Save operation failed:', e);
-        setError(e.message || 'An unexpected error occurred.');
+        setError(e?.message || 'حدث خطأ غير متوقع.');
+
     } finally {
         setIsSaving(false);
     }
   };
-  
-  const UserModal = () => {
-    if (!isModalOpen || !editingUser) return null;
 
-    const isNewUser = !editingUser.id;
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    setError(null);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setEditingUser(prev => prev ? { ...prev, [name]: value } : null);
-    };
+    const { error: functionError } = await supabase.functions.invoke('delete-user', {
+        body: { userId: userToDelete.id },
+    });
 
-    const inputClasses = "border border-border bg-gray-50 text-dark-text p-3 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-colors";
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-dark-text">
-                <h2 className="text-2xl font-bold mb-6 text-dark-text text-center">
-                    {isNewUser ? 'إضافة مستخدم جديد' : 'تعديل المستخدم'}
-                </h2>
-                <div className="space-y-4">
-                    <input type="text" name="name" placeholder="الاسم الكامل" value={editingUser.name} onChange={handleChange} className={inputClasses}/>
-                    <input type="email" name="email" placeholder="البريد الإلكتروني" value={editingUser.email} onChange={handleChange} className={`${inputClasses} disabled:bg-gray-200 disabled:cursor-not-allowed`} disabled={!isNewUser} />
-                    {isNewUser && (
-                        <input type="password" name="password" placeholder="كلمة المرور" value={editingUser.password || ''} onChange={handleChange} className={inputClasses}/>
-                    )}
-                     <select name="role" value={editingUser.role} onChange={handleChange} className={inputClasses}>
-                        {Object.values(Role).map(role => (
-                            <option key={role} value={role}>{role}</option>
-                        ))}
-                    </select>
-                </div>
-                {error && <p className="text-red-500 text-xs mt-4 text-center">{error}</p>}
-                <div className="mt-8 flex justify-end gap-4">
-                    <button onClick={closeModal} className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-gray-400 transition-colors font-semibold" disabled={isSaving}>إلغاء</button>
-                    <button onClick={handleSave} className="bg-[#10B981] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#10B981] transition-colors" disabled={isSaving}>
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
+    if (functionError) {
+        console.error('Error deleting user:', functionError);
+        setError(functionError.message || 'فشل حذف المستخدم. قد لا تملك الصلاحيات الكافية أو أن المستخدم مرتبط ببيانات أخرى.');
+        setIsDeleting(false); 
+    } else {
+        setUsers(currentUsers => currentUsers.filter(u => u.id !== userToDelete.id));
+        setUserToDelete(null); 
+        setIsDeleting(false);
+        setError(null);
+    }
   };
-
 
   return (
     <>
-      {isModalOpen && <UserModal />}
+      <UserModal 
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSave={handleSave}
+        initialData={editingUser}
+        isSaving={isSaving}
+        error={error}
+      />
+       <DeleteConfirmationModal
+        isOpen={!!userToDelete}
+        onClose={() => {
+            setUserToDelete(null);
+            setError(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="تأكيد الحذف"
+        message={
+            <>
+                هل أنت متأكد أنك تريد حذف المستخدم <span className="font-bold text-dark-text">{userToDelete?.name}</span>؟ لا يمكن التراجع عن هذا الإجراء.
+            </>
+        }
+        isProcessing={isDeleting}
+        error={error}
+      />
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
           <h2 className="text-2xl font-bold text-dark-text">قائمة المستخدمين</h2>
           <button 
@@ -199,6 +204,9 @@ const UserManagementPage: React.FC = () => {
                                     <button onClick={() => openModal(user)} className="text-primary hover:underline font-semibold">
                                         تعديل
                                     </button>
+                                     <button onClick={() => setUserToDelete(user)} className="text-red-500 hover:underline font-semibold mr-4">
+                                        حذف
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -214,7 +222,10 @@ const UserManagementPage: React.FC = () => {
                             <p className="font-bold text-dark-text">{user.name}</p>
                             <p className="text-sm text-muted-text">{user.role}</p>
                         </div>
-                        <button onClick={() => openModal(user)} className="bg-primary/10 text-primary px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-primary/20 transition-colors">تعديل</button>
+                        <div className="flex gap-2">
+                             <button onClick={() => openModal(user)} className="bg-primary/10 text-primary px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-primary/20 transition-colors">تعديل</button>
+                             <button onClick={() => setUserToDelete(user)} className="bg-red-500/10 text-red-500 px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-red-500/20 transition-colors">حذف</button>
+                        </div>
                     </div>
                 ))}
             </div>
