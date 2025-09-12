@@ -10,7 +10,7 @@ const BottomNav: React.FC = () => {
     `flex flex-col items-center justify-center text-center px-2 py-1 rounded-md transition-colors duration-200 w-full ${
       isActive
         ? 'text-primary'
-        : 'text-muted-text hover:text-dark-text'
+        : 'text-text-secondary hover:text-primary'
     }`;
     
   if (!currentUser) return null;
@@ -20,7 +20,7 @@ const BottomNav: React.FC = () => {
   }
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-[0_-2px_5px_rgba(0,0,0,0.05)] z-40">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar shadow-[0_-2px_5px_rgba(0,0,0,0.1)] z-40 border-t border-border">
       <div className="flex justify-around items-center h-16">
         {navigationConfig.map(({ path, label, Icon, roles, inBottomNav, bottomNavLabel }) => (
           inBottomNav && canShowLink(roles) && (

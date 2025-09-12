@@ -4,6 +4,7 @@ import { useProducts } from '../contexts/ProductContext';
 import AddProductModal from './AddProductModal';
 import { QuotationState, QuotationItemState } from '../pages/QuotationEditorPage';
 import Spinner from './Spinner';
+import QuotationItemRow from './QuotationItemRow';
 
 interface QuotationEditorFormProps {
     quotation: QuotationState;
@@ -11,9 +12,10 @@ interface QuotationEditorFormProps {
     onSave: () => Promise<void>;
     isSaving: boolean;
     onCancel: () => void;
+    saveError: string | null;
 }
 
-const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, setQuotation, onSave, isSaving, onCancel }) => {
+const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, setQuotation, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -61,7 +63,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
         newItems[index] = itemToUpdate;
         const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
 
-        setQuotation({ ...quotation, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) });
+        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
     };
 
     const handleProductSelection = (itemIndex: number, selectedProductId: string) => {
@@ -90,24 +92,24 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
         itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
         newItems[itemIndex] = itemToUpdate;
         const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setQuotation({ ...quotation, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) });
+        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
     };
 
     const addItem = () => {
         const newItem: QuotationItemState = {
             description: '', quantity: 1, unitPrice: 0, total: 0, unit: Unit.COUNT, productType: ProductType.SIMPLE
         };
-        setQuotation({ ...quotation, items: [...quotation.items, newItem] });
+        setQuotation(prev => prev ? { ...prev, items: [...prev.items, newItem] } : null);
     };
     
     const removeItem = (index: number) => {
         const newItems = quotation.items.filter((_, i) => i !== index);
         const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setQuotation({ ...quotation, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) });
+        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
     };
 
-    const inputClasses = "border border-border bg-gray-50 text-dark-text p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-colors";
-    const buttonClasses = "px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
+    const inputClasses = "border border-border bg-white text-text-primary p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
+    const buttonClasses = "px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
 
     return (
         <>
@@ -116,8 +118,8 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                 onClose={() => setIsModalOpen(false)} 
                 onSave={addProduct} 
             />
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-7xl mx-auto">
-                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-muted-text">تفاصيل العميل</h2>
+            <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
+                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <input type="text" name="clientName" placeholder="اسم العميل" value={quotation.clientName} onChange={handleInputChange} className={inputClasses} />
                     <input type="text" name="company" placeholder="الشركة" value={quotation.company} onChange={handleInputChange} className={inputClasses} />
@@ -131,9 +133,9 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                     </select>
                  </div>
                  
-                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-muted-text">البنود</h2>
+                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
                  
-                 <div className="hidden md:grid grid-cols-12 gap-x-2 mb-2 text-sm font-bold text-muted-text text-center">
+                 <div className="hidden md:grid grid-cols-12 gap-x-2 mb-2 text-sm font-bold text-text-secondary text-center">
                      <div className="col-span-4 text-right">المنتج / الوصف</div>
                      <div className="col-span-3">الأبعاد</div>
                      <div className="col-span-1">الكمية</div>
@@ -144,68 +146,38 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                  </div>
 
                  {quotation.items.map((item, index) => (
-                    <div key={item.id || index} className="grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-2 mb-4 p-4 bg-gray-50 rounded-lg md:p-2 md:bg-transparent md:rounded-none md:items-start">
-                        <div className="md:col-span-4 space-y-2">
-                            <label className="text-xs text-muted-text md:hidden">المنتج / الوصف</label>
-                            <select value={item.productId || 'custom'} onChange={(e) => handleProductSelection(index, e.target.value)} className={inputClasses}>
-                                <option value="custom">-- منتج مخصص --</option>
-                                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            </select>
-                            <textarea name="description" placeholder="الوصف" value={item.description} onChange={(e) => handleItemChange(index, e)} className={`${inputClasses} h-20`} />
-                        </div>
-                        <div className="md:col-span-3">
-                            {item.productType !== ProductType.SIMPLE && <label className="text-xs text-muted-text md:hidden">الأبعاد</label>}
-                            <div className="flex gap-2">
-                                {item.productType === ProductType.DIFFUSER && (
-                                    <>
-                                        <input type="number" name="length" placeholder="الطول" value={item.length || ''} onChange={(e) => handleItemChange(index, e)} className={inputClasses} />
-                                        <input type="number" name="width" placeholder="العرض" value={item.width || ''} onChange={(e) => handleItemChange(index, e)} className={inputClasses} />
-                                    </>
-                                )}
-                                {item.productType === ProductType.CABLE_TRAY && (
-                                    <>
-                                        <input type="number" name="width" placeholder="العرض" value={item.width || ''} onChange={(e) => handleItemChange(index, e)} className={inputClasses} />
-                                        <input type="number" name="height" placeholder="الارتفاع" value={item.height || ''} onChange={(e) => handleItemChange(index, e)} className={inputClasses} />
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className="text-xs text-muted-text md:hidden">الكمية</label>
-                            <input type="number" name="quantity" placeholder="الكمية" value={item.quantity} onChange={(e) => handleItemChange(index, e)} className={inputClasses} />
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className="text-xs text-muted-text md:hidden">الوحدة</label>
-                            <select name="unit" value={item.unit} onChange={(e) => handleItemChange(index, e)} className={inputClasses} disabled={!!item.productId}>
-                                {Object.values(Unit).map(u => <option key={u} value={u}>{u}</option>)}
-                            </select>
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className="text-xs text-muted-text md:hidden">سعر الوحدة</label>
-                            <input type="number" step="any" name="unitPrice" placeholder="السعر" value={item.unitPrice} onChange={(e) => handleItemChange(index, e)} className={inputClasses} />
-                        </div>
-                        <div className="md:col-span-1">
-                            <label className="text-xs text-muted-text md:hidden">الإجمالي</label>
-                            <input type="text" readOnly value={item.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} className={`${inputClasses} bg-gray-200 cursor-not-allowed text-dark-text`} />
-                        </div>
-                        <div className="md:col-span-1 flex items-center justify-end">
-                            <button onClick={() => removeItem(index)} className="w-full md:w-auto bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600 font-bold p-2 rounded transition-colors text-xl">×</button>
-                        </div>
-                    </div>
+                    <QuotationItemRow
+                        key={index}
+                        item={item}
+                        index={index}
+                        onItemChange={handleItemChange}
+                        onProductSelection={handleProductSelection}
+                        onRemoveItem={removeItem}
+                        products={products}
+                        inputClasses={inputClasses}
+                    />
                  ))}
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
-                    <button onClick={addItem} className="text-[#10B981] hover:text-[#059669] font-semibold transition-colors">+ إضافة بند جديد</button>
+                    <button onClick={addItem} className="text-primary hover:text-primary-hover font-semibold transition-colors">+ إضافة بند جديد</button>
                     <button onClick={() => setIsModalOpen(true)} className="text-green-500 hover:text-green-400 font-semibold transition-colors">+ إضافة منتج للقائمة</button>
                 </div>
 
-                 <div className="mt-8 flex justify-end gap-4">
-                    <button onClick={onCancel} className={`bg-gray-500 hover:bg-gray-600 text-white ${buttonClasses}`} disabled={isSaving}>إلغاء</button>
-                    <button onClick={onSave} className={`bg-[#10B981] hover:bg-[#059669] text-white ${buttonClasses} w-40`} disabled={isSaving}>
-                        {isSaving && <Spinner />}
-                        {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-                    </button>
-                 </div>
+                <div className="mt-8">
+                    {saveError && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 text-right" role="alert">
+                            <strong className="font-bold">خطأ!</strong>
+                            <span className="block sm:inline ml-2">{saveError}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-end gap-4">
+                        <button onClick={onCancel} className={`bg-gray-200 hover:bg-gray-300 text-gray-800 ${buttonClasses}`} disabled={isSaving}>إلغاء</button>
+                        <button onClick={onSave} className={`bg-primary hover:bg-primary-hover text-white ${buttonClasses} w-40`} disabled={isSaving}>
+                            {isSaving && <Spinner />}
+                            {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                        </button>
+                    </div>
+                </div>
             </div>
         </>
     )

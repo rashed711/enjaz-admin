@@ -10,7 +10,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   return (
-    <div className="flex h-screen bg-light-bg text-dark-text">
+    <div className="flex h-screen bg-background text-text-primary">
       <Sidebar />
       <div className="flex-1 md:mr-64 flex flex-col h-screen">
         <Header title={title} />

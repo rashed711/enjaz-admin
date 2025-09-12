@@ -28,7 +28,7 @@ interface NavLink {
 export const navigationConfig: NavLink[] = [
   {
     path: '/',
-    label: 'لوحة التحكم',
+    label: 'الرئيسية',
     Icon: HomeIcon,
     roles: Object.values(Role), // All roles can see the dashboard
     inSidebar: true,
@@ -47,7 +47,7 @@ export const navigationConfig: NavLink[] = [
     title: 'عروض الأسعار',
     children: [
         {
-            path: '/quotations/:id',
+            path: '/quotations/:id/:mode?',
             roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.CEO],
             component: QuotationEditorPage,
             title: 'عرض / تعديل السعر'
@@ -79,7 +79,7 @@ export const navigationConfig: NavLink[] = [
     label: 'الملف الشخصي',
     Icon: UserCircleIcon,
     roles: Object.values(Role),
-    inSidebar: true,
+    inSidebar: false, // Hidden from sidebar as user info is now at the top
     inBottomNav: true,
     bottomNavLabel: 'ملفي',
     component: ProfilePage,

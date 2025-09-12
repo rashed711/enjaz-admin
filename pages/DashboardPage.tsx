@@ -1,35 +1,81 @@
 import React from 'react';
 import { useAuth } from '../hooks/useAuth';
+import UsersIcon from '../components/icons/UsersIcon';
+import DocumentTextIcon from '../components/icons/DocumentTextIcon';
+import BellIcon from '../components/icons/BellIcon';
+import MegaphoneIcon from '../components/icons/MegaphoneIcon';
+import PhoneIcon from '../components/icons/PhoneIcon';
+import DocumentDuplicateIcon from '../components/icons/DocumentDuplicateIcon';
+
+
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ReactElement<{ className?: string }>;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => (
+  <div className="bg-card p-5 rounded-lg shadow-sm flex items-center gap-5 border border-border">
+    {React.cloneElement(icon, { className: "h-10 w-10 text-primary" })}
+    <div className="text-right">
+      <p className="text-3xl font-bold text-text-primary">{value}</p>
+      <p className="text-text-secondary font-semibold mt-1">{title}</p>
+    </div>
+  </div>
+);
 
 const DashboardPage: React.FC = () => {
   const { currentUser } = useAuth();
 
   return (
-    <>
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl sm:text-3xl font-bold text-dark-text mb-2">
-          أهلاً بك، {currentUser?.name}!
-        </h2>
-        <p className="text-muted-text">
-          هنا يمكنك الوصول إلى جميع الأدوات والمعلومات الخاصة بك. استخدم القائمة الجانبية للتنقل.
-        </p>
+    <div className="space-y-8">
+      {/* Top Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <StatCard title="المقالات" value={0} icon={<DocumentTextIcon />} />
+        <StatCard title="الإشعارات" value={0} icon={<BellIcon />} />
+        <StatCard title="المستخدمين" value={4} icon={<UsersIcon />} />
+        <StatCard title="الإعلانات" value={0} icon={<MegaphoneIcon />} />
+        <StatCard title="التواصل" value={0} icon={<PhoneIcon />} />
+        <StatCard title="الصفحات" value={3} icon={<DocumentDuplicateIcon />} />
       </div>
-      
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="font-bold text-lg text-[#10B981]">دورك الحالي</h3>
-          <p className="text-2xl font-semibold text-dark-text mt-2">{currentUser?.role}</p>
+
+      {/* Charts and Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Visitor Rate Chart */}
+        <div className="lg:col-span-2 bg-card p-5 rounded-lg shadow-sm border border-border">
+           <h3 className="font-bold text-lg text-text-primary mb-4">معدل الزوار</h3>
+           <div className="h-64 flex items-end justify-center">
+            {/* Simplified static representation of the chart */}
+             <svg width="100%" height="100%" viewBox="0 0 500 200" preserveAspectRatio="none" className="text-primary">
+                <path d="M 50 180 L 150 150 L 250 40 L 350 100 L 450 120" stroke="currentColor" strokeWidth="4" fill="url(#gradient)" />
+                <defs>
+                    <linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.4"/>
+                        <stop offset="100%" stopColor="currentColor" stopOpacity="0"/>
+                    </linearGradient>
+                </defs>
+                <g className="text-text-secondary" fontSize="12" fill="currentColor">
+                    <text x="45" y="195" textAnchor="middle">10-10</text>
+                    <text x="250" y="195" textAnchor="middle">10-11</text>
+                    <text x="450" y="195" textAnchor="middle">10-12</text>
+                </g>
+             </svg>
+           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="font-bold text-lg text-[#10B981]">الوصول السريع</h3>
-          <p className="text-muted-text mt-2">روابط سريعة لأهم المهام الخاصة بك.</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="font-bold text-lg text-[#10B981]">آخر التحديثات</h3>
-          <p className="text-muted-text mt-2">لا توجد تحديثات جديدة في الوقت الحالي.</p>
+        
+        {/* Quick Actions */}
+        <div className="bg-card p-5 rounded-lg shadow-sm border border-border">
+          <h3 className="font-bold text-lg text-text-primary mb-4">إجراءات سريعة</h3>
+          <div className="grid grid-cols-2 gap-4 text-center">
+            {['تعديل ملفي', 'الموقع', 'الإعدادات', 'الإشعارات', 'ملفي', 'الإعلانات'].map(action => (
+                <div key={action} className="bg-slate-100 p-4 rounded-md cursor-pointer hover:bg-slate-200">
+                    <p className="font-semibold text-text-primary">{action}</p>
+                </div>
+            ))}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

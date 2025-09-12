@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { Product, ProductType, Unit } from '../types';
 import { supabase } from '../services/supabaseClient';
@@ -8,6 +7,7 @@ interface ProductContextType {
   loading: boolean;
   addProduct: (product: Omit<Product, 'id'>) => Promise<Product | null>;
   updateProduct: (product: Product) => Promise<Product | null>;
+  deleteProduct: (productId: number) => Promise<boolean>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -109,8 +109,24 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     return null;
   };
 
+  const deleteProduct = async (productId: number): Promise<boolean> => {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId);
+    
+    if (error) {
+        console.error('Error deleting product:', error);
+        return false;
+    }
+
+    setProducts(prevProducts => prevProducts.filter(p => p.id !== productId));
+    return true;
+  };
+
+
   return (
-    <ProductContext.Provider value={{ products, loading, addProduct, updateProduct }}>
+    <ProductContext.Provider value={{ products, loading, addProduct, updateProduct, deleteProduct }}>
       {children}
     </ProductContext.Provider>
   );

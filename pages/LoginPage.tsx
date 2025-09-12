@@ -30,15 +30,15 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-light-bg text-dark-text">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 m-4">
+    <div className="min-h-screen flex items-center justify-center bg-background text-text-primary">
+      <div className="max-w-md w-full bg-card rounded-xl shadow-lg p-8 m-4 border border-border">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-[#10B981]">أهلاً بك في انجاز</h1>
-          <p className="text-muted-text mt-2">قم بتسجيل الدخول للوصول إلى بوابتك</p>
+          <h1 className="text-4xl font-bold text-primary">أهلاً بك في انجاز</h1>
+          <p className="text-text-secondary mt-2">قم بتسجيل الدخول للوصول إلى بوابتك</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="email" className="block text-dark-text text-sm font-bold mb-2 text-right">
+            <label htmlFor="email" className="block text-text-primary text-sm font-bold mb-2 text-right">
               البريد الإلكتروني
             </label>
             <input
@@ -47,12 +47,12 @@ const LoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="example@enjaz.com"
-              className="shadow-sm appearance-none border border-border bg-gray-50 rounded-lg w-full py-3 px-4 text-dark-text leading-tight focus:outline-none focus:ring-2 focus:ring-[#10B981] text-right"
+              className="shadow-sm appearance-none border border-border bg-white rounded-lg w-full py-3 px-4 text-text-primary leading-tight focus:outline-none focus:ring-2 focus:ring-primary text-right"
               required
             />
           </div>
           <div className="mb-6">
-            <label htmlFor="password" className="block text-dark-text text-sm font-bold mb-2 text-right">
+            <label htmlFor="password" className="block text-text-primary text-sm font-bold mb-2 text-right">
               كلمة المرور
             </label>
             <input
@@ -61,7 +61,7 @@ const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
-              className="shadow-sm appearance-none border border-border bg-gray-50 rounded-lg w-full py-3 px-4 text-dark-text mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-[#10B981] text-right"
+              className="shadow-sm appearance-none border border-border bg-white rounded-lg w-full py-3 px-4 text-text-primary mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-primary text-right"
               required
             />
           </div>
@@ -70,7 +70,7 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#10B981] hover:bg-[#059669] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:bg-[#10B981]/70 flex items-center justify-center gap-2"
+              className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 disabled:bg-[#4F46E5]/70 flex items-center justify-center gap-2"
             >
               {loading && <Spinner />}
               {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}

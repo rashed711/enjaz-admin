@@ -1,4 +1,4 @@
-import React, { createContext, useState, ReactNode, useEffect, useContext } from 'react';
+import React, { createContext, useState, ReactNode, useEffect, useContext, useMemo } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
 import { Session } from '@supabase/supabase-js';
@@ -17,25 +17,39 @@ interface AuthProviderProps {
 }
 
 const processSession = async (session: Session | null): Promise<User | null> => {
-  if (!session) return null;
+  if (!session?.user) return null; // Simplified check
 
   const { user } = session;
-  if (!user) { // Defensive check, user should exist in a valid session
-    return null;
+
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('name, role, email') // Fetch email from profiles as well
+      .eq('id', user.id)
+      .single();
+
+    // If a profile doesn't exist, `error` will be set. This is not a fatal error.
+    if (error) {
+        console.warn(`Could not fetch profile for user ${user.id}: ${error.message}`);
+    }
+
+    return {
+      id: user.id,
+      // Prioritize email from profile table, fallback to auth user email
+      email: profile?.email || user.email || '',
+      name: profile?.name || user.email || 'User',
+      role: (profile?.role as Role) || Role.CLIENT,
+    };
+  } catch (e: any) {
+    console.error("A critical error occurred while processing user session:", e.message);
+    // Return a default user object to prevent the app from crashing.
+    return {
+      id: user.id,
+      email: user.email || '',
+      name: 'Error loading profile',
+      role: Role.CLIENT,
+    };
   }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('name, role')
-    .eq('id', user.id)
-    .single();
-
-  return {
-    id: user.id,
-    email: user.email || '',
-    name: profile?.name || user.email || 'User',
-    role: (profile?.role as Role) || Role.CLIENT,
-  };
 };
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -43,14 +57,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let isMounted = true;
+
+    // Fetch the initial session
+    const fetchInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted) {
+          const user = await processSession(session);
+          setCurrentUser(user);
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch initial session:", err.message);
+      } finally {
+        if (isMounted) {
+          setLoading(false); // Critical: ensure loading is always set to false
+        }
+      }
+    };
+    
+    fetchInitialSession();
+
+    // Listen for subsequent auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const user = await processSession(session);
-      setCurrentUser(user);
-      setLoading(false);
+      if (isMounted) {
+        const user = await processSession(session);
+        setCurrentUser(user);
+      }
     });
 
     return () => {
+      isMounted = false;
       subscription?.unsubscribe();
     };
   }, []);
@@ -68,7 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setCurrentUser(null);
   };
   
-  const value = { currentUser, loading, login, logout };
+  const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading]);
 
   return (
     <AuthContext.Provider value={value}>

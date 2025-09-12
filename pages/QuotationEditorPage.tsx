@@ -15,18 +15,19 @@ export interface QuotationItemState extends QuotationItem {
 export type QuotationState = Omit<Quotation, 'items'> & { items: QuotationItemState[] };
 
 const QuotationEditorPage: React.FC = () => {
-    const { id: idParam } = useParams<{ id: string }>();
+    const { id: idParam, mode } = useParams<{ id: string; mode?: string }>();
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     const { products } = useProducts();
 
     const [quotation, setQuotation] = useState<QuotationState | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const isNew = idParam === 'new';
-    
+    const isEditMode = mode === 'edit';
+
     useEffect(() => {
         const createNewQuotation = async () => {
             const { count } = await supabase.from('quotations').select('*', { count: 'exact', head: true });
@@ -44,7 +45,6 @@ const QuotationEditorPage: React.FC = () => {
                 totalAmount: 0,
                 createdBy: currentUser?.id || '',
             });
-            setIsEditing(true);
             setLoading(false);
         };
         
@@ -103,23 +103,23 @@ const QuotationEditorPage: React.FC = () => {
         }
     }, [idParam, navigate, currentUser, isNew, products]);
 
-    const handleSave = async () => {
-        if (!quotation || !currentUser) return;
-        setIsSaving(true);
-    
-        const quotationDataForDb = {
-            quotation_number: quotation.quotationNumber,
-            client_name: quotation.clientName,
-            company: quotation.company,
-            project: quotation.project,
-            quotation_type: quotation.quotationType,
-            date: quotation.date,
-            currency: quotation.currency,
-            total_amount: quotation.totalAmount,
-            created_by: quotation.createdBy,
-        };
-    
-        const itemsDataForDb = quotation.items.map(item => ({
+    const createQuotation = async (q: QuotationState) => {
+        const { items, ...quotationDetails } = q;
+        const { data: newQ, error: createError } = await supabase.from('quotations').insert({
+            quotation_number: quotationDetails.quotationNumber,
+            client_name: quotationDetails.clientName,
+            company: quotationDetails.company,
+            project: quotationDetails.project,
+            quotation_type: quotationDetails.quotationType,
+            date: quotationDetails.date,
+            currency: quotationDetails.currency,
+            total_amount: quotationDetails.totalAmount,
+            created_by: quotationDetails.createdBy,
+        }).select().single();
+        if (createError || !newQ) throw createError;
+
+        const itemsWithId = items.map(item => ({
+            quotation_id: newQ.id,
             product_id: item.productId || null,
             description: item.description,
             quantity: item.quantity,
@@ -130,37 +130,64 @@ const QuotationEditorPage: React.FC = () => {
             width: item.width,
             height: item.height,
         }));
+        const { error: itemsError } = await supabase.from('quotation_items').insert(itemsWithId);
+        if (itemsError) throw itemsError;
+
+        navigate(`/quotations/${newQ.id}/view`);
+    };
+
+    const updateQuotation = async (q: QuotationState) => {
+        const { items, id, ...quotationDetails } = q;
+        const { error: updateError } = await supabase.from('quotations').update({
+            quotation_number: quotationDetails.quotationNumber,
+            client_name: quotationDetails.clientName,
+            company: quotationDetails.company,
+            project: quotationDetails.project,
+            quotation_type: quotationDetails.quotationType,
+            date: quotationDetails.date,
+            currency: quotationDetails.currency,
+            total_amount: quotationDetails.totalAmount,
+        }).eq('id', id);
+        if (updateError) throw updateError;
+
+        const { error: deleteError } = await supabase.from('quotation_items').delete().eq('quotation_id', id);
+        if (deleteError) throw deleteError;
+
+        if (items.length > 0) {
+            const itemsWithId = items.map(item => ({
+                quotation_id: id,
+                product_id: item.productId || null,
+                description: item.description,
+                quantity: item.quantity,
+                unit_price: item.unitPrice,
+                total: item.total,
+                unit: item.unit,
+                length: item.length,
+                width: item.width,
+                height: item.height,
+            }));
+            const { error: itemsError } = await supabase.from('quotation_items').insert(itemsWithId);
+            if (itemsError) throw itemsError;
+        }
+
+        navigate(`/quotations/${q.id}/view`, { replace: true });
+    };
+
+    const handleSave = async () => {
+        if (!quotation || !currentUser) return;
+        setIsSaving(true);
+        setSaveError(null);
     
         try {
-            if (!quotation.id) { // Create new quotation
-                const { data: newQ, error: createError } = await supabase.from('quotations').insert(quotationDataForDb).select().single();
-                if (createError || !newQ) throw createError;
-    
-                const itemsWithId = itemsDataForDb.map(item => ({ ...item, quotation_id: newQ.id }));
-                const { error: itemsError } = await supabase.from('quotation_items').insert(itemsWithId);
-                if (itemsError) throw itemsError;
-    
-                navigate(`/quotations/${newQ.id}`);
-    
-            } else { // Update existing quotation
-                const { error: updateError } = await supabase.from('quotations').update(quotationDataForDb).eq('id', quotation.id);
-                if (updateError) throw updateError;
-    
-                const { error: deleteError } = await supabase.from('quotation_items').delete().eq('quotation_id', quotation.id);
-                if (deleteError) throw deleteError;
-    
-                const itemsWithId = itemsDataForDb.map(item => ({ ...item, quotation_id: quotation.id }));
-                if (itemsWithId.length > 0) {
-                    const { error: itemsError } = await supabase.from('quotation_items').insert(itemsWithId);
-                    if (itemsError) throw itemsError;
-                }
-    
-                setIsEditing(false);
+            if (!quotation.id) {
+                await createQuotation(quotation);
+            } else {
+                await updateQuotation(quotation);
             }
         } catch (error: any) {
             console.error("Failed to save quotation:", error);
             const errorMessage = error?.message || "An unexpected error occurred.";
-            alert(`حدث خطأ أثناء حفظ عرض السعر: ${errorMessage}`);
+            setSaveError(`حدث خطأ أثناء حفظ عرض السعر: ${errorMessage}`);
         } finally {
             setIsSaving(false);
         }
@@ -170,14 +197,15 @@ const QuotationEditorPage: React.FC = () => {
         return <div className="flex justify-center items-center h-full text-dark-text">جاري التحميل...</div>;
     }
     
-    if (isEditing) {
+    if (isNew || isEditMode) {
         return (
             <QuotationEditorForm 
                 quotation={quotation}
                 setQuotation={setQuotation}
                 onSave={handleSave}
                 isSaving={isSaving}
-                onCancel={() => isNew ? navigate('/quotations') : setIsEditing(false)}
+                onCancel={() => isNew ? navigate('/quotations') : navigate(`/quotations/${quotation.id}/view`)}
+                saveError={saveError}
             />
         )
     }
@@ -185,7 +213,6 @@ const QuotationEditorPage: React.FC = () => {
     return (
         <QuotationViewer 
             quotation={quotation as Quotation}
-            onEdit={() => setIsEditing(true)}
         />
     );
 };

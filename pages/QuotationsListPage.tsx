@@ -5,6 +5,10 @@ import { useAuth } from '../hooks/useAuth';
 import { canViewAllQuotations } from '../utils/permissions';
 import { supabase } from '../services/supabaseClient';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import Spinner from '../components/Spinner';
+import EyeIcon from '../components/icons/EyeIcon';
+import PencilIcon from '../components/icons/PencilIcon';
+import TrashIcon from '../components/icons/TrashIcon';
 
 const QuotationsListPage: React.FC = () => {
     const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -111,7 +115,7 @@ const QuotationsListPage: React.FC = () => {
                 title="تأكيد الحذف"
                 message={
                     <>
-                        هل أنت متأكد أنك تريد حذف عرض السعر رقم <span className="font-bold text-dark-text">{quotationToDelete?.quotationNumber}</span>؟ سيتم حذف جميع البنود المرتبطة به.
+                        هل أنت متأكد أنك تريد حذف عرض السعر رقم <span className="font-bold text-text-primary">{quotationToDelete?.quotationNumber}</span>؟ سيتم حذف جميع البنود المرتبطة به.
                     </>
                 }
                 isProcessing={isDeleting}
@@ -119,49 +123,60 @@ const QuotationsListPage: React.FC = () => {
             />
 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                <h2 className="text-2xl font-bold text-dark-text">قائمة عروض الأسعار</h2>
+                <h2 className="text-2xl font-bold text-text-primary">قائمة عروض الأسعار</h2>
                 <button 
                     onClick={() => navigate('/quotations/new')}
-                    className="w-full sm:w-auto bg-[#10B981] text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-light-bg focus:ring-[#10B981] transition-all duration-200"
+                    className="w-full sm:w-auto bg-[#4F46E5] text-white font-semibold px-5 py-2 rounded-lg hover:bg-[#4338CA] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-[#4F46E5] transition-all duration-200"
                 >
                     + إنشاء عرض سعر جديد
                 </button>
             </div>
 
             {loading ? (
-                <p className="p-4 text-center text-muted-text">جاري تحميل عروض الأسعار...</p>
+                <div className="flex justify-center items-center p-10">
+                    <Spinner />
+                </div>
             ) : quotations.length === 0 ? (
-                <p className="p-4 text-center text-muted-text">لا توجد عروض أسعار لعرضها.</p>
+                 <div className="bg-card rounded-lg shadow-sm border border-border p-8 text-center">
+                    <p className="text-text-secondary">لا توجد عروض أسعار لعرضها.</p>
+                </div>
             ) : (
                 <>
                     {/* Desktop Table View */}
-                    <div className="bg-white rounded-lg shadow-md overflow-x-auto hidden md:block">
+                    <div className="bg-card rounded-lg shadow-sm overflow-x-auto hidden md:block border border-border">
                         <table className="w-full text-right min-w-[640px]">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-slate-50">
                                 <tr>
-                                    <th className="p-4 font-bold text-muted-text">رقم العرض</th>
-                                    <th className="p-4 font-bold text-muted-text">اسم العميل</th>
-                                    <th className="p-4 font-bold text-muted-text">المشروع</th>
-                                    <th className="p-4 font-bold text-muted-text">التاريخ</th>
-                                    <th className="p-4 font-bold text-muted-text">الإجمالي</th>
-                                    <th className="p-4 font-bold text-muted-text"></th>
+                                    <th className="p-4 font-bold text-text-secondary">التاريخ</th>
+                                    <th className="p-4 font-bold text-text-secondary">رقم العرض</th>
+                                    <th className="p-4 font-bold text-text-secondary">الشركة</th>
+                                    <th className="p-4 font-bold text-text-secondary">المسئول</th>
+                                    <th className="p-4 font-bold text-text-secondary">المشروع</th>
+                                    <th className="p-4 font-bold text-text-secondary">الإجمالي</th>
+                                    <th className="p-4 font-bold text-text-secondary text-left">إجراءات</th>
                                 </tr>
                             </thead>
-                            <tbody className="text-dark-text">
+                            <tbody className="text-text-primary">
                                 {quotations.map((q) => (
-                                    <tr key={q.id} className="border-b border-border hover:bg-gray-50 transition-colors duration-200">
+                                    <tr key={q.id} className="border-b border-border hover:bg-slate-50 transition-colors duration-200">
+                                        <td className="p-4">{q.date}</td>
                                         <td className="p-4">{q.quotationNumber}</td>
+                                        <td className="p-4">{q.company}</td>
                                         <td className="p-4">{q.clientName}</td>
                                         <td className="p-4">{q.project}</td>
-                                        <td className="p-4">{q.date}</td>
-                                        <td className="p-4">{q.totalAmount?.toLocaleString()} {q.currency}</td>
-                                        <td className="p-4 text-center whitespace-nowrap">
-                                            <Link to={`/quotations/${q.id}`} className="text-primary hover:underline font-semibold">
-                                                عرض / تعديل
-                                            </Link>
-                                            <button onClick={() => setQuotationToDelete(q)} className="text-red-500 hover:underline font-semibold mr-4">
-                                                حذف
-                                            </button>
+                                        <td className="p-4">{q.totalAmount?.toLocaleString()}</td>
+                                        <td className="p-4 text-left">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Link to={`/quotations/${q.id}/view`} title="عرض" className="p-2 text-blue-600 rounded-full hover:bg-blue-100 transition-colors">
+                                                    <EyeIcon className="w-5 h-5" />
+                                                </Link>
+                                                <Link to={`/quotations/${q.id}/edit`} title="تعديل" className="p-2 text-primary rounded-full hover:bg-primary/10 transition-colors">
+                                                    <PencilIcon className="w-5 h-5" />
+                                                </Link>
+                                                <button onClick={() => setQuotationToDelete(q)} title="حذف" className="p-2 text-red-500 rounded-full hover:bg-red-100 transition-colors">
+                                                    <TrashIcon className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -172,20 +187,27 @@ const QuotationsListPage: React.FC = () => {
                     {/* Mobile Card View */}
                     <div className="md:hidden space-y-4">
                         {quotations.map(q => (
-                             <div key={q.id} className="bg-white rounded-lg shadow p-4">
+                             <div key={q.id} className="bg-card rounded-lg shadow-sm p-4 border border-border">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="font-bold text-dark-text">{q.quotationNumber}</p>
-                                        <p className="text-sm text-muted-text">{q.clientName}</p>
+                                        <p className="font-bold text-text-primary">{q.quotationNumber}</p>
+                                        <p className="text-sm text-text-secondary">{q.company} ({q.clientName})</p>
                                     </div>
-                                    <p className="text-xs text-muted-text shrink-0 ml-2">{q.date}</p>
+                                    <p className="text-xs text-text-secondary shrink-0 ml-2">{q.date}</p>
                                 </div>
-                                <p className="my-2 text-sm text-dark-text">{q.project}</p>
+                                <p className="my-2 text-sm text-text-primary">{q.project}</p>
                                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-border">
-                                    <p className="font-bold text-lg text-primary">{q.totalAmount?.toLocaleString()} {q.currency}</p>
-                                    <div className="flex gap-2">
-                                        <Link to={`/quotations/${q.id}`} className="bg-primary/10 text-primary px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-primary/20 transition-colors">عرض</Link>
-                                        <button onClick={() => setQuotationToDelete(q)} className="bg-red-500/10 text-red-500 px-4 py-1.5 rounded-md font-semibold text-sm hover:bg-red-500/20 transition-colors">حذف</button>
+                                    <p className="font-bold text-lg text-primary">{q.totalAmount?.toLocaleString()}</p>
+                                    <div className="flex gap-1">
+                                        <Link to={`/quotations/${q.id}/view`} title="عرض" className="p-2 text-blue-600 rounded-full hover:bg-blue-100 active:bg-blue-200 transition-colors">
+                                            <EyeIcon className="w-6 h-6" />
+                                        </Link>
+                                        <Link to={`/quotations/${q.id}/edit`} title="تعديل" className="p-2 text-primary rounded-full hover:bg-primary/10 active:bg-primary/20 transition-colors">
+                                            <PencilIcon className="w-6 h-6" />
+                                        </Link>
+                                        <button onClick={() => setQuotationToDelete(q)} title="حذف" className="p-2 text-red-500 rounded-full hover:bg-red-100 active:bg-red-200 transition-colors">
+                                            <TrashIcon className="w-6 h-6" />
+                                        </button>
                                     </div>
                                 </div>
                             </div>

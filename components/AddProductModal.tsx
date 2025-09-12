@@ -18,6 +18,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
         unit: Unit.COUNT,
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     
     useEffect(() => {
         if (isOpen) {
@@ -39,14 +40,21 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                 });
             }
             setIsSaving(false);
+            setError(null);
         }
     }, [isOpen, productToEdit]);
 
     const handleSaveClick = async () => {
-        if (!productData.name || productData.unitPrice <= 0) {
-            alert("يرجى ملء اسم المنتج والتأكد من أن السعر أكبر من صفر.");
+        setError(null);
+        if (!productData.name.trim()) {
+            setError("اسم المنتج مطلوب.");
             return;
         }
+        if (productData.unitPrice <= 0) {
+            setError("سعر الوحدة يجب أن يكون أكبر من صفر.");
+            return;
+        }
+
         setIsSaving(true);
         try {
             const productToSave = productToEdit ? { ...productData, id: productToEdit.id } : productData;
@@ -54,11 +62,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
             if (saved) {
                 onClose(); 
             } else {
-                alert("حدث خطأ أثناء حفظ المنتج.");
+                setError("حدث خطأ أثناء حفظ المنتج. يرجى المحاولة مرة أخرى.");
             }
-        } catch (error) {
-            console.error("Error saving product:", error);
-            alert("حدث خطأ فادح أثناء حفظ المنتج.");
+        } catch (e) {
+            console.error("Error saving product:", e);
+            setError("حدث خطأ فادح أثناء حفظ المنتج.");
         } finally {
             setIsSaving(false);
         }
@@ -71,12 +79,12 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
 
     if (!isOpen) return null;
 
-    const inputClasses = "border border-border bg-gray-50 text-dark-text p-3 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-[#10B981] transition-colors";
+    const inputClasses = "border border-border bg-background text-text-primary p-3 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
     
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-dark-text">
-                <h2 className="text-2xl font-bold mb-6 text-dark-text text-center">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+            <div className="bg-card p-8 rounded-lg shadow-xl w-full max-w-md text-text-primary border border-border">
+                <h2 className="text-2xl font-bold mb-6 text-text-primary text-center">
                     {productToEdit ? 'تعديل المنتج' : 'إضافة منتج جديد'}
                 </h2>
                 <div className="space-y-4">
@@ -98,9 +106,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
 
                     <input type="number" name="unitPrice" placeholder="سعر الوحدة" value={productData.unitPrice || ''} onChange={e => setProductData({...productData, unitPrice: parseFloat(e.target.value) || 0})} className={inputClasses}/>
                 </div>
+                {error && <p className="text-red-500 text-xs mt-4 text-center">{error}</p>}
                 <div className="mt-8 flex justify-end gap-4">
-                    <button onClick={onClose} className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-gray-400 transition-colors font-semibold" disabled={isSaving}>إلغاء</button>
-                    <button onClick={handleSaveClick} className="bg-[#10B981] text-white font-semibold px-6 py-2 rounded-lg hover:bg-[#059669] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#10B981] transition-colors flex items-center justify-center gap-2 w-40" disabled={isSaving}>
+                    <button onClick={onClose} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-500 transition-colors font-semibold" disabled={isSaving}>إلغاء</button>
+                    <button onClick={handleSaveClick} className="bg-primary text-white font-semibold px-6 py-2 rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-primary transition-colors flex items-center justify-center gap-2 w-40" disabled={isSaving}>
                         {isSaving && <Spinner />}
                         {isSaving ? 'جاري الحفظ...' : (productToEdit ? 'حفظ التعديلات' : 'حفظ المنتج')}
                     </button>
