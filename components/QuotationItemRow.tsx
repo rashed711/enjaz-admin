@@ -13,8 +13,6 @@ interface DocumentItemRowProps {
     inputClasses: string;
 }
 
-// Note: This component has been made generic to handle all document types.
-// For clarity, it should be renamed to DocumentItemRow.tsx in your project.
 const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
     item,
     index,

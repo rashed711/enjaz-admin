@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Role } from '../types';
 import Spinner from './Spinner';
@@ -47,8 +46,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, initialD
         onSave(formData);
     };
     
-    const inputClasses = "border border-border bg-white text-text-primary p-2 px-3 rounded-lg w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
-    const labelClasses = "block text-sm font-medium mb-2 text-right text-text-secondary";
+    const inputClasses = "border border-border bg-white text-text-primary p-3 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
 
     const footer = (
         <>
@@ -67,29 +65,17 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, initialD
             title={isNewUser ? 'إضافة مستخدم جديد' : 'تعديل المستخدم'}
             footer={footer}
         >
-            <div className="space-y-5">
-                <div>
-                    <label htmlFor="name" className={labelClasses}>الاسم الكامل</label>
-                    <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} className={inputClasses}/>
-                </div>
-                <div>
-                    <label htmlFor="email" className={labelClasses}>البريد الإلكتروني</label>
-                    <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} className={inputClasses} />
-                </div>
+            <div className="space-y-4">
+                <input type="text" name="name" placeholder="الاسم الكامل" value={formData.name} onChange={handleChange} className={inputClasses}/>
+                <input type="email" name="email" placeholder="البريد الإلكتروني" value={formData.email} onChange={handleChange} className={inputClasses} />
                 {isNewUser && (
-                    <div>
-                        <label htmlFor="password" className={labelClasses}>كلمة المرور</label>
-                        <input type="password" id="password" name="password" value={formData.password || ''} onChange={handleChange} className={inputClasses}/>
-                    </div>
+                    <input type="password" name="password" placeholder="كلمة المرور" value={formData.password || ''} onChange={handleChange} className={inputClasses}/>
                 )}
-                <div>
-                     <label htmlFor="role" className={labelClasses}>الدور</label>
-                    <select id="role" name="role" value={formData.role} onChange={handleChange} className={inputClasses}>
-                        {Object.values(Role).map(role => (
-                            <option key={role} value={role}>{role}</option>
-                        ))}
-                    </select>
-                </div>
+                    <select name="role" value={formData.role} onChange={handleChange} className={inputClasses}>
+                    {Object.values(Role).map(role => (
+                        <option key={role} value={role}>{role}</option>
+                    ))}
+                </select>
             </div>
             {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
         </Modal>

@@ -59,40 +59,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This function robustly handles the initial session on page load.
-    const initializeSession = async () => {
-        // 1. Explicitly fetch the session on initial load using the v2 method.
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-            console.error("Error getting session:", error.message);
-        }
-
-        // 2. Process the session to get user profile data.
-        const user = await processSession(session);
-        setCurrentUser(user);
-
-        // 3. Set loading to false only after the initial check is complete.
-        setLoading(false);
-    };
-
-    initializeSession();
-
-    // 4. Set up a listener for any subsequent auth state changes (login, logout, etc.).
-    // Use the correct v2 destructuring for the subscription object.
+    // Correctly destructure the subscription object for supabase-js v2
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        const user = await processSession(session);
-        setCurrentUser(user);
+      const user = await processSession(session);
+      setCurrentUser(user);
+      setLoading(false); // Set loading to false after the session has been processed.
     });
 
-    // 5. Cleanup the subscription when the component unmounts.
     return () => {
-        subscription?.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    // Use `signInWithPassword`, which is the correct method for supabase-js v2.
+    // Use `signInWithPassword` which is the correct method for supabase-js v2
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

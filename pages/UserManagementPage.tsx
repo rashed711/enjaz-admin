@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User, Role } from '../types';
@@ -84,7 +86,7 @@ const UserManagementPage: React.FC = () => {
         throw new Error('يجب أن تكون كلمة المرور 6 أحرف على الأقل.');
     }
 
-    // Use the supabase-js v2 `signUp` signature.
+    // `signUp` is correct for v2
     const { error: signUpError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -92,8 +94,8 @@ const UserManagementPage: React.FC = () => {
             data: {
                 name: userData.name,
                 role: userData.role,
-            }
-        }
+            },
+        },
     });
 
     if (signUpError) throw signUpError;
@@ -115,10 +117,10 @@ const UserManagementPage: React.FC = () => {
     }
 
     if ('email' in payload) {
-        // Use supabase-js v2 `getSession()` method which is asynchronous.
+        // Use `getSession` which is the async method in supabase-js v2
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session) {
-            throw new Error("لا يمكن الحصول على جلسة المستخدم. يرجى إعادة تحميل الصفحة.");
+            throw new Error("المستخدم غير مسجل الدخول. يرجى إعادة تحميل الصفحة.");
         }
 
         const { error: functionError } = await supabase.functions.invoke('update-user', {
@@ -167,10 +169,10 @@ const UserManagementPage: React.FC = () => {
     setPageError(null);
 
     try {
-        // Use supabase-js v2 `getSession()` method which is asynchronous.
+        // Use `getSession` which is the async method in supabase-js v2
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session) {
-            throw new Error("لا يمكن الحصول على جلسة المستخدم. يرجى إعادة تحميل الصفحة.");
+            throw new Error("المستخدم غير مسجل الدخول. يرجى إعادة تحميل الصفحة.");
         }
 
         const { error: functionError } = await supabase.functions.invoke('delete-user', {

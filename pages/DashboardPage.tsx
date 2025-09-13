@@ -4,7 +4,7 @@ import { supabase } from '../services/supabaseClient';
 import UsersIcon from '../components/icons/UsersIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import ReceiptIcon from '../components/icons/ReceiptIcon';
-import BuildingOfficeIcon from '../components/icons/BuildingOfficeIcon';
+import PhoneIcon from '../components/icons/PhoneIcon';
 import DocumentDuplicateIcon from '../components/icons/DocumentDuplicateIcon';
 
 
@@ -31,7 +31,6 @@ const DashboardPage: React.FC = () => {
     salesInvoices: 0,
     users: 0,
     purchaseInvoices: 0,
-    companies: 0, // Added companies count
   });
 
   useEffect(() => {
@@ -51,35 +50,18 @@ const DashboardPage: React.FC = () => {
                 }
                 return res.count ?? 0;
             }
-            
-            // Helper to get unique companies count
-            const getCompanyCount = (res: { data: { company: string }[] | null, error: any }, tableName: string) => {
-                if (res.error) {
-                    if (res.error.message.includes('does not exist') || res.error.message.includes('in the schema cache')) {
-                        console.warn(`Dashboard: Table '${tableName}' for company count not found. Defaulting to 0.`);
-                        return 0;
-                    }
-                    console.error(`Error fetching companies from ${tableName}:`, res.error);
-                    return 0;
-                }
-                if (!res.data) return 0;
-                const uniqueCompanies = new Set(res.data.map(q => q.company).filter(Boolean)); // Filter out null/empty company names
-                return uniqueCompanies.size;
-            }
 
             // Fetch all stats concurrently
             const [
                 quotationsRes,
                 salesInvoicesRes,
                 usersRes,
-                purchaseInvoicesRes,
-                companiesRes
+                purchaseInvoicesRes
             ] = await Promise.all([
                 supabase.from('quotations').select('*', { count: 'exact', head: true }).eq('created_by', currentUser.id),
                 supabase.from('sales_invoices').select('*', { count: 'exact', head: true }),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }),
-                supabase.from('purchase_invoices').select('*', { count: 'exact', head: true }),
-                supabase.from('quotations').select('company') // Fetch all company names
+                supabase.from('purchase_invoices').select('*', { count: 'exact', head: true })
             ]);
 
             setStats({
@@ -87,7 +69,6 @@ const DashboardPage: React.FC = () => {
                 salesInvoices: getCount(salesInvoicesRes, 'sales_invoices'),
                 users: getCount(usersRes, 'profiles'),
                 purchaseInvoices: getCount(purchaseInvoicesRes, 'purchase_invoices'),
-                companies: getCompanyCount(companiesRes, 'quotations'), // Calculate and set unique company count
             });
 
         } catch (e) {
@@ -108,7 +89,7 @@ const DashboardPage: React.FC = () => {
         <StatCard title="فواتير المبيعات" value={stats.salesInvoices} icon={<DocumentTextIcon />} />
         <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} />
         <StatCard title="فواتير المشتريات" value={stats.purchaseInvoices} icon={<ReceiptIcon />} />
-        <StatCard title="الشركات" value={stats.companies} icon={<BuildingOfficeIcon />} />
+        <StatCard title="التواصل" value={0} icon={<PhoneIcon />} />
         <StatCard title="الصفحات" value={3} icon={<DocumentDuplicateIcon />} />
       </div>
 

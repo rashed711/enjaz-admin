@@ -2,7 +2,6 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProductProvider } from './contexts/ProductContext';
-import { UserProvider } from './contexts/UserContext';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -70,11 +69,9 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <ProductProvider>
-        <UserProvider>
-          <HashRouter>
-            <AppRoutes />
-          </HashRouter>
-        </UserProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
       </ProductProvider>
     </AuthProvider>
   );

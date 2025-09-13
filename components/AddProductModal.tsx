@@ -8,10 +8,11 @@ import Modal from './Modal';
 interface AddProductModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (product: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => Promise<{ product: Product | null; error: string | null }>;
+    onSave: (product: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => Promise<{ product: Product | null; error: string | null }>;
+    productToEdit?: Product | null;
 }
 
-const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSave }) => {
+const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSave, productToEdit }) => {
     const [productData, setProductData] = useState({ 
         name: '', 
         sellingPrice: 0,
@@ -23,16 +24,25 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
     
     useEffect(() => {
         if (isOpen) {
-            setProductData({ 
-                name: '', 
-                sellingPrice: 0,
-                productType: ProductType.SIMPLE,
-                unit: Unit.COUNT,
-            });
+            if (productToEdit) {
+                setProductData({
+                    name: productToEdit.name,
+                    sellingPrice: productToEdit.sellingPrice,
+                    productType: productToEdit.productType,
+                    unit: productToEdit.unit,
+                });
+            } else {
+                setProductData({ 
+                    name: '', 
+                    sellingPrice: 0,
+                    productType: ProductType.SIMPLE,
+                    unit: Unit.COUNT,
+                });
+            }
             setIsSaving(false);
             setError(null);
         }
-    }, [isOpen]);
+    }, [isOpen, productToEdit]);
 
     const handleSaveClick = async () => {
         setError(null);
@@ -47,7 +57,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
 
         setIsSaving(true);
         try {
-            const result = await onSave(productData);
+            const productToSave = productToEdit ? { ...productData, id: productToEdit.id } : productData;
+            const result = await onSave(productToSave);
             if (result.product) {
                 onClose(); 
             } else {
@@ -76,7 +87,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
             <button onClick={onClose} className="bg-white border border-border text-text-secondary px-6 py-2 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-400 font-semibold" disabled={isSaving}>إلغاء</button>
             <button onClick={handleSaveClick} className="bg-primary text-white font-semibold px-6 py-2 rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-primary flex items-center justify-center gap-2 min-w-[150px] shadow-md hover:shadow-lg" disabled={isSaving}>
                 {isSaving && <Spinner />}
-                {isSaving ? 'جاري الحفظ...' : 'حفظ المنتج'}
+                {isSaving ? 'جاري الحفظ...' : (productToEdit ? 'حفظ التعديلات' : 'حفظ المنتج')}
             </button>
         </>
     );
@@ -85,7 +96,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
         <Modal 
             isOpen={isOpen}
             onClose={onClose}
-            title='إضافة منتج جديد'
+            title={productToEdit ? 'تعديل المنتج' : 'إضافة منتج جديد'}
             footer={footer}
         >
             <div className="space-y-5">
