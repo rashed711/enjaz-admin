@@ -1,116 +1,113 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Link, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { navigationConfig } from '../navigation';
-import UserCircleIcon from './icons/UserCircleIcon';
+import { Role } from '../types';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 
 const Sidebar: React.FC = () => {
-  const { currentUser, logout } = useAuth();
-  const location = useLocation();
-  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null);
+    const { currentUser } = useAuth();
+    const location = useLocation();
 
-  useEffect(() => {
-    const parent = navigationConfig.find(item => 
-      item.children?.some(child => location.pathname.startsWith(child.path))
-    );
-    if (parent) {
-      setOpenSubMenu(parent.path);
-    }
-  }, [location.pathname]);
+    // Find the parent path of the current active route to keep the submenu open on page load/refresh
+    const getActiveParentPath = () => {
+        return navigationConfig.find(item => 
+            item.children?.some(child => location.pathname.startsWith(child.path.split('/:')[0]))
+        )?.path || null;
+    };
 
-  const toggleSubMenu = (path: string) => {
-    setOpenSubMenu(openSubMenu === path ? null : path);
-  };
+    const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
 
-  const navLinkClasses = "flex items-center px-3 py-2.5 text-base rounded-lg transition-colors duration-200 group text-text-secondary hover:bg-gray-100 hover:text-text-primary";
-  const activeNavLinkClasses = "bg-primary/10 text-primary font-semibold";
+    useEffect(() => {
+        const activeParent = getActiveParentPath();
+        if (activeParent) {
+            setOpenSubmenus(prev => ({ ...prev, [activeParent]: true }));
+        }
+    }, [location.pathname]);
 
-  const canShowLink = (roles: string[]) => {
-    if (!currentUser) return false;
-    return roles.includes(currentUser.role);
-  }
 
-  return (
-    <aside className="hidden md:flex w-64 bg-sidebar p-4 flex-col fixed top-0 right-0 h-screen shadow-lg z-30 border-l border-border">
-      <Link
-        to="/profile"
-        className="flex items-center mb-10 pt-4 px-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-        aria-label="الانتقال للملف الشخصي"
-      >
-         <UserCircleIcon className="w-10 h-10 text-text-secondary" />
-        <div className="text-right mr-3">
-            <h1 className="font-semibold text-text-primary">
-                {currentUser?.name}
-            </h1>
-            <p className="text-text-secondary text-sm">{currentUser?.role}</p>
-        </div>
-      </Link>
-      <nav className="flex flex-col space-y-2 flex-grow">
-        {navigationConfig.map((item) => {
-            const hasChildAccess = item.children?.some(child => canShowLink(child.roles)) ?? false;
-            if (!item.inSidebar || !(canShowLink(item.roles) || hasChildAccess)) {
-                return null;
-            }
+    const toggleSubmenu = (path: string) => {
+        setOpenSubmenus(prev => ({ ...prev, [path]: !prev[path] }));
+    };
 
-            // Any item with children that are meant for a sub-menu is a collapsible group.
-            if (item.children && item.children.some(c => c.inSubMenu)) {
-                return (
-                <div key={item.path}>
-                    <button 
-                        onClick={() => toggleSubMenu(item.path)} 
-                        className={`${navLinkClasses} w-full justify-between ${openSubMenu === item.path ? 'bg-gray-100' : ''}`}
-                        aria-expanded={openSubMenu === item.path}
-                        aria-controls={`submenu-${item.path}`}
-                    >
-                        <div className="flex items-center">
-                            <item.Icon className="ml-3 h-5 w-5" />
+    const userCanAccess = (roles: Role[]) => {
+        if (!currentUser) return false;
+        // An empty roles array means the link's visibility is determined by its children.
+        if (roles.length === 0) return true;
+        return roles.includes(currentUser.role);
+    };
+
+    const baseLinkClasses = "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors w-full";
+    const activeLinkClasses = "bg-primary text-white";
+    const inactiveLinkClasses = "text-text-secondary hover:bg-slate-100 hover:text-text-primary";
+    
+    const subNavLinkClasses = "flex items-center gap-3 pr-11 pl-4 py-2 rounded-lg text-sm transition-colors";
+    const activeSubNavLinkClasses = "bg-slate-200 text-primary font-semibold";
+    const inactiveSubNavLinkClasses = "text-text-secondary hover:bg-slate-100";
+
+    return (
+        <aside className="hidden md:flex w-56 bg-white border-l border-border p-4 flex-col flex-shrink-0">
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold text-center text-primary">Enjaz</h1>
+            </div>
+            <nav className="flex-grow space-y-1">
+                {navigationConfig.map((item) => {
+                    if (!item.inSidebar) return null;
+
+                    const hasChildren = item.children && item.children.some(child => child.inSubMenu);
+                    const accessibleChildren = item.children?.filter(child => child.inSubMenu && userCanAccess(child.roles)) ?? [];
+                    
+                    if (!userCanAccess(item.roles) && accessibleChildren.length === 0) {
+                        return null;
+                    }
+
+                    if (hasChildren) {
+                        const isSubmenuOpen = openSubmenus[item.path];
+                        const isActiveParent = getActiveParentPath() === item.path;
+                        return (
+                            <div key={item.path}>
+                                <button
+                                    onClick={() => toggleSubmenu(item.path)}
+                                    className={`${baseLinkClasses} justify-between ${isActiveParent ? activeLinkClasses : inactiveLinkClasses}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <item.Icon className="w-5 h-5" />
+                                        <span>{item.label}</span>
+                                    </div>
+                                    <ChevronDownIcon className={`w-4 h-4 transition-transform ${isSubmenuOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isSubmenuOpen && (
+                                    <div className="mt-1 space-y-1">
+                                        {accessibleChildren.map(child => (
+                                            <NavLink
+                                                key={child.path}
+                                                to={child.path}
+                                                className={({ isActive }) => `${subNavLinkClasses} ${isActive ? activeSubNavLinkClasses : inactiveSubNavLinkClasses}`}
+                                            >
+                                                {child.label}
+                                            </NavLink>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            end={item.path === '/'}
+                            className={({ isActive }) => `${baseLinkClasses} ${isActive ? activeLinkClasses : inactiveLinkClasses}`}
+                        >
+                            <item.Icon className="w-5 h-5" />
                             <span>{item.label}</span>
-                        </div>
-                        <ChevronDownIcon className={`w-4 h-4 transition-transform ${openSubMenu === item.path ? 'rotate-180' : ''}`} />
-                    </button>
-                    {openSubMenu === item.path && (
-                        <div id={`submenu-${item.path}`} className="mr-4 mt-2 space-y-2 border-r-2 border-border pr-3 animate-fade-in-scale origin-top">
-                            {item.children.filter(child => child.inSubMenu && canShowLink(child.roles)).map(child => (
-                            <NavLink
-                                key={child.path}
-                                to={child.path}
-                                className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
-                            >
-                                <span className="text-sm">{child.label}</span>
-                            </NavLink>
-                            ))}
-                        </div>
-                    )}
-                </div>
-                );
-            }
-            
-            // All other items, even those with children for routing purposes, are direct links.
-            return (
-                <div key={item.path}>
-                    <NavLink 
-                        to={item.path} 
-                        className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
-                        end={item.path === '/'}
-                    >
-                        <item.Icon className="ml-3 h-5 w-5" />
-                        <span>{item.label}</span>
-                    </NavLink>
-                </div>
-            );
-        })}
-      </nav>
-       <div className="pt-4 border-t border-border">
-          <button onClick={logout} className="flex items-center w-full px-3 py-2.5 text-base rounded-lg text-red-600 bg-red-50 hover:bg-red-100 font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span>تسجيل الخروج</span>
-          </button>
-      </div>
-    </aside>
-  );
+                        </NavLink>
+                    );
+                })}
+            </nav>
+        </aside>
+    );
 };
 
 export default Sidebar;

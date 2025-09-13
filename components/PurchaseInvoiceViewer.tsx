@@ -14,7 +14,7 @@ const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ invoice }
 
     return (
         <DocumentViewerLayout
-            backPath="/invoices"
+            backPath="/purchase-invoices"
             document={invoice}
             pdfElementId="invoice-pdf"
             isProcessing={isProcessing}

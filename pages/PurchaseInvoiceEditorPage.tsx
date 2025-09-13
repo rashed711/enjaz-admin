@@ -38,7 +38,7 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
                 setInvoice={setInvoice}
                 onSave={handleSave}
                 isSaving={isSaving}
-                onCancel={() => isNew ? navigate('/invoices') : navigate(`/invoices/${invoice.id}/view`)}
+                onCancel={() => isNew ? navigate('/purchase-invoices') : navigate(`/purchase-invoices/${invoice.id}/view`)}
                 saveError={saveError}
             />
         )

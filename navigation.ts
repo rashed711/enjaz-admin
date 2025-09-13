@@ -6,6 +6,7 @@ import UsersIcon from './components/icons/UsersIcon';
 import UserCircleIcon from './components/icons/UserCircleIcon';
 import ShieldCheckIcon from './components/icons/ShieldCheckIcon';
 import CogIcon from './components/icons/CogIcon'; // New Icon
+import BanknotesIcon from './components/icons/BanknotesIcon';
 import DashboardPage from './pages/DashboardPage';
 import QuotationsListPage from './pages/QuotationsListPage';
 import QuotationEditorPage from './pages/QuotationEditorPage';
@@ -19,6 +20,7 @@ import SalesInvoiceEditorPage from './pages/SalesInvoiceEditorPage';
 import ReceiptIcon from './components/icons/ReceiptIcon';
 import PermissionsPage from './pages/PermissionsPage';
 import ManagementPage from './pages/ManagementPage'; // New Page
+import AccountsListPage from './pages/AccountsListPage';
 import React from 'react';
 
 interface NavLink {
@@ -55,6 +57,16 @@ export const navigationConfig: NavLink[] = [
     inBottomNav: true,
     component: DashboardPage,
     title: 'لوحة التحكم',
+  },
+  {
+    path: '/accounts',
+    label: 'الحسابات',
+    Icon: BanknotesIcon,
+    roles: Object.values(Role), // Accessible to all authenticated users for now
+    inSidebar: true,
+    inBottomNav: false,
+    component: AccountsListPage,
+    title: 'دليل الحسابات',
   },
   {
     path: '/quotations',
@@ -101,7 +113,7 @@ export const navigationConfig: NavLink[] = [
         inSubMenu: true,
       },
       {
-        path: '/invoices',
+        path: '/purchase-invoices',
         label: 'فواتير المشتريات',
         Icon: DocumentTextIcon,
         roles: [
@@ -127,7 +139,7 @@ export const navigationConfig: NavLink[] = [
         title: 'عرض / تعديل فاتورة مبيعات',
       },
       {
-        path: '/invoices/:id/:mode?',
+        path: '/purchase-invoices/:id/:mode?',
         label: 'محرر فواتير المشتريات',
         Icon: ReceiptIcon,
         roles: [
@@ -190,7 +202,7 @@ export const navigationConfig: NavLink[] = [
     Icon: UserCircleIcon,
     roles: Object.values(Role),
     inSidebar: false,
-    inBottomNav: false,
+    inBottomNav: true,
     component: ProfilePage,
     title: 'الملف الشخصي',
   },
