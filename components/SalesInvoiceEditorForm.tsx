@@ -1,7 +1,7 @@
 
-import React, { useState, useCallback } from 'react';
-// FIX: Import PermissionModule to use enum for type safety.
-import { Product, ProductType, Unit, Currency, SalesInvoiceStatus, DocumentItemState, PermissionModule } from '../types';
+
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Product, ProductType, Unit, Currency, SalesInvoiceStatus, DocumentItemState, PermissionModule, PermissionAction } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
@@ -9,6 +9,7 @@ import AddProductModal from './AddProductModal';
 import { SalesInvoiceState } from '../pages/SalesInvoiceEditorPage';
 import Spinner from './Spinner';
 import DocumentItemRow from './QuotationItemRow';
+import { useDocumentItems } from '../hooks/useDocumentItems';
 
 interface SalesInvoiceEditorFormProps {
     invoice: SalesInvoiceState;
@@ -25,105 +26,29 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice
     const permissions = usePermissions();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // FIX: Use PermissionModule enum instead of string literal.
-    const canChangeStatus = permissions.can(PermissionModule.SALES_INVOICES, 'change_status');
+    const canChangeStatus = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CHANGE_STATUS);
 
-    const updateInvoiceItems = useCallback((newItems: DocumentItemState[]) => {
-        const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setInvoice(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
-    }, [setInvoice]);
+    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setInvoice, products);
 
-    const updateItemDescription = useCallback((item: DocumentItemState, product?: Product): string => {
-        const p = product || products.find(prod => prod.id === item.productId);
-        if (!p) return item.description;
+    const subTotal = useMemo(() => {
+        return invoice?.items.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0;
+    }, [invoice?.items]);
 
-        let desc = p.name;
-        if (p.productType === ProductType.DIFFUSER && item.length && item.width) {
-            desc += ` (${item.length} x ${item.width})`;
-        } else if (p.productType === ProductType.CABLE_TRAY && item.width && item.height) {
-            desc += ` (${item.width} x ${item.height})`;
+    useEffect(() => {
+        if (invoice) {
+            const newTotalAmount = parseFloat(subTotal.toFixed(2));
+            if (invoice.totalAmount !== newTotalAmount) {
+                setInvoice(prev => prev ? { ...prev, totalAmount: newTotalAmount } : null);
+            }
         }
-        return desc;
-    }, [products]);
+    }, [subTotal, invoice, setInvoice]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setInvoice(prev => prev ? { ...prev, [name]: value } : null);
     };
 
-    const handleItemChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        
-        const newItems = [...invoice.items];
-        const itemToUpdate = { ...newItems[index] };
-        
-        const numValue = parseFloat(value) || 0;
-
-        switch (name) {
-            case 'description': itemToUpdate.description = value; break;
-            case 'quantity': itemToUpdate.quantity = numValue; break;
-            case 'unitPrice': itemToUpdate.unitPrice = numValue; break;
-            case 'length': itemToUpdate.length = numValue; break;
-            case 'width': itemToUpdate.width = numValue; break;
-            case 'height': itemToUpdate.height = numValue; break;
-            case 'unit': itemToUpdate.unit = value as Unit; break;
-        }
-
-        if (name === 'length' || name === 'width' || name === 'height') {
-            itemToUpdate.description = updateItemDescription(itemToUpdate);
-        }
-        
-        itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
-        newItems[index] = itemToUpdate;
-        updateInvoiceItems(newItems);
-    };
-
-    const handleProductSelection = (itemIndex: number, selectedProductId: string) => {
-        const newItems = [...invoice.items];
-        let itemToUpdate = { ...newItems[itemIndex] };
-
-        if (selectedProductId === 'custom' || !selectedProductId) {
-            itemToUpdate = {
-                ...itemToUpdate,
-                productId: undefined, description: '', unitPrice: 0, unit: Unit.COUNT,
-                productType: ProductType.SIMPLE, length: undefined, width: undefined, height: undefined,
-            };
-        } else {
-            const product = products.find(p => p.id === parseInt(selectedProductId, 10));
-            if (product) {
-                itemToUpdate = {
-                    ...itemToUpdate,
-                    productId: product.id,
-                    description: product.name,
-                    unitPrice: product.sellingPrice,
-                    unit: product.unit,
-                    productType: product.productType,
-                    length: undefined,
-                    width: undefined,
-                    height: undefined,
-                };
-                itemToUpdate.description = updateItemDescription(itemToUpdate, product);
-            }
-        }
-        
-        itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
-        newItems[itemIndex] = itemToUpdate;
-        updateInvoiceItems(newItems);
-    };
-
-    const addItem = () => {
-        const newItem: DocumentItemState = {
-            description: '', quantity: 1, unitPrice: 0, total: 0, unit: Unit.COUNT, productType: ProductType.SIMPLE
-        };
-        updateInvoiceItems([...invoice.items, newItem]);
-    };
-    
-    const removeItem = (index: number) => {
-        const newItems = invoice.items.filter((_, i) => i !== index);
-        updateInvoiceItems(newItems);
-    };
-
-    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => {
+    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
         if (!currentUser) return { product: null, error: "User not authenticated." };
         return addProduct(productData, currentUser.id);
     };

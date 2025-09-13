@@ -26,6 +26,9 @@ export const mockQuotations: Quotation[] = [
     ],
     totalAmount: 17000,
     createdBy: '3', // Khaled
+    // FIX: Add missing properties to satisfy the Quotation type.
+    taxIncluded: false,
+    discount: 0,
   },
   {
     id: 2,
@@ -41,6 +44,9 @@ export const mockQuotations: Quotation[] = [
     ],
     totalAmount: 9000,
     createdBy: '4', // Sara
+    // FIX: Add missing properties to satisfy the Quotation type.
+    taxIncluded: false,
+    discount: 0,
   },
   {
     id: 3,
@@ -57,5 +63,8 @@ export const mockQuotations: Quotation[] = [
     ],
     totalAmount: 8000,
     createdBy: '3', // Khaled
+    // FIX: Add missing properties to satisfy the Quotation type.
+    taxIncluded: false,
+    discount: 0,
   },
 ];
