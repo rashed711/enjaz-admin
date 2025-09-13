@@ -25,7 +25,7 @@ const ProductsListPage: React.FC = () => {
     const [productToDelete, setProductToDelete] = useState<Product | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
-    
+
     // State for inline editing
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
     const [editedProductData, setEditedProductData] = useState<Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>>({ name: '', sellingPrice: 0, productType: ProductType.SIMPLE, unit: Unit.COUNT });
@@ -53,7 +53,7 @@ const ProductsListPage: React.FC = () => {
         const success = await deleteProduct(productToDelete.id);
 
         if (success) {
-            setProductToDelete(null); 
+            setProductToDelete(null);
         } else {
             setDeleteError("فشل حذف المنتج. قد يكون مرتبطًا بعروض أسعار حالية.");
         }
@@ -70,7 +70,7 @@ const ProductsListPage: React.FC = () => {
     const handleCancelEdit = () => {
         setEditingProductId(null);
     };
-    
+
     const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setEditedProductData(prev => ({
@@ -81,7 +81,7 @@ const ProductsListPage: React.FC = () => {
 
     const handleSaveEdit = async () => {
         if (!editedProductData || editingProductId === null) return;
-        
+
         setIsSaving(true);
         const productToUpdate: Product = {
             id: editingProductId,
@@ -89,7 +89,7 @@ const ProductsListPage: React.FC = () => {
         };
         const { error } = await updateProduct(productToUpdate);
         setIsSaving(false);
-        
+
         if (!error) {
             handleCancelEdit();
         } else {
@@ -102,7 +102,7 @@ const ProductsListPage: React.FC = () => {
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-    
+
     const formatPrice = (price?: number) => {
         if (price === undefined || price === null) return '-';
         return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -110,7 +110,7 @@ const ProductsListPage: React.FC = () => {
 
     return (
         <>
-            <AddProductModal 
+            <AddProductModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveProduct}
@@ -134,7 +134,7 @@ const ProductsListPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary self-start sm:self-center">قائمة المنتجات</h2>
                 <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
-                     <div className="relative w-full sm:w-64">
+                    <div className="relative w-full sm:w-64">
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                             <SearchIcon className="h-5 w-5 text-gray-400" />
                         </div>
@@ -148,7 +148,7 @@ const ProductsListPage: React.FC = () => {
                         />
                     </div>
                     {canManage && (
-                        <button 
+                        <button
                             onClick={handleOpenModalForAdd}
                             className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
                         >
@@ -163,12 +163,12 @@ const ProductsListPage: React.FC = () => {
                     <Spinner />
                 </div>
             ) : filteredProducts.length === 0 ? (
-                 <EmptyState
+                <EmptyState
                     Icon={CubeIcon}
                     title={searchQuery ? 'لا توجد نتائج' : 'لا توجد منتجات بعد'}
                     message={
-                        searchQuery 
-                            ? 'لم نجد أي منتجات تطابق بحثك. حاول استخدام كلمات أخرى.' 
+                        searchQuery
+                            ? 'لم نجد أي منتجات تطابق بحثك. حاول استخدام كلمات أخرى.'
                             : 'ابدأ بإضافة أول منتج لك في النظام لإدارة المخزون وعروض الأسعار بسهولة.'
                     }
                     action={!searchQuery && canManage ? {
@@ -226,27 +226,27 @@ const ProductsListPage: React.FC = () => {
                                         )}
                                     </tr>
                                 ) : (
-                                <tr key={product.id} className="hover:bg-slate-50">
-                                    <td className="px-3 py-2 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{product.name}</td>
-                                    <td className="px-3 py-2">{product.productType}</td>
-                                    <td className="px-3 py-2">{product.unit}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.sellingPrice)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
-                                    {canManage && (
-                                        <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => handleStartEdit(product)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
-                                                    <PencilIcon className="w-5 h-5" />
-                                                </button>
-                                                <button onClick={() => setProductToDelete(product)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
-                                                    <TrashIcon className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
+                                    <tr key={product.id} className="hover:bg-slate-50">
+                                        <td className="px-3 py-2 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{product.name}</td>
+                                        <td className="px-3 py-2">{product.productType}</td>
+                                        <td className="px-3 py-2">{product.unit}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.sellingPrice)}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
+                                        {canManage && (
+                                            <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => handleStartEdit(product)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
+                                                        <PencilIcon className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => setProductToDelete(product)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                )))}
                         </tbody>
                     </table>
                 </div>
