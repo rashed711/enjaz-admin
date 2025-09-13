@@ -11,6 +11,7 @@ import EyeIcon from '../components/icons/EyeIcon';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
+import { getStatusChipClassName } from '../utils/uiHelpers';
 
 const SalesInvoicesListPage: React.FC = () => {
     const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
@@ -100,17 +101,6 @@ const SalesInvoicesListPage: React.FC = () => {
         }
     };
 
-    const getStatusChip = (status: string) => {
-        switch (status) {
-            case 'Paid': return 'bg-green-100 text-green-800';
-            case 'Sent': return 'bg-blue-100 text-blue-800';
-            case 'Draft': return 'bg-yellow-100 text-yellow-800';
-            case 'Overdue': return 'bg-orange-100 text-orange-800';
-            case 'Cancelled': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
-        }
-    }
-
     return (
         <>
             <DeleteConfirmationModal
@@ -166,7 +156,7 @@ const SalesInvoicesListPage: React.FC = () => {
                                     <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                     <td className="px-3 py-3">{i.company}</td>
                                     <td className="px-3 py-3">{i.clientName}</td>
-                                    <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChip(i.status)}`}>{i.status}</span></td>
+                                    <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
                                     <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString()} {i.currency}</td>
                                     <td className="px-3 py-3 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
                                         <div className="flex items-center justify-end gap-2">

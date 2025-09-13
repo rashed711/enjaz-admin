@@ -1,4 +1,5 @@
 
+
 export enum Role {
   CLIENT = 'Client',
   SALES_EMPLOYEE = 'Sales Employee',
@@ -76,6 +77,8 @@ export interface Quotation {
   items: DocumentItem[];
   totalAmount: number;
   createdBy: string; // Stays string for Supabase UUID
+  taxIncluded: boolean;
+  discount: number;
 }
 
 // --- New Interfaces for Purchase Invoices ---

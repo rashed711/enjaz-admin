@@ -1,6 +1,6 @@
 
 
-import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { Product, ProductType, Unit } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -135,7 +135,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [currentUser, fetchProducts]);
 
-  const addProduct = async (newProductData: Omit<Product, 'id'>, userId: string): Promise<{ product: Product | null; error: string | null }> => {
+  const addProduct = useCallback(async (newProductData: Omit<Product, 'id'>, userId: string): Promise<{ product: Product | null; error: string | null }> => {
     const { data, error } = await supabase
       .from('products')
       .insert({
@@ -164,9 +164,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         return { product: addedProduct, error: null };
     }
     return { product: null, error: 'Failed to add product for an unknown reason.' };
-  };
+  }, [fetchProducts]);
 
-  const updateProduct = async (updatedProductData: Product): Promise<{ product: Product | null; error: string | null }> => {
+  const updateProduct = useCallback(async (updatedProductData: Product): Promise<{ product: Product | null; error: string | null }> => {
     const { data, error } = await supabase
       .from('products')
       .update({
@@ -196,9 +196,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         return { product: updatedProduct, error: null };
     }
     return { product: null, error: 'Failed to update product for an unknown reason.' };
-  };
+  }, [fetchProducts]);
 
-  const deleteProduct = async (productId: number): Promise<boolean> => {
+  const deleteProduct = useCallback(async (productId: number): Promise<boolean> => {
     const { error } = await supabase
       .from('products')
       .delete()
@@ -209,13 +209,14 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         return false;
     }
 
-    setProducts(prevProducts => prevProducts.filter(p => p.id !== productId));
+    await fetchProducts();
     return true;
-  };
+  }, [fetchProducts]);
 
+  const value = useMemo(() => ({ products, loading, addProduct, updateProduct, deleteProduct, fetchProducts }), [products, loading, addProduct, updateProduct, deleteProduct, fetchProducts]);
 
   return (
-    <ProductContext.Provider value={{ products, loading, addProduct, updateProduct, deleteProduct, fetchProducts }}>
+    <ProductContext.Provider value={value}>
       {children}
     </ProductContext.Provider>
   );

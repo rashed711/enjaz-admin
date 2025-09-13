@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../hooks/useAuth';
@@ -6,47 +7,41 @@ import { usePermissions } from '../hooks/usePermissions';
 import AddProductModal from '../components/AddProductModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import EmptyState from '../components/EmptyState';
-// FIX: Import PermissionModule to use enum for type safety.
-import { Product, PermissionModule } from '../types';
+import { Product, PermissionModule, PermissionAction, ProductType, Unit } from '../types';
 import Spinner from '../components/Spinner';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import SearchIcon from '../components/icons/SearchIcon';
 import CubeIcon from '../components/icons/CubeIcon';
+import XIcon from '../components/icons/XIcon';
+import CheckIcon from '../components/icons/CheckIcon';
 
 const ProductsListPage: React.FC = () => {
     const { products, loading, addProduct, updateProduct, deleteProduct } = useProducts();
     const { currentUser } = useAuth();
     const permissions = usePermissions();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [productToDelete, setProductToDelete] = useState<Product | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    
+    // State for inline editing
+    const [editingProductId, setEditingProductId] = useState<number | null>(null);
+    const [editedProductData, setEditedProductData] = useState<Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>>({ name: '', sellingPrice: 0, productType: ProductType.SIMPLE, unit: Unit.COUNT });
+    const [isSaving, setIsSaving] = useState(false);
 
-    // FIX: Use PermissionModule enum instead of string literal.
-    const canManage = permissions.can(PermissionModule.PRODUCTS, 'manage');
+    const canManage = permissions.can(PermissionModule.PRODUCTS, PermissionAction.MANAGE);
 
     const handleOpenModalForAdd = () => {
-        setEditingProduct(null);
         setIsModalOpen(true);
     };
 
-    const handleOpenModalForEdit = (product: Product) => {
-        setEditingProduct(product);
-        setIsModalOpen(true);
-    };
-
-    const handleSaveProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => {
+    const handleSaveProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
         if (!currentUser) {
             return { product: null, error: "User not authenticated" };
         }
-        if (productData.id) {
-            return updateProduct(productData as Product);
-        } else {
-            return addProduct(productData as Omit<Product, 'id'>, currentUser.id);
-        }
+        return addProduct(productData, currentUser.id);
     };
 
     const handleConfirmDelete = async () => {
@@ -65,6 +60,45 @@ const ProductsListPage: React.FC = () => {
         setIsDeleting(false);
     };
 
+    // Handlers for inline editing
+    const handleStartEdit = (product: Product) => {
+        setEditingProductId(product.id);
+        const { id, averagePurchasePrice, averageSellingPrice, ...editableData } = product;
+        setEditedProductData(editableData);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingProductId(null);
+    };
+    
+    const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setEditedProductData(prev => ({
+            ...prev,
+            [name]: name === 'sellingPrice' ? parseFloat(value) || 0 : value,
+        }));
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editedProductData || editingProductId === null) return;
+        
+        setIsSaving(true);
+        const productToUpdate: Product = {
+            id: editingProductId,
+            ...editedProductData,
+        };
+        const { error } = await updateProduct(productToUpdate);
+        setIsSaving(false);
+        
+        if (!error) {
+            handleCancelEdit();
+        } else {
+            console.error("Failed to update product:", error);
+            alert(`فشل تحديث المنتج: ${error}`);
+        }
+    };
+
+
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -80,7 +114,6 @@ const ProductsListPage: React.FC = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveProduct}
-                productToEdit={editingProduct}
             />
             <DeleteConfirmationModal
                 isOpen={!!productToDelete}
@@ -159,6 +192,40 @@ const ProductsListPage: React.FC = () => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {filteredProducts.map((product) => (
+                                editingProductId === product.id ? (
+                                    <tr key={product.id} className="bg-indigo-50">
+                                        <td className="px-3 py-2 sticky right-0 bg-indigo-50 border-l border-border">
+                                            <input type="text" name="name" value={editedProductData.name} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <select name="productType" value={editedProductData.productType} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white">
+                                                {Object.values(ProductType).map(type => (<option key={type} value={type}>{type}</option>))}
+                                            </select>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <select name="unit" value={editedProductData.unit} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white">
+                                                {Object.values(Unit).map(unit => (<option key={unit} value={unit}>{unit}</option>))}
+                                            </select>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <input type="number" name="sellingPrice" value={editedProductData.sellingPrice || ''} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white" />
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
+                                        {canManage && (
+                                            <td className="px-3 py-2 text-left sticky left-0 bg-indigo-50 border-r border-border">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={handleSaveEdit} disabled={isSaving} title="حفظ" className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 disabled:opacity-50">
+                                                        {isSaving ? <Spinner /> : <CheckIcon className="w-5 h-5" />}
+                                                    </button>
+                                                    <button onClick={handleCancelEdit} disabled={isSaving} title="إلغاء" className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200">
+                                                        <XIcon className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ) : (
                                 <tr key={product.id} className="hover:bg-slate-50">
                                     <td className="px-3 py-2 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{product.name}</td>
                                     <td className="px-3 py-2">{product.productType}</td>
@@ -169,7 +236,7 @@ const ProductsListPage: React.FC = () => {
                                     {canManage && (
                                         <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => handleOpenModalForEdit(product)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
+                                                <button onClick={() => handleStartEdit(product)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
                                                     <PencilIcon className="w-5 h-5" />
                                                 </button>
                                                 <button onClick={() => setProductToDelete(product)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">

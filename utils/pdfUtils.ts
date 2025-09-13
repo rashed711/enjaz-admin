@@ -18,7 +18,7 @@ export const generatePdfBlob = async (elementId: string): Promise<Blob | null> =
     input.style.width = '1024px';
 
     try {
-        const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+        const canvas = await html2canvas(input, { scale: 1.5, useCORS: true });
         
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -40,10 +40,10 @@ export const generatePdfBlob = async (elementId: string): Promise<Blob | null> =
             if (ctx) {
                 // Draw the relevant part of the main canvas onto the page canvas
                 ctx.drawImage(canvas, 0, canvasPosition, canvasWidth, pageHeightInCanvas, 0, 0, canvasWidth, pageHeightInCanvas);
-                const imgData = pageCanvas.toDataURL('image/png');
+                const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
                 const pageHeightInPDF = pageHeightInCanvas / ratio;
                 if (canvasPosition > 0) pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pageHeightInPDF);
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pageHeightInPDF);
                 canvasPosition += pageHeightInCanvas;
             } else {
                  console.error("Could not get canvas context for PDF page generation.");

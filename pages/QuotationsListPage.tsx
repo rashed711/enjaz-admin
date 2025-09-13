@@ -1,8 +1,8 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-// FIX: Import PermissionModule to use enum for type safety.
-import { Quotation, Currency, PermissionModule } from '../types';
+import { Quotation, Currency, PermissionModule, PermissionAction } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../contexts/ProductContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -26,8 +26,9 @@ const QuotationsListPage: React.FC = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
-    // FIX: Use PermissionModule enum instead of string literal.
-    const canCreate = permissions.can(PermissionModule.QUOTATIONS, 'create');
+    const canCreate = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.CREATE);
+    const canViewAll = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.VIEW_ALL);
+    const canViewOwn = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.VIEW_OWN);
 
     useEffect(() => {
         const fetchQuotations = async () => {
@@ -35,20 +36,16 @@ const QuotationsListPage: React.FC = () => {
             
             setLoading(true);
             try {
-                let query = supabase.from('quotations').select('*');
+                if (!canViewAll && !canViewOwn) {
+                    setQuotations([]);
+                    setLoading(false);
+                    return;
+                }
 
-                // FIX: Use PermissionModule enum instead of string literal.
-                const canViewAll = permissions.can(PermissionModule.QUOTATIONS, 'view', 'all'); // A bit of a hack, checking 'all'
-                if (!canViewAll) {
-                    // FIX: Use PermissionModule enum instead of string literal.
-                     const canViewOwn = permissions.can(PermissionModule.QUOTATIONS, 'view'); // True if VIEW_OWN is present
-                     if (canViewOwn) {
-                        query = query.eq('created_by', currentUser.id);
-                     } else {
-                         setQuotations([]);
-                         setLoading(false);
-                         return;
-                     }
+                let query = supabase.from('quotations').select('*');
+                
+                if (!canViewAll && canViewOwn) {
+                    query = query.eq('created_by', currentUser.id);
                 }
                 
                 const { data, error } = await query.order('date', { ascending: false });
@@ -69,6 +66,8 @@ const QuotationsListPage: React.FC = () => {
                         items: [],
                         totalAmount: q.total_amount,
                         createdBy: q.created_by,
+                        taxIncluded: q.tax_included ?? false, // Default to false for older records
+                        discount: 0, // Not available in list view
                     }));
                     setQuotations(formattedQuotations);
                 }
@@ -86,7 +85,7 @@ const QuotationsListPage: React.FC = () => {
             setLoading(false);
             setQuotations([]);
         }
-    }, [currentUser, permissions]);
+    }, [currentUser, permissions, canViewAll, canViewOwn]);
 
     const handleConfirmDelete = async () => {
         if (!quotationToDelete || !quotationToDelete.id) return;
@@ -182,14 +181,12 @@ const QuotationsListPage: React.FC = () => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {quotations.map((q) => {
-                                // FIX: Use PermissionModule enum instead of string literal.
-                                const canEdit = permissions.can(PermissionModule.QUOTATIONS, 'edit', q.createdBy);
-                                // FIX: Use PermissionModule enum instead of string literal.
-                                const canDelete = permissions.can(PermissionModule.QUOTATIONS, 'delete', q.createdBy);
+                                const canEdit = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.EDIT_OWN, q.createdBy);
+                                const canDelete = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.DELETE_OWN, q.createdBy);
 
                                 return (
                                     <tr key={q.id} className="hover:bg-slate-50">
-                                        <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{q.quotationNumber}</td>
+                                        <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{q.date}</td>
                                         <td className="px-3 py-3">{q.company}</td>
                                         <td className="px-3 py-3">{q.clientName}</td>

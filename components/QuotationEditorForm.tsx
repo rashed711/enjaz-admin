@@ -1,5 +1,8 @@
 
-import React, { useState, useCallback } from 'react';
+
+
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, ProductType, Unit, Currency, DocumentItemState } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../hooks/useAuth';
@@ -7,6 +10,8 @@ import AddProductModal from './AddProductModal';
 import { QuotationState } from '../pages/QuotationEditorPage';
 import Spinner from './Spinner';
 import DocumentItemRow from './QuotationItemRow';
+import { getTaxInfo } from '../hooks/useDocument';
+import { useDocumentItems } from '../hooks/useDocumentItems';
 
 interface QuotationEditorFormProps {
     quotation: QuotationState;
@@ -17,107 +22,83 @@ interface QuotationEditorFormProps {
     saveError: string | null;
 }
 
+const TotalsDisplay: React.FC<{
+    subTotal: number;
+    discount: number;
+    tax: number;
+    taxLabel: string;
+    grandTotal: number;
+}> = ({ subTotal, discount, tax, taxLabel, grandTotal }) => {
+    const format = (num: number) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (
+        <div className="mt-6 flex justify-end">
+            <div className="w-full max-w-sm space-y-3 bg-slate-50 p-4 rounded-lg border border-border">
+                <div className="flex justify-between font-medium text-text-secondary">
+                    <span>المجموع الفرعي</span>
+                    <span>{format(subTotal)}</span>
+                </div>
+                {discount > 0 && (
+                     <div className="flex justify-between font-medium text-text-secondary">
+                        <span>الخصم</span>
+                        <span className="text-red-600">-{format(discount)}</span>
+                    </div>
+                )}
+                {tax > 0 && (
+                    <div className="flex justify-between font-medium text-text-secondary">
+                        <span>{taxLabel}</span>
+                        <span>{format(tax)}</span>
+                    </div>
+                )}
+                <div className="border-t border-dashed border-border pt-3 mt-3">
+                     <div className="flex justify-between font-bold text-lg text-text-primary">
+                        <span>الإجمالي النهائي</span>
+                        <span>{format(grandTotal)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, setQuotation, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
     const { currentUser } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const updateQuotationItems = useCallback((newItems: DocumentItemState[]) => {
-        const newTotalAmount = newItems.reduce((sum, item) => sum + item.total, 0);
-        setQuotation(prev => prev ? { ...prev, items: newItems, totalAmount: parseFloat(newTotalAmount.toFixed(2)) } : null);
-    }, [setQuotation]);
+    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setQuotation, products);
 
-    const updateItemDescription = useCallback((item: DocumentItemState, product?: Product): string => {
-        const p = product || products.find(prod => prod.id === item.productId);
-        if (!p) return item.description;
+    const { subTotal, discount, tax, taxInfo, grandTotal } = useMemo(() => {
+        if (!quotation) return { subTotal: 0, discount: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة'}, grandTotal: 0 };
+        const subTotal = quotation.items.reduce((sum, item) => sum + (item.total || 0), 0);
+        const discount = Number(quotation.discount) || 0;
+        const taxableAmount = subTotal - discount;
+        const taxInfo = getTaxInfo(quotation.currency);
+        const tax = quotation.taxIncluded ? taxableAmount * taxInfo.rate : 0;
+        const grandTotal = taxableAmount + tax;
+        return { subTotal, discount, tax, taxInfo, grandTotal };
+    }, [quotation]);
 
-        let desc = p.name;
-        if (p.productType === ProductType.DIFFUSER && item.length && item.width) {
-            desc += ` (${item.length} x ${item.width})`;
-        } else if (p.productType === ProductType.CABLE_TRAY && item.width && item.height) {
-            desc += ` (${item.width} x ${item.height})`;
+
+    useEffect(() => {
+        if (!quotation) return;
+        const finalTotal = parseFloat(grandTotal.toFixed(2));
+        if (quotation.totalAmount !== finalTotal) {
+             setQuotation(prev => prev ? { ...prev, totalAmount: finalTotal } : null);
         }
-        return desc;
-    }, [products]);
+    }, [quotation, grandTotal, setQuotation]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setQuotation(prev => prev ? { ...prev, [name]: value } : null);
-    };
-
-    const handleItemChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        
-        const newItems = [...quotation.items];
-        const itemToUpdate = { ...newItems[index] };
-        
-        const numValue = parseFloat(value) || 0;
-
-        switch (name) {
-            case 'description': itemToUpdate.description = value; break;
-            case 'quantity': itemToUpdate.quantity = numValue; break;
-            case 'unitPrice': itemToUpdate.unitPrice = numValue; break;
-            case 'length': itemToUpdate.length = numValue; break;
-            case 'width': itemToUpdate.width = numValue; break;
-            case 'height': itemToUpdate.height = numValue; break;
-            case 'unit': itemToUpdate.unit = value as Unit; break;
-        }
-
-        if (name === 'length' || name === 'width' || name === 'height') {
-            itemToUpdate.description = updateItemDescription(itemToUpdate);
-        }
-        
-        itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
-        newItems[index] = itemToUpdate;
-        updateQuotationItems(newItems);
-    };
-
-    const handleProductSelection = (itemIndex: number, selectedProductId: string) => {
-        const newItems = [...quotation.items];
-        let itemToUpdate = { ...newItems[itemIndex] };
-
-        if (selectedProductId === 'custom' || !selectedProductId) {
-            itemToUpdate = {
-                ...itemToUpdate,
-                productId: undefined, description: '', unitPrice: 0, unit: Unit.COUNT,
-                productType: ProductType.SIMPLE, length: undefined, width: undefined, height: undefined,
-            };
-        } else {
-            const product = products.find(p => p.id === parseInt(selectedProductId, 10));
-            if (product) {
-                itemToUpdate = {
-                    ...itemToUpdate,
-                    productId: product.id,
-                    description: product.name,
-                    unitPrice: product.sellingPrice,
-                    unit: product.unit,
-                    productType: product.productType,
-                    length: undefined,
-                    width: undefined,
-                    height: undefined,
-                };
-                itemToUpdate.description = updateItemDescription(itemToUpdate, product);
+        setQuotation(prev => {
+            if (!prev) return null;
+            if (name === 'discount') {
+                return { ...prev, [name]: parseFloat(value) || 0 };
             }
-        }
-        
-        itemToUpdate.total = parseFloat((itemToUpdate.quantity * itemToUpdate.unitPrice).toFixed(2));
-        newItems[itemIndex] = itemToUpdate;
-        updateQuotationItems(newItems);
-    };
-
-    const addItem = () => {
-        const newItem: DocumentItemState = {
-            description: '', quantity: 1, unitPrice: 0, total: 0, unit: Unit.COUNT, productType: ProductType.SIMPLE
-        };
-        updateQuotationItems([...quotation.items, newItem]);
+            return { ...prev, [name]: value };
+        });
     };
     
-    const removeItem = (index: number) => {
-        const newItems = quotation.items.filter((_, i) => i !== index);
-        updateQuotationItems(newItems);
-    };
-
-    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'> & { id?: number }) => {
+    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
         if (!currentUser) {
             return { product: null, error: "User not authenticated to add a product." };
         }
@@ -136,10 +117,10 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
             />
             <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
                  <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input type="text" name="clientName" placeholder="اسم العميل" value={quotation.clientName} onChange={handleInputChange} className={inputClasses} />
-                    <input type="text" name="company" placeholder="الشركة" value={quotation.company} onChange={handleInputChange} className={inputClasses} />
-                    <input type="text" name="project" placeholder="المشروع" value={quotation.project} onChange={handleInputChange} className={inputClasses} />
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" name="clientName" placeholder="اسم العميل" value={quotation.clientName} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    <input type="text" name="company" placeholder="الشركة" value={quotation.company} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    <input type="text" name="project" placeholder="المشروع" value={quotation.project} onChange={handleInputChange} className={`${inputClasses} lg:col-span-2`} />
                     <input type="text" name="quotationType" placeholder="نوع العرض" value={quotation.quotationType} onChange={handleInputChange} className={inputClasses} />
                     <input type="date" name="date" value={quotation.date} onChange={handleInputChange} className={`${inputClasses}`} />
                     <select name="currency" value={quotation.currency} onChange={handleInputChange} className={inputClasses}>
@@ -147,8 +128,29 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                         <option value={Currency.EGP}>جنيه مصري (EGP)</option>
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
                     </select>
+                    <input type="number" name="discount" placeholder="الخصم" value={quotation.discount || ''} onChange={handleInputChange} className={inputClasses} />
                  </div>
                  
+                 <div className="mt-4 flex items-center gap-2">
+                    <label className="text-sm font-medium text-text-secondary">إعدادات الضريبة:</label>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setQuotation(prev => prev ? { ...prev, taxIncluded: true } : null)}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold ${quotation.taxIncluded ? 'bg-primary text-white shadow' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        >
+                            شامل الضريبة
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setQuotation(prev => prev ? { ...prev, taxIncluded: false } : null)}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold ${!quotation.taxIncluded ? 'bg-primary text-white shadow' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        >
+                            غير شامل الضريبة
+                        </button>
+                    </div>
+                </div>
+
                  <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
                  
                  <div className="hidden md:grid grid-cols-12 gap-x-2 mb-2 text-sm font-bold text-text-secondary text-center">
@@ -174,10 +176,20 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                     />
                  ))}
 
-                <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
-                    <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
-                    <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
+                        <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
+                    </div>
                 </div>
+
+                <TotalsDisplay
+                    subTotal={subTotal}
+                    discount={discount}
+                    tax={tax}
+                    taxLabel={taxInfo.label}
+                    grandTotal={grandTotal}
+                />
 
                 <div className="mt-8">
                     {saveError && (
