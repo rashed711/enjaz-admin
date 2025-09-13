@@ -3,10 +3,8 @@
 
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Product, ProductType, Unit, Currency, DocumentItemState } from '../types';
+import { Currency, DocumentItemState } from '../types';
 import { useProducts } from '../contexts/ProductContext';
-import { useAuth } from '../hooks/useAuth';
-import AddProductModal from './AddProductModal';
 import { QuotationState } from '../pages/QuotationEditorPage';
 import Spinner from './Spinner';
 import DocumentItemRow from './QuotationItemRow';
@@ -61,9 +59,7 @@ const TotalsDisplay: React.FC<{
 };
 
 const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, setQuotation, onSave, isSaving, onCancel, saveError }) => {
-    const { products, addProduct } = useProducts();
-    const { currentUser } = useAuth();
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const { products } = useProducts();
 
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setQuotation, products);
 
@@ -98,23 +94,11 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
         });
     };
 
-    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
-        if (!currentUser) {
-            return { product: null, error: "User not authenticated to add a product." };
-        }
-        return addProduct(productData, currentUser.id);
-    };
-
     const inputClasses = "border border-border bg-white text-text-primary p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
     const buttonClasses = "px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
 
     return (
         <>
-            <AddProductModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleAddProduct}
-            />
             <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -137,14 +121,14 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                         <button
                             type="button"
                             onClick={() => setQuotation(prev => prev ? { ...prev, taxIncluded: true } : null)}
-                            className={`px-4 py-2 rounded-md text-sm font-semibold ${quotation.taxIncluded ? 'bg-primary text-white shadow' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${quotation.taxIncluded ? 'bg-green-600 text-white shadow' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
                         >
                             شامل الضريبة
                         </button>
                         <button
                             type="button"
                             onClick={() => setQuotation(prev => prev ? { ...prev, taxIncluded: false } : null)}
-                            className={`px-4 py-2 rounded-md text-sm font-semibold ${!quotation.taxIncluded ? 'bg-primary text-white shadow' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!quotation.taxIncluded ? 'bg-orange-500 text-white shadow' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}`}
                         >
                             غير شامل الضريبة
                         </button>
@@ -169,11 +153,8 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                     ))}
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center justify-between mt-4">
-                    <div className="flex items-center gap-4">
-                        <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
-                        <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
-                    </div>
+                <div className="flex items-center gap-4 mt-4">
+                    <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
                 </div>
 
                 <TotalsDisplay
@@ -193,7 +174,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                     )}
                     <div className="flex justify-end gap-4">
                         <button onClick={onCancel} className={`bg-gray-200 hover:bg-gray-300 text-gray-800 ${buttonClasses}`} disabled={isSaving}>إلغاء</button>
-                        <button onClick={onSave} className={`bg-primary hover:bg-primary-hover text-white ${buttonClasses} w-40`} disabled={isSaving}>
+                        <button onClick={onSave} className={`bg-green-600 hover:bg-green-700 text-white focus:ring-green-600 ${buttonClasses} w-40`} disabled={isSaving}>
                             {isSaving && <Spinner />}
                             {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                         </button>

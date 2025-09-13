@@ -133,7 +133,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
 
         switch (documentType) {
             case 'quotation':
-                return { ...base, quotationNumber: newDocNumber, clientName: '', company: '', project: '', quotationType: '', currency: Currency.SAR, taxIncluded: true, discount: 0 } as T;
+                return { ...base, quotationNumber: newDocNumber, clientName: '', company: '', project: '', quotationType: '', currency: Currency.EGP, taxIncluded: true, discount: 0 } as T;
             case 'purchase_invoice':
                 return { ...base, invoiceNumber: newDocNumber, supplierName: '', status: PurchaseInvoiceStatus.DRAFT, currency: Currency.EGP } as T;
             case 'sales_invoice':
@@ -240,6 +240,21 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
 
     const handleSave = async () => {
         if (!document) return;
+
+        // --- Validation ---
+        if (documentType === 'quotation') {
+            const quote = document as Quotation;
+            if (!quote.clientName?.trim() && !quote.company?.trim()) {
+                setSaveError("يجب إدخال اسم العميل أو اسم الشركة على الأقل.");
+                return; // Stop before setting isSaving to true
+            }
+            if (quote.items.length === 0 || quote.items.every(item => !item.description?.trim())) {
+                setSaveError("يجب أن يحتوي عرض السعر على بند واحد على الأقل.");
+                return; // Stop before setting isSaving to true
+            }
+        }
+        // --- End Validation ---
+
         setIsSaving(true);
         setSaveError(null);
 
