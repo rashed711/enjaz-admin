@@ -38,7 +38,7 @@ const TotalsDisplay: React.FC<{
                     <span>{format(subTotal)}</span>
                 </div>
                 {discount > 0 && (
-                     <div className="flex justify-between font-medium text-text-secondary">
+                    <div className="flex justify-between font-medium text-text-secondary">
                         <span>الخصم</span>
                         <span className="text-red-600">-{format(discount)}</span>
                     </div>
@@ -50,7 +50,7 @@ const TotalsDisplay: React.FC<{
                     </div>
                 )}
                 <div className="border-t border-dashed border-border pt-3 mt-3">
-                     <div className="flex justify-between font-bold text-lg text-text-primary">
+                    <div className="flex justify-between font-bold text-lg text-text-primary">
                         <span>الإجمالي النهائي</span>
                         <span>{format(grandTotal)}</span>
                     </div>
@@ -68,7 +68,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setQuotation, products);
 
     const { subTotal, discount, tax, taxInfo, grandTotal } = useMemo(() => {
-        if (!quotation) return { subTotal: 0, discount: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة'}, grandTotal: 0 };
+        if (!quotation) return { subTotal: 0, discount: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة' }, grandTotal: 0 };
         const subTotal = quotation.items.reduce((sum, item) => sum + (item.total || 0), 0);
         const discount = Number(quotation.discount) || 0;
         const taxableAmount = subTotal - discount;
@@ -83,7 +83,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
         if (!quotation) return;
         const finalTotal = parseFloat(grandTotal.toFixed(2));
         if (quotation.totalAmount !== finalTotal) {
-             setQuotation(prev => prev ? { ...prev, totalAmount: finalTotal } : null);
+            setQuotation(prev => prev ? { ...prev, totalAmount: finalTotal } : null);
         }
     }, [quotation, grandTotal, setQuotation]);
 
@@ -97,7 +97,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
             return { ...prev, [name]: value };
         });
     };
-    
+
     const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
         if (!currentUser) {
             return { product: null, error: "User not authenticated to add a product." };
@@ -110,14 +110,14 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
 
     return (
         <>
-            <AddProductModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
-                onSave={handleAddProduct} 
+            <AddProductModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleAddProduct}
             />
             <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
-                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input type="text" name="clientName" placeholder="اسم العميل" value={quotation.clientName} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
                     <input type="text" name="company" placeholder="الشركة" value={quotation.company} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
                     <input type="text" name="project" placeholder="المشروع" value={quotation.project} onChange={handleInputChange} className={`${inputClasses} lg:col-span-2`} />
@@ -129,9 +129,9 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
                     </select>
                     <input type="number" name="discount" placeholder="الخصم" value={quotation.discount || ''} onChange={handleInputChange} className={inputClasses} />
-                 </div>
-                 
-                 <div className="mt-4 flex items-center gap-2">
+                </div>
+
+                <div className="mt-4 flex items-center gap-2">
                     <label className="text-sm font-medium text-text-secondary">إعدادات الضريبة:</label>
                     <div className="flex items-center gap-2">
                         <button
@@ -151,30 +151,23 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                     </div>
                 </div>
 
-                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
-                 
-                 <div className="hidden md:grid grid-cols-12 gap-x-2 mb-2 text-sm font-bold text-text-secondary text-center">
-                     <div className="col-span-4 text-right">المنتج / الوصف</div>
-                     <div className="col-span-3">الأبعاد</div>
-                     <div className="col-span-1">الكمية</div>
-                     <div className="col-span-1">الوحدة</div>
-                     <div className="col-span-1">السعر</div>
-                     <div className="col-span-1">الإجمالي</div>
-                     <div className="col-span-1"></div>
-                 </div>
+                <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
 
-                 {quotation.items.map((item, index) => (
-                    <DocumentItemRow
-                        key={index}
-                        item={item}
-                        index={index}
-                        onItemChange={handleItemChange}
-                        onProductSelection={handleProductSelection}
-                        onRemoveItem={removeItem}
-                        products={products}
-                        inputClasses={inputClasses}
-                    />
-                 ))}
+                <div className="space-y-3">
+                    {quotation.items.map((item, index) => (
+                        <DocumentItemRow
+                            // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
+                            key={item.id}
+                            item={item}
+                            index={index}
+                            onItemChange={handleItemChange}
+                            onProductSelection={handleProductSelection}
+                            onRemoveItem={() => removeItem(item.id!)}
+                            products={products}
+                            inputClasses={inputClasses}
+                        />
+                    ))}
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between mt-4">
                     <div className="flex items-center gap-4">

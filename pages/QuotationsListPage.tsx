@@ -166,7 +166,7 @@ const QuotationsListPage: React.FC = () => {
                     } : undefined}
                  />
             ) : (
-                <div className="block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[700px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -214,6 +214,48 @@ const QuotationsListPage: React.FC = () => {
                             })}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* --- Mobile Card View --- */}
+            {!loading && quotations.length > 0 && (
+                <div className="lg:hidden space-y-4">
+                    {quotations.map((q) => {
+                        const canEdit = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.EDIT_OWN, q.createdBy);
+                        const canDelete = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.DELETE_OWN, q.createdBy);
+
+                        return (
+                            <div key={q.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                                <div className="flex justify-between items-start mb-3">
+                                    <Link to={`/quotations/${q.id}/view`} className="font-bold text-lg text-primary hover:underline">{q.quotationNumber}</Link>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${!q.taxIncluded ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                                        {!q.taxIncluded ? 'غير شامل ضريبة' : 'شامل ضريبة'}
+                                    </span>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{q.company}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">المشروع:</span> <span className="font-medium text-right">{q.project}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{q.date}</span></div>
+                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{q.totalAmount?.toLocaleString()} {q.currency}</span></div>
+                                </div>
+                                <div className="flex items-center justify-end gap-2 mt-4">
+                                    <Link to={`/quotations/${q.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">
+                                        <EyeIcon className="w-4 h-4" />
+                                    </Link>
+                                    {canEdit && (
+                                        <Link to={`/quotations/${q.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
+                                            <PencilIcon className="w-4 h-4" />
+                                        </Link>
+                                    )}
+                                    {canDelete && (
+                                        <button onClick={() => setQuotationToDelete(q)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </>

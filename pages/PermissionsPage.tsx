@@ -54,7 +54,7 @@ const PermissionsPage: React.FC = () => {
         </p>
       </div>
       
-      <div className="overflow-x-auto">
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full min-w-[1000px] text-right text-sm">
           <thead className="bg-slate-50">
             <tr>
@@ -77,6 +77,25 @@ const PermissionsPage: React.FC = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* --- Mobile Card View --- */}
+      <div className="lg:hidden space-y-4">
+        {roles.map(roleName => (
+            <div key={roleName} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                <h3 className="font-bold text-lg text-primary mb-3 pb-3 border-b border-border">{roleName}</h3>
+                <div className="space-y-4">
+                    {modules.map(moduleName => (
+                        <div key={`${roleName}-${moduleName}-mobile`}>
+                            <p className="font-semibold text-text-primary mb-1">{moduleName}</p>
+                            <div className="text-text-secondary bg-slate-50 p-2 rounded-md text-sm">
+                                {getPermissionDisplay(permissionsConfig[roleName]?.[moduleName])}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        ))}
       </div>
 
        <div className="mt-6 text-left">

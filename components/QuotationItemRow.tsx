@@ -1,20 +1,17 @@
-
 import React from 'react';
-import { DocumentItemState } from '../types';
-import { Product, ProductType, Unit } from '../types';
+import { DocumentItemState, Product, Unit } from '../types';
+import TrashIcon from './icons/TrashIcon';
 
 interface DocumentItemRowProps {
     item: DocumentItemState;
     index: number;
-    onItemChange: (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
-    onProductSelection: (index: number, productId: string) => void;
-    onRemoveItem: (index: number) => void;
+    onItemChange: (index: number, field: keyof DocumentItemState, value: any) => void;
+    onProductSelection: (index: number, productId: number) => void;
+    onRemoveItem: () => void;
     products: Product[];
     inputClasses: string;
 }
 
-// Note: This component has been made generic to handle all document types.
-// For clarity, it should be renamed to DocumentItemRow.tsx in your project.
 const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
     item,
     index,
@@ -22,68 +19,91 @@ const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
     onProductSelection,
     onRemoveItem,
     products,
-    inputClasses
+    inputClasses,
 }) => {
+    const handleSelectProduct = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const productId = parseInt(e.target.value, 10);
+        if (!isNaN(productId)) {
+            onProductSelection(index, productId);
+        }
+    };
+
+    const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        const isNumeric = ['quantity', 'unitPrice', 'length', 'width', 'height'].includes(name);
+        onItemChange(index, name as keyof DocumentItemState, isNumeric ? parseFloat(value) || 0 : value);
+    };
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-y-4 gap-x-2 mb-4 p-4 bg-slate-50 rounded-lg md:p-2 md:bg-transparent md:rounded-none md:items-start border md:border-0 border-border">
-            {/* Product/Description */}
-            <div className="md:col-span-4 space-y-2">
-                <label className="text-xs text-text-secondary md:hidden">المنتج / الوصف</label>
-                <select value={item.productId || 'custom'} onChange={(e) => onProductSelection(index, e.target.value)} className={inputClasses}>
-                    <option value="custom">-- منتج مخصص --</option>
-                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-                <textarea name="description" placeholder="الوصف" value={item.description} onChange={(e) => onItemChange(index, e)} className={`${inputClasses} h-20`} />
+        <div className="bg-slate-50/50 border border-border rounded-lg p-3">
+            {/* Mobile Header */}
+            <div className="md:hidden flex justify-between items-center mb-3">
+                <span className="font-bold text-text-primary truncate w-4/5">{item.description || 'بند جديد'}</span>
+                <button
+                    type="button" 
+                    onClick={onRemoveItem}
+                    className="p-2 text-red-500 hover:bg-red-100 rounded-full"
+                    title="حذف البند"
+                >
+                    <TrashIcon className="w-5 h-5" />
+                </button>
             </div>
 
-            {/* Dimensions */}
-            <div className="md:col-span-3">
-                {item.productType !== ProductType.SIMPLE && <label className="text-xs text-text-secondary md:hidden">الأبعاد</label>}
-                <div className="flex gap-2">
-                    {item.productType === ProductType.DIFFUSER && (
-                        <>
-                            <input type="number" name="length" placeholder="الطول" value={item.length || ''} onChange={(e) => onItemChange(index, e)} className={inputClasses} />
-                            <input type="number" name="width" placeholder="العرض" value={item.width || ''} onChange={(e) => onItemChange(index, e)} className={inputClasses} />
-                        </>
-                    )}
-                    {item.productType === ProductType.CABLE_TRAY && (
-                        <>
-                            <input type="number" name="width" placeholder="العرض" value={item.width || ''} onChange={(e) => onItemChange(index, e)} className={inputClasses} />
-                            <input type="number" name="height" placeholder="الارتفاع" value={item.height || ''} onChange={(e) => onItemChange(index, e)} className={inputClasses} />
-                        </>
-                    )}
+            <div className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-4">
+                {/* Product & Description */}
+                <div className="col-span-2 md:col-span-4 space-y-2">
+                    <div>
+                        <label className="md:hidden text-xs font-medium text-text-secondary">اختر منتج (اختياري)</label>
+                        <select onChange={handleSelectProduct} value={item.productId || ''} className={`${inputClasses} text-sm`}>
+                            <option value="">-- اختر منتج --</option>
+                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="md:hidden text-xs font-medium text-text-secondary">الوصف</label>
+                        <textarea
+                            name="description"
+                            value={item.description}
+                            onChange={handleFieldChange}
+                            placeholder="وصف البند"
+                            rows={2}
+                            className={`${inputClasses} text-sm leading-snug`}
+                        />
+                    </div>
                 </div>
-            </div>
 
-            {/* Quantity */}
-            <div className="md:col-span-1">
-                <label className="text-xs text-text-secondary md:hidden">الكمية</label>
-                <input type="number" name="quantity" placeholder="الكمية" value={item.quantity} onChange={(e) => onItemChange(index, e)} className={inputClasses} />
-            </div>
+                {/* Dimensions */}
+                <div className="col-span-2 md:col-span-3">
+                    <label className="md:hidden text-xs font-medium text-text-secondary">الأبعاد (طول, عرض, ارتفاع)</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        <input type="number" name="length" value={item.length || ''} onChange={handleFieldChange} placeholder="طول" className={`${inputClasses} text-center text-sm`} />
+                        <input type="number" name="width" value={item.width || ''} onChange={handleFieldChange} placeholder="عرض" className={`${inputClasses} text-center text-sm`} />
+                        <input type="number" name="height" value={item.height || ''} onChange={handleFieldChange} placeholder="ارتفاع" className={`${inputClasses} text-center text-sm`} />
+                    </div>
+                </div>
 
-            {/* Unit */}
-            <div className="md:col-span-1">
-                <label className="text-xs text-text-secondary md:hidden">الوحدة</label>
-                <select name="unit" value={item.unit} onChange={(e) => onItemChange(index, e)} className={inputClasses} disabled={!!item.productId}>
-                    {Object.values(Unit).map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-            </div>
+                {/* Quantity, Unit, Price */}
+                <div className="col-span-1"><label className="md:hidden text-xs font-medium text-text-secondary">الكمية</label><input type="number" name="quantity" value={item.quantity || ''} onChange={handleFieldChange} placeholder="الكمية" className={`${inputClasses} text-center text-sm`} /></div>
+                <div className="col-span-1"><label className="md:hidden text-xs font-medium text-text-secondary">الوحدة</label><select name="unit" value={item.unit} onChange={handleFieldChange} className={`${inputClasses} text-center text-sm`}>{Object.values(Unit).map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+                <div className="col-span-1"><label className="md:hidden text-xs font-medium text-text-secondary">السعر</label><input type="number" name="unitPrice" value={item.unitPrice || ''} onChange={handleFieldChange} placeholder="السعر" className={`${inputClasses} text-center text-sm`} /></div>
 
-            {/* Unit Price */}
-            <div className="md:col-span-1">
-                <label className="text-xs text-text-secondary md:hidden">سعر الوحدة</label>
-                <input type="number" step="any" name="unitPrice" placeholder="السعر" value={item.unitPrice} onChange={(e) => onItemChange(index, e)} className={inputClasses} />
-            </div>
+                {/* Total */}
+                <div className="col-span-1 flex flex-col items-start md:items-center justify-center">
+                    <label className="md:hidden text-xs font-medium text-text-secondary">الإجمالي</label>
+                    <span className="font-semibold text-text-primary text-sm pt-1">{item.total?.toLocaleString() || '0'}</span>
+                </div>
 
-            {/* Total */}
-            <div className="md:col-span-1">
-                <label className="text-xs text-text-secondary md:hidden">الإجمالي</label>
-                <input type="text" readOnly value={item.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} className={`${inputClasses} bg-slate-100 cursor-not-allowed text-text-primary`} />
-            </div>
-
-            {/* Remove Button */}
-            <div className="md:col-span-1 flex items-center justify-end">
-                <button onClick={() => onRemoveItem(index)} title="حذف البند" className="w-full md:w-auto bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600 font-bold p-2 rounded transition-colors text-xl leading-none flex items-center justify-center h-10 w-10">×</button>
+                {/* Remove Button (Desktop) */}
+                <div className="hidden md:flex col-span-1 items-center justify-center">
+                    <button
+                        type="button"
+                        onClick={onRemoveItem}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-100 rounded-full"
+                        title="حذف البند"
+                    >
+                        <TrashIcon className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
         </div>
     );

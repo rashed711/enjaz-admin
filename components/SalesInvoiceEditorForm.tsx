@@ -1,7 +1,7 @@
 
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Product, ProductType, Unit, Currency, SalesInvoiceStatus, DocumentItemState, PermissionModule, PermissionAction, SalesInvoice } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Product, ProductType, Unit, Currency, SalesInvoiceStatus, DocumentItemState, PermissionModule, PermissionAction } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
@@ -58,25 +58,21 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice
 
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setInvoice, products);
 
-    const subTotal = useMemo(() => {
-        return invoice?.items.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0;
-    }, [invoice?.items]);
-    
-    const taxInfo = useMemo(() => {
-        return getTaxInfo(invoice.currency);
-    }, [invoice.currency]);
+    const { subTotal, tax, taxInfo, grandTotal } = useMemo(() => {
+        if (!invoice) return { subTotal: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة'}, grandTotal: 0 };
+        const subTotal = invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
+        const taxInfo = getTaxInfo(invoice.currency);
+        const tax = subTotal * taxInfo.rate;
+        const grandTotal = subTotal + tax;
+        return { subTotal, tax, taxInfo, grandTotal };
+    }, [invoice]);
 
-    const tax = subTotal * taxInfo.rate;
-    const grandTotal = subTotal + tax;
 
     useEffect(() => {
-        if (invoice) {
-            const newTotalAmount = parseFloat(subTotal.toFixed(2));
-            if (invoice.totalAmount !== newTotalAmount) {
-                setInvoice(prev => prev ? { ...prev, totalAmount: newTotalAmount } : null);
-            }
+        if (invoice && invoice.totalAmount !== grandTotal) {
+            setInvoice(prev => prev ? { ...prev, totalAmount: parseFloat(grandTotal.toFixed(2)) } : null);
         }
-    }, [subTotal, invoice, setInvoice]);
+    }, [grandTotal, invoice, setInvoice]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -117,28 +113,21 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice
 
                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
 
-                <div className="hidden md:grid grid-cols-12 gap-x-2 mb-2 text-sm font-bold text-text-secondary text-center">
-                    <div className="col-span-4 text-right">المنتج / الوصف</div>
-                    <div className="col-span-3">الأبعاد</div>
-                    <div className="col-span-1">الكمية</div>
-                    <div className="col-span-1">الوحدة</div>
-                    <div className="col-span-1">السعر</div>
-                    <div className="col-span-1">الإجمالي</div>
-                    <div className="col-span-1"></div>
-                </div>
-
-                {invoice.items.map((item, index) => (
+                <div className="space-y-3">
+                    {invoice.items.map((item, index) => (
                     <DocumentItemRow
-                        key={index}
+                        // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
+                        key={item.id}
                         item={item}
                         index={index}
                         onItemChange={handleItemChange}
                         onProductSelection={handleProductSelection}
-                        onRemoveItem={removeItem}
+                        onRemoveItem={() => removeItem(item.id!)}
                         products={products}
                         inputClasses={inputClasses}
                     />
-                ))}
+                    ))}
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
                     <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>

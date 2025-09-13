@@ -252,7 +252,7 @@ const UserManagementPage: React.FC = () => {
                 }}
             />
       ) : (
-          <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+          <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
               <table className="w-full text-right min-w-[640px] text-sm">
                   <thead className="bg-slate-50">
                       <tr>
@@ -283,6 +283,34 @@ const UserManagementPage: React.FC = () => {
                   </tbody>
               </table>
           </div>
+      )}
+
+      {/* --- Mobile Card View --- */}
+      {!loading && !pageError && users.length > 0 && (
+        <div className="lg:hidden space-y-4">
+            {users.map((user) => (
+                <div key={user.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                            <UserCircleIcon className="w-10 h-10 text-text-secondary" />
+                            <div>
+                                <p className="font-bold text-lg text-text-primary">{user.name}</p>
+                                <p className="text-sm text-text-secondary">{user.email}</p>
+                            </div>
+                        </div>
+                        <span className="text-sm font-semibold text-primary">{user.role}</span>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 mt-4 border-t border-border pt-3">
+                        <button onClick={() => openModal(user)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
+                            <PencilIcon className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => setUserToDelete(user)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            ))}
+        </div>
       )}
     </>
   );

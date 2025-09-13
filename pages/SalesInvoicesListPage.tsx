@@ -155,7 +155,7 @@ const SalesInvoicesListPage: React.FC = () => {
                     } : undefined}
                 />
             ) : (
-                <div className="block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[800px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -196,6 +196,40 @@ const SalesInvoicesListPage: React.FC = () => {
                             )})}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* --- Mobile Card View --- */}
+            {!loading && invoices.length > 0 && (
+                <div className="lg:hidden space-y-4">
+                    {invoices.map((i) => {
+                        const canEdit = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.EDIT_OWN, i.createdBy);
+                        const canDelete = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.DELETE_OWN, i.createdBy);
+
+                        return (
+                            <div key={i.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                                <div className="flex justify-between items-start mb-3">
+                                    <Link to={`/sales-invoices/${i.id}/view`} className="font-bold text-lg text-primary hover:underline">{i.invoiceNumber}</Link>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{i.company}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">المسئول:</span> <span className="font-medium text-right">{i.clientName}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
+                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>
+                                </div>
+                                <div className="flex items-center justify-end gap-2 mt-4">
+                                    <Link to={`/sales-invoices/${i.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"><EyeIcon className="w-4 h-4" /></Link>
+                                    {canEdit && (
+                                        <Link to={`/sales-invoices/${i.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200"><PencilIcon className="w-4 h-4" /></Link>
+                                    )}
+                                    {canDelete && (
+                                        <button onClick={() => setInvoiceToDelete(i)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200"><TrashIcon className="w-4 h-4" /></button>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
             )}
         </>

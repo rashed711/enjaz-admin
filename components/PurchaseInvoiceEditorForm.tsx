@@ -27,7 +27,7 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const canChangeStatus = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.CHANGE_STATUS);
-    
+
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setInvoice, products);
 
     const subTotal = useMemo(() => {
@@ -60,14 +60,14 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
 
     return (
         <>
-            <AddProductModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
-                onSave={handleAddProduct} 
+            <AddProductModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleAddProduct}
             />
             <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
-                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل الفاتورة</h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل الفاتورة</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <input type="text" name="supplierName" placeholder="اسم المورد" value={invoice.supplierName} onChange={handleInputChange} className={inputClasses} />
                     <input type="date" name="date" value={invoice.date} onChange={handleInputChange} className={`${inputClasses}`} />
                     <select name="status" value={invoice.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
@@ -78,32 +78,25 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
                         <option value={Currency.SAR}>ريال سعودي (SAR)</option>
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
                     </select>
-                 </div>
-                 
-                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
-                 
-                 <div className="hidden md:grid grid-cols-12 gap-x-2 mb-2 text-sm font-bold text-text-secondary text-center">
-                     <div className="col-span-4 text-right">المنتج / الوصف</div>
-                     <div className="col-span-3">الأبعاد</div>
-                     <div className="col-span-1">الكمية</div>
-                     <div className="col-span-1">الوحدة</div>
-                     <div className="col-span-1">السعر</div>
-                     <div className="col-span-1">الإجمالي</div>
-                     <div className="col-span-1"></div>
-                 </div>
+                </div>
 
-                 {invoice.items.map((item, index) => (
+                <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
+
+                <div className="space-y-3">
+                    {invoice.items.map((item, index) => (
                     <DocumentItemRow
-                        key={index}
+                        // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
+                        key={item.id}
                         item={item}
                         index={index}
                         onItemChange={handleItemChange}
                         onProductSelection={handleProductSelection}
-                        onRemoveItem={removeItem}
+                        onRemoveItem={() => removeItem(item.id!)}
                         products={products}
                         inputClasses={inputClasses}
                     />
-                 ))}
+                    ))}
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
                     <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
