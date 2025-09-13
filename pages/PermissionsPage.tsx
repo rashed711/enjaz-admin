@@ -2,33 +2,48 @@ import React from 'react';
 import { Role, PermissionModule, PermissionAction } from '../types';
 import { permissionsConfig } from '../utils/permissionsConfig';
 
+// A map to associate permission actions with their Arabic labels for better maintainability.
+const permissionActionLabels: Record<PermissionAction, string> = {
+  [PermissionAction.CREATE]: 'إنشاء',
+  [PermissionAction.VIEW_ALL]: 'عرض الكل',
+  [PermissionAction.VIEW_OWN]: 'عرض الخاص به',
+  [PermissionAction.EDIT_ALL]: 'تعديل الكل',
+  [PermissionAction.EDIT_OWN]: 'تعديل الخاص به',
+  [PermissionAction.DELETE_ALL]: 'حذف الكل',
+  [PermissionAction.DELETE_OWN]: 'حذف الخاص به',
+  [PermissionAction.CHANGE_STATUS]: 'تغيير الحالة',
+  [PermissionAction.MANAGE]: 'إدارة كاملة',
+};
+
+// This helper function is moved outside the component to prevent re-creation on every render.
+// It generates the display text for a set of permissions.
+const getPermissionDisplay = (permissions: PermissionAction[] = []): React.ReactNode => {
+  if (permissions.includes(PermissionAction.MANAGE)) {
+    return <span className="font-bold text-primary">{permissionActionLabels[PermissionAction.MANAGE]}</span>;
+  }
+  if (permissions.length === 0) {
+    return <span className="text-text-secondary">-</span>;
+  }
+
+  const labels: string[] = [];
+  if (permissions.includes(PermissionAction.CREATE)) labels.push(permissionActionLabels[PermissionAction.CREATE]);
+  if (permissions.includes(PermissionAction.VIEW_ALL)) labels.push(permissionActionLabels[PermissionAction.VIEW_ALL]);
+  else if (permissions.includes(PermissionAction.VIEW_OWN)) labels.push(permissionActionLabels[PermissionAction.VIEW_OWN]);
+
+  if (permissions.includes(PermissionAction.EDIT_ALL)) labels.push(permissionActionLabels[PermissionAction.EDIT_ALL]);
+  else if (permissions.includes(PermissionAction.EDIT_OWN)) labels.push(permissionActionLabels[PermissionAction.EDIT_OWN]);
+
+  if (permissions.includes(PermissionAction.DELETE_ALL)) labels.push(permissionActionLabels[PermissionAction.DELETE_ALL]);
+  else if (permissions.includes(PermissionAction.DELETE_OWN)) labels.push(permissionActionLabels[PermissionAction.DELETE_OWN]);
+
+  if (permissions.includes(PermissionAction.CHANGE_STATUS)) labels.push(permissionActionLabels[PermissionAction.CHANGE_STATUS]);
+  
+  return labels.join('، ');
+};
+
 const PermissionsPage: React.FC = () => {
   const roles = Object.values(Role);
   const modules = Object.values(PermissionModule);
-
-  const getPermissionLabel = (permissions: PermissionAction[] = []): React.ReactNode => {
-    if (permissions.includes(PermissionAction.MANAGE)) {
-      return <span className="font-bold text-primary">إدارة كاملة</span>;
-    }
-    if (permissions.length === 0) {
-      return <span className="text-text-secondary">-</span>;
-    }
-    
-    const labels: string[] = [];
-    if (permissions.includes(PermissionAction.CREATE)) labels.push('إنشاء');
-    if (permissions.includes(PermissionAction.VIEW_ALL)) labels.push('عرض الكل');
-    else if (permissions.includes(PermissionAction.VIEW_OWN)) labels.push('عرض الخاص به');
-
-    if (permissions.includes(PermissionAction.EDIT_ALL)) labels.push('تعديل الكل');
-    else if (permissions.includes(PermissionAction.EDIT_OWN)) labels.push('تعديل الخاص به');
-
-    if (permissions.includes(PermissionAction.DELETE_ALL)) labels.push('حذف الكل');
-    else if (permissions.includes(PermissionAction.DELETE_OWN)) labels.push('حذف الخاص به');
-
-    if (permissions.includes(PermissionAction.CHANGE_STATUS)) labels.push('تغيير الحالة');
-    
-    return labels.join('، ');
-  };
 
   return (
     <div className="bg-card rounded-lg shadow-sm border border-border p-6">
@@ -52,10 +67,10 @@ const PermissionsPage: React.FC = () => {
           <tbody className="text-text-primary divide-y divide-border">
             {roles.map(roleName => (
               <tr key={roleName} className="hover:bg-slate-50">
-                <td className="px-3 py-4 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border z-10">{roleName}</td>
+                <td className="px-3 py-4 font-semibold sticky right-0 bg-card hover:bg-slate-50 border-l border-border z-10">{roleName}</td>
                 {modules.map(moduleName => (
                   <td key={`${roleName}-${moduleName}`} className="px-3 py-4 text-center">
-                    {getPermissionLabel(permissionsConfig[roleName]?.[moduleName])}
+                    {getPermissionDisplay(permissionsConfig[roleName]?.[moduleName])}
                   </td>
                 ))}
               </tr>

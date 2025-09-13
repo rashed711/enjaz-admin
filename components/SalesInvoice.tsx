@@ -56,7 +56,7 @@ const PrintView: React.FC<{
         <section className="mt-12">
             <table className="w-full text-sm">
                 <thead>
-                    <tr className="bg-[#10B981] text-white text-left">
+                    <tr className="bg-primary text-white text-left">
                         <th className="p-4 font-semibold uppercase tracking-wider">البند / الوصف</th>
                         <th className="p-4 font-semibold uppercase tracking-wider text-center">الكمية</th>
                         <th className="p-4 font-semibold uppercase tracking-wider text-center">الوحدة</th>
@@ -91,7 +91,7 @@ const PrintView: React.FC<{
                         <span>{formatNumber(tax)}</span>
                     </div>
                     <div className="border-t-2 border-dashed border-gray-300 my-4"></div>
-                    <div className="flex justify-between text-white bg-[#10B981] p-4 rounded-lg">
+                    <div className="flex justify-between text-white bg-primary p-4 rounded-lg">
                         <span className="font-bold text-lg">الإجمالي الكلي</span>
                         <span className="font-bold text-xl">{formatNumber(grandTotal)}</span>
                     </div>
@@ -178,7 +178,7 @@ const OnScreenView: React.FC<{
             <section className="mt-12">
                 <table className="w-full text-sm min-w-[600px]">
                     <thead>
-                        <tr className="bg-[#10B981] text-white text-left">
+                        <tr className="bg-primary text-white text-left">
                             <th className="p-4 font-semibold uppercase tracking-wider">البند / الوصف</th>
                             <th className="p-4 font-semibold uppercase tracking-wider text-center">الكمية</th>
                             <th className="p-4 font-semibold uppercase tracking-wider text-center">الوحدة</th>
@@ -214,7 +214,7 @@ const OnScreenView: React.FC<{
                         <span>{formatNumber(tax)}</span>
                     </div>
                     <div className="border-t-2 border-dashed border-gray-300 my-4"></div>
-                    <div className="flex justify-between text-white bg-[#10B981] p-4 rounded-lg">
+                    <div className="flex justify-between text-white bg-primary p-4 rounded-lg">
                         <span className="font-bold text-lg">الإجمالي الكلي</span>
                         <span className="font-bold text-xl">{formatNumber(grandTotal)}</span>
                     </div>

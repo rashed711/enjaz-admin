@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SalesInvoice, Currency } from '../types';
+import { SalesInvoice, Currency, PermissionModule, PermissionAction } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { usePermissions } from '../hooks/usePermissions';
 import { supabase } from '../services/supabaseClient';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import EmptyState from '../components/EmptyState';
@@ -17,10 +18,15 @@ const SalesInvoicesListPage: React.FC = () => {
     const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
     const [loading, setLoading] = useState(true);
     const { currentUser } = useAuth();
+    const permissions = usePermissions();
     const navigate = useNavigate();
     const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    const canCreate = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CREATE);
+    const canViewAll = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_ALL);
+    const canViewOwn = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_OWN);
 
     useEffect(() => {
         const fetchInvoices = async () => {
@@ -28,10 +34,21 @@ const SalesInvoicesListPage: React.FC = () => {
             
             setLoading(true);
             try {
-                let { data, error } = await supabase
+                if (!canViewAll && !canViewOwn) {
+                    setInvoices([]);
+                    setLoading(false);
+                    return;
+                }
+
+                let query = supabase
                     .from('sales_invoices')
-                    .select('*')
-                    .order('date', { ascending: false });
+                    .select('*');
+
+                if (!canViewAll && canViewOwn) {
+                    query = query.eq('created_by', currentUser.id);
+                }
+
+                let { data, error } = await query.order('date', { ascending: false });
 
                 if (error) {
                     // Gracefully handle the error if the table doesn't exist yet
@@ -71,7 +88,7 @@ const SalesInvoicesListPage: React.FC = () => {
         if (currentUser) {
             fetchInvoices();
         }
-    }, [currentUser]);
+    }, [currentUser, permissions, canViewAll, canViewOwn]);
 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete || !invoiceToDelete.id) return;
@@ -115,12 +132,14 @@ const SalesInvoicesListPage: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary">قائمة فواتير المبيعات</h2>
-                <button 
-                    onClick={() => navigate('/sales-invoices/new')}
-                    className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
-                >
-                    + إنشاء فاتورة جديدة
-                </button>
+                {canCreate && (
+                    <button 
+                        onClick={() => navigate('/sales-invoices/new')}
+                        className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
+                    >
+                        + إنشاء فاتورة جديدة
+                    </button>
+                )}
             </div>
 
             {loading ? (
@@ -129,11 +148,11 @@ const SalesInvoicesListPage: React.FC = () => {
                 <EmptyState
                     Icon={DocumentTextIcon}
                     title="لا توجد فواتير مبيعات"
-                    message="ابدأ بإنشاء فاتورة جديدة أو قم بتحويل عرض سعر إلى فاتورة."
-                    action={{
+                    message={canCreate ? "ابدأ بإنشاء فاتورة جديدة أو قم بتحويل عرض سعر إلى فاتورة." : "ليس لديك صلاحية لعرض فواتير المبيعات."}
+                    action={canCreate ? {
                         label: '+ إنشاء فاتورة جديدة',
                         onClick: () => navigate('/sales-invoices/new')
-                    }}
+                    } : undefined}
                 />
             ) : (
                 <div className="block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
@@ -150,23 +169,31 @@ const SalesInvoicesListPage: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
-                            {invoices.map((i) => (
+                            {invoices.map((i) => {
+                                const canEdit = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.EDIT_OWN, i.createdBy);
+                                const canDelete = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.DELETE_OWN, i.createdBy);
+
+                                return (
                                 <tr key={i.id} className="hover:bg-slate-50">
-                                    <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{i.invoiceNumber}</td>
+                                    <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-card hover:bg-slate-50 border-l border-border">{i.invoiceNumber}</td>
                                     <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                     <td className="px-3 py-3">{i.company}</td>
                                     <td className="px-3 py-3">{i.clientName}</td>
                                     <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
                                     <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString()} {i.currency}</td>
-                                    <td className="px-3 py-3 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
+                                    <td className="px-3 py-3 text-left sticky left-0 bg-card hover:bg-slate-50 border-r border-border">
                                         <div className="flex items-center justify-end gap-2">
                                             <Link to={`/sales-invoices/${i.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"><EyeIcon className="w-4 h-4" /></Link>
-                                            <Link to={`/sales-invoices/${i.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200"><PencilIcon className="w-4 h-4" /></Link>
-                                            <button onClick={() => setInvoiceToDelete(i)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200"><TrashIcon className="w-4 h-4" /></button>
+                                            {canEdit && (
+                                                <Link to={`/sales-invoices/${i.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200"><PencilIcon className="w-4 h-4" /></Link>
+                                            )}
+                                            {canDelete && (
+                                                <button onClick={() => setInvoiceToDelete(i)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200"><TrashIcon className="w-4 h-4" /></button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
                 </div>

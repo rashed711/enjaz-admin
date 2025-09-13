@@ -186,13 +186,13 @@ const QuotationsListPage: React.FC = () => {
 
                                 return (
                                     <tr key={q.id} className="hover:bg-slate-50">
-                                        <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
+                                        <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-card hover:bg-slate-50 border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{q.date}</td>
                                         <td className="px-3 py-3">{q.company}</td>
                                         <td className="px-3 py-3">{q.clientName}</td>
                                         <td className="px-3 py-3">{q.project}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{q.totalAmount?.toLocaleString()} {q.currency}</td>
-                                        <td className="px-3 py-3 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
+                                        <td className="px-3 py-3 text-left sticky left-0 bg-card hover:bg-slate-50 border-r border-border">
                                             <div className="flex items-center justify-end gap-2">
                                                 <Link to={`/quotations/${q.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">
                                                     <EyeIcon className="w-4 h-4" />
