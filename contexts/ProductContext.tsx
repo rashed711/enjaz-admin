@@ -24,100 +24,45 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch all products
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('id, name, unit_price, product_type, unit')
-        .order('created_at', { ascending: false });
+      // This RPC function is much more efficient as it calculates averages in the database.
+      const { data, error } = await supabase.rpc('get_products_with_stats');
 
-      if (productsError) throw productsError;
-
-      // 2. Fetch all sales invoice items for more accurate sales data
-      const { data: saleItemsData, error: saleItemsError } = await supabase
-        .from('sales_invoice_items')
-        .select('product_id, quantity, total')
-        .not('product_id', 'is', null);
-
-      let saleItems = saleItemsData;
-
-      if (saleItemsError) {
-        // Gracefully handle "table not found" error, which can happen before DB migration
-        if (saleItemsError.message.includes('does not exist') || saleItemsError.message.includes('in the schema cache')) {
-            console.warn("`sales_invoice_items` table not found. Average selling price will be 0. Please run the database migration script.");
-            saleItems = []; // Treat as empty if table is missing, allowing the rest of the app to function.
-        } else {
-            // For other, unexpected errors, we should still throw them to be aware of issues.
-            throw saleItemsError;
-        }
-      }
-
-      // 3. Fetch all purchase invoice items with a product_id
-      const { data: purchaseItems, error: purchaseItemsError } = await supabase
-        .from('purchase_invoice_items')
-        .select('product_id, quantity, total')
-        .not('product_id', 'is', null);
-
-      if (purchaseItemsError) throw purchaseItemsError;
-
-      // Helper function to process items and aggregate stats robustly
-      const processItems = (items: any[], statsMap: Map<number, { totalValue: number; totalQuantity: number }>) => {
-        if (!Array.isArray(items)) {
-          console.warn('processItems expected an array but received:', items);
-          return;
-        }
-
-        for (const item of items) {
-          if (!item || typeof item !== 'object' || !item.product_id) {
-            continue;
-          }
-
-          const total = Number(item.total || 0);
-          const quantity = Number(item.quantity || 0);
-          const productId = Number(item.product_id);
-          
-          if (isNaN(productId) || isNaN(total) || isNaN(quantity) || quantity <= 0) {
-            console.warn('Skipping invoice item with invalid or non-positive quantity data:', item);
-            continue;
-          }
-
-          const stats = statsMap.get(productId) || { totalValue: 0, totalQuantity: 0 };
-          stats.totalValue += total;
-          stats.totalQuantity += quantity;
-          statsMap.set(productId, stats);
-        }
-      };
-
-
-      // 4. Process sale items to calculate total value and quantity per product
-      const saleStats = new Map<number, { totalValue: number; totalQuantity: number }>();
-      processItems(saleItems, saleStats);
-
-      // 5. Process purchase items to calculate total value and quantity per product
-      const purchaseStats = new Map<number, { totalValue: number; totalQuantity: number }>();
-      processItems(purchaseItems, purchaseStats);
-
-      // 6. Augment product data with calculated averages
-      const formattedProducts: Product[] = productsData.map(p => {
-        const pSaleStats = saleStats.get(p.id);
-        const averageSellingPrice = pSaleStats && pSaleStats.totalQuantity > 0 ? pSaleStats.totalValue / pSaleStats.totalQuantity : 0;
+      if (error) {
+        console.warn('Warning: RPC "get_products_with_stats" failed. Falling back to client-side calculation. This is less performant. Please ensure the database function is created for optimal performance. Error:', error.message);
+        // The RPC call failed, likely because the DB function is not set up.
+        // We will proceed with the slower, client-side calculation method.
+        // Fallback to a simpler fetch if the RPC fails (e.g., not migrated yet)
+        const { data: basicProducts, error: basicError } = await supabase
+          .from('products')
+          .select('id, name, unit_price, product_type, unit')
+          .order('created_at', { ascending: false });
         
-        const pPurchaseStats = purchaseStats.get(p.id);
-        const averagePurchasePrice = pPurchaseStats && pPurchaseStats.totalQuantity > 0 ? pPurchaseStats.totalValue / pPurchaseStats.totalQuantity : 0;
+        if (basicError) throw basicError;
 
-        return {
+        const fallbackProducts: Product[] = basicProducts.map(p => ({
           id: p.id,
           name: p.name,
           sellingPrice: p.unit_price, // Map db field `unit_price` to `sellingPrice`
           productType: p.product_type as ProductType,
           unit: p.unit as Unit,
-          averageSellingPrice,
-          averagePurchasePrice,
-        };
-      });
-
-      setProducts(formattedProducts);
+          averagePurchasePrice: 0,
+          averageSellingPrice: 0,
+        }));
+        setProducts(fallbackProducts);
+      } else {
+        const formattedProducts: Product[] = data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sellingPrice: p.unit_price,
+          productType: p.product_type as ProductType,
+          unit: p.unit as Unit,
+          averagePurchasePrice: p.average_purchase_price,
+          averageSellingPrice: p.average_selling_price,
+        }));
+        setProducts(formattedProducts);
+      }
     } catch (error: any) {
-        console.error('Error fetching products and calculating averages:', error.message);
+        console.error('Critical error in fetchProducts:', error.message);
         setProducts([]);
     } finally {
         setLoading(false);
@@ -153,7 +98,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     
     if(data) {
-        await fetchProducts(); 
+        // Optimistic update: add the new product to the local state immediately.
+        // The full list with updated averages will be fetched on the next page load/refresh.
         const addedProduct = {
             id: data.id,
             name: data.name,
@@ -161,6 +107,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             productType: data.product_type as ProductType,
             unit: data.unit as Unit,
         };
+        setProducts(prev => [addedProduct, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
         return { product: addedProduct, error: null };
     }
     return { product: null, error: 'Failed to add product for an unknown reason.' };
@@ -185,7 +132,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     
     if(data) {
-        await fetchProducts();
+        // Optimistic update: update the product in the local state.
+        // The full list with updated averages will be fetched on the next page load/refresh.
         const updatedProduct = {
             id: data.id,
             name: data.name,
@@ -193,6 +141,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             productType: data.product_type as ProductType,
             unit: data.unit as Unit,
         };
+        setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
         return { product: updatedProduct, error: null };
     }
     return { product: null, error: 'Failed to update product for an unknown reason.' };
@@ -209,7 +158,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         return false;
     }
 
-    await fetchProducts();
+    // Optimistic update: remove the product from local state.
+    setProducts(prev => prev.filter(p => p.id !== productId));
     return true;
   }, [fetchProducts]);
 

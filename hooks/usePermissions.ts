@@ -1,11 +1,12 @@
 
 import { useAuth } from './useAuth';
-import { permissionsConfig } from '../utils/permissionsConfig';
+import { usePermissionsConfig } from '../contexts/PermissionsContext';
 import { PermissionModule, PermissionAction, Role } from '../types';
 import { useCallback, useMemo } from 'react';
 
 export const usePermissions = () => {
   const { currentUser } = useAuth();
+  const { config: permissionsConfig } = usePermissionsConfig();
 
   const can = useCallback((module: PermissionModule, action: PermissionAction, resourceOwnerId?: string): boolean => {
     if (!currentUser) return false;
@@ -41,7 +42,7 @@ export const usePermissions = () => {
     }
 
     return false;
-  }, [currentUser]);
+  }, [currentUser, permissionsConfig]);
 
   return useMemo(() => ({ can }), [can]);
 };

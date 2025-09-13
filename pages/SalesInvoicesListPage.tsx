@@ -13,6 +13,7 @@ import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import { getStatusChipClassName } from '../utils/uiHelpers';
+import Pagination from '../components/Pagination';
 
 const SalesInvoicesListPage: React.FC = () => {
     const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
@@ -23,6 +24,11 @@ const SalesInvoicesListPage: React.FC = () => {
     const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(15);
+    const [totalCount, setTotalCount] = useState(0);
 
     const canCreate = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CREATE);
     const canViewAll = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_ALL);
@@ -46,15 +52,21 @@ const SalesInvoicesListPage: React.FC = () => {
                     return;
                 }
 
+                // Calculate the range for the current page
+                const from = (currentPage - 1) * itemsPerPage;
+                const to = from + itemsPerPage - 1;
+
                 let query = supabase
                     .from('sales_invoices')
-                    .select('*');
+                    .select('*, profiles(name)', { count: 'exact' });
 
                 if (!canViewAll && canViewOwn) {
                     query = query.eq('created_by', currentUser.id);
                 }
 
-                let { data, error } = await query.order('date', { ascending: false });
+                let { data, error, count } = await query
+                    .order('date', { ascending: false })
+                    .range(from, to);
 
                 if (error) {
                     // Gracefully handle the error if the table doesn't exist yet
@@ -80,8 +92,10 @@ const SalesInvoicesListPage: React.FC = () => {
                         totalAmount: i.total_amount,
                         createdBy: i.created_by,
                         quotationId: i.quotation_id,
+                        creatorName: (i.profiles as { name: string })?.name || 'غير معروف',
                     }));
                     setInvoices(formattedInvoices);
+                    setTotalCount(count ?? 0);
                 }
             } catch (e: any) {
                 console.error("An unexpected error occurred while fetching sales invoices:", e.message);
@@ -92,7 +106,7 @@ const SalesInvoicesListPage: React.FC = () => {
         };
 
         fetchInvoices();
-    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn]);
+    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn, currentPage, itemsPerPage]);
 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete || !invoiceToDelete.id) return;
@@ -159,7 +173,8 @@ const SalesInvoicesListPage: React.FC = () => {
                     } : undefined}
                 />
             ) : (
-                <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <>
+                    <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[800px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -200,7 +215,14 @@ const SalesInvoicesListPage: React.FC = () => {
                             )})}
                         </tbody>
                     </table>
-                </div>
+                    </div>
+                    <Pagination
+                        currentPage={currentPage}
+                        totalCount={totalCount}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={page => setCurrentPage(page)}
+                    />
+                </>
             )}
 
             {/* --- Mobile Card View --- */}

@@ -79,6 +79,7 @@ export interface Quotation {
   createdBy: string; // Stays string for Supabase UUID
   taxIncluded: boolean;
   discount: number;
+  creatorName?: string;
 }
 
 // --- New Interfaces for Purchase Invoices ---
@@ -98,6 +99,7 @@ export interface PurchaseInvoice {
   items: DocumentItem[];
   totalAmount: number;
   createdBy: string;
+  creatorName?: string;
 }
 
 // --- New Interfaces for Sales Invoices ---
@@ -122,6 +124,7 @@ export interface SalesInvoice {
   totalAmount: number;
   createdBy: string;
   quotationId?: number; // Link to the original quotation
+  creatorName?: string;
 }
 
 // --- New Types for Permissions System ---
