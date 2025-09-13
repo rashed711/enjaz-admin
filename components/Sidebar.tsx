@@ -53,8 +53,8 @@ const Sidebar: React.FC = () => {
                 return null;
             }
 
-            // The "Management" item is a special case; it acts as a collapsible group.
-            if (item.path === '/management' && item.children) {
+            // Any item with children that are meant for a sub-menu is a collapsible group.
+            if (item.children && item.children.some(c => c.inSubMenu)) {
                 return (
                 <div key={item.path}>
                     <button 
@@ -71,7 +71,7 @@ const Sidebar: React.FC = () => {
                     </button>
                     {openSubMenu === item.path && (
                         <div id={`submenu-${item.path}`} className="mr-4 mt-2 space-y-2 border-r-2 border-border pr-3 animate-fade-in-scale origin-top">
-                            {item.children.filter(child => canShowLink(child.roles)).map(child => (
+                            {item.children.filter(child => child.inSubMenu && canShowLink(child.roles)).map(child => (
                             <NavLink
                                 key={child.path}
                                 to={child.path}

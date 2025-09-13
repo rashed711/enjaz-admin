@@ -17,7 +17,7 @@ import { getStatusChipClassName } from '../utils/uiHelpers';
 const SalesInvoicesListPage: React.FC = () => {
     const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
     const [loading, setLoading] = useState(true);
-    const { currentUser } = useAuth();
+    const { currentUser, loading: isAuthLoading } = useAuth();
     const permissions = usePermissions();
     const navigate = useNavigate();
     const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null);
@@ -30,8 +30,14 @@ const SalesInvoicesListPage: React.FC = () => {
 
     useEffect(() => {
         const fetchInvoices = async () => {
-            if (!currentUser) return;
+            // Don't fetch until the auth state is confirmed
+            if (isAuthLoading) {
+                return;
+            }
             
+            // If auth is resolved and there's no user, stop loading and show empty state.
+            if (!currentUser) { setLoading(false); setInvoices([]); return; }
+
             setLoading(true);
             try {
                 if (!canViewAll && !canViewOwn) {
@@ -85,10 +91,8 @@ const SalesInvoicesListPage: React.FC = () => {
             }
         };
 
-        if (currentUser) {
-            fetchInvoices();
-        }
-    }, [currentUser, permissions, canViewAll, canViewOwn]);
+        fetchInvoices();
+    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn]);
 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete || !invoiceToDelete.id) return;

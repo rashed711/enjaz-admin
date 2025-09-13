@@ -18,7 +18,7 @@ import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 const QuotationsListPage: React.FC = () => {
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [loading, setLoading] = useState(true);
-    const { currentUser } = useAuth();
+    const { currentUser, loading: isAuthLoading } = useAuth();
     const { fetchProducts } = useProducts();
     const navigate = useNavigate();
     const permissions = usePermissions();
@@ -32,8 +32,14 @@ const QuotationsListPage: React.FC = () => {
 
     useEffect(() => {
         const fetchQuotations = async () => {
-            if (!currentUser) return;
+            // Don't fetch until the auth state is confirmed
+            if (isAuthLoading) {
+                return;
+            }
             
+            // If auth is resolved and there's no user, stop loading and show empty state.
+            if (!currentUser) { setLoading(false); setQuotations([]); return; }
+
             setLoading(true);
             try {
                 if (!canViewAll && !canViewOwn) {
@@ -79,13 +85,8 @@ const QuotationsListPage: React.FC = () => {
             }
         };
 
-        if (currentUser) {
-            fetchQuotations();
-        } else {
-            setLoading(false);
-            setQuotations([]);
-        }
-    }, [currentUser, permissions, canViewAll, canViewOwn]);
+        fetchQuotations();
+    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn]);
 
     const handleConfirmDelete = async () => {
         if (!quotationToDelete || !quotationToDelete.id) return;

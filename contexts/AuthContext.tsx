@@ -1,118 +1,143 @@
-import React, { createContext, useState, ReactNode, useEffect, useContext, useMemo, useCallback } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import { supabase } from '../services/supabaseClient';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, Role } from '../types';
-// Re-enable import for Session type from supabase-js v2
-import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
-  currentUser: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error: string | null }>;
-  logout: () => Promise<void>;
+    currentUser: User | null;
+    loading: boolean;
+    login: (email: string, password: string) => Promise<{ success: boolean; error: string | null; }>;
+    logout: () => Promise<void>;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-// Use the correct Session type from v2
-const processSession = async (session: Session | null): Promise<User | null> => {
-  if (!session?.user) return null;
-
-  const { user } = session;
-
-  try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('name, role, email') // Fetch email from profiles as well
-      .eq('id', user.id)
-      .single();
-
-    // If a profile doesn't exist, `error` will be set. This is not a fatal error.
-    if (error) {
-        console.warn(`Could not fetch profile for user ${user.id}: ${error.message}`);
-    }
-
-    return {
-      id: user.id,
-      // Prioritize email from profile table, fallback to auth user email
-      email: profile?.email || user.email || '',
-      name: profile?.name || user.email || 'User',
-      role: (profile?.role as Role) || Role.CLIENT,
-    };
-  } catch (e: any) {
-    console.error("A critical error occurred while processing user session:", e.message);
-    // Return a default user object to prevent the app from crashing.
-    return {
-      id: user.id,
-      email: user.email || '',
-      name: 'Error loading profile',
-      role: Role.CLIENT,
-    };
-  }
+// Create a default no-op implementation for the context to satisfy the initial createContext call.
+const defaultAuthContext: AuthContextType = {
+    currentUser: null,
+    loading: true,
+    login: async () => ({ success: false, error: 'Auth provider not ready' }),
+    logout: async () => {},
 };
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
-  useEffect(() => {
-    // This function robustly handles the initial session on page load.
-    const initializeSession = async () => {
-        // 1. Explicitly fetch the session on initial load using the v2 method.
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
+/**
+ * This function is the single source of truth for creating a valid app user object.
+ * It fetches the user's profile from the 'profiles' table.
+ * IMPORTANT: It will throw an error if the profile cannot be fetched, making failures explicit.
+ * This helps diagnose issues like RLS policies preventing access.
+ */
+const getAppUser = async (supabaseUser: SupabaseUser): Promise<User> => {
+    // This query can hang if RLS policies are incorrect. We'll race it against a timeout
+    // to prevent the login screen from freezing indefinitely.
+    const profileQuery = supabase
+        .from('profiles')
+        .select('name, role')
+        .eq('id', supabaseUser.id)
+        .single();
+
+    const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 8000) // 8-second timeout
+    );
+
+    try {
+        const { data: profile, error } = await Promise.race([profileQuery, timeoutPromise]);
+
         if (error) {
-            console.error("Error getting session:", error.message);
+            console.error("CRITICAL: Failed to fetch user profile.", error);
+            throw new Error(`فشل جلب ملف المستخدم. قد تكون هناك مشكلة في صلاحيات الوصول إلى قاعدة البيانات (RLS).`);
         }
 
-        // 2. Process the session to get user profile data.
-        const user = await processSession(session);
-        setCurrentUser(user);
+        if (!profile) {
+            throw new Error(`لم يتم العثور على ملف تعريف للمستخدم. يرجى التأكد من وجود سجل مطابق في جدول 'profiles'.`);
+        }
 
-        // 3. Set loading to false only after the initial check is complete.
-        setLoading(false);
-    };
-
-    initializeSession();
-
-    // 4. Set up a listener for any subsequent auth state changes (login, logout, etc.).
-    // Use the correct v2 destructuring for the subscription object.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        const user = await processSession(session);
-        setCurrentUser(user);
-    });
-
-    // 5. Cleanup the subscription when the component unmounts.
-    return () => {
-        subscription?.unsubscribe();
-    };
-  }, []);
-
-  const login = useCallback(async (email: string, password: string) => {
-    // Use `signInWithPassword`, which is the correct method for supabase-js v2.
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { success: !error, error: error ? error.message : null };
-  }, []);
-
-  const logout = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        console.error("Error logging out:", error.message);
+        return {
+            id: supabaseUser.id,
+            email: supabaseUser.email || '',
+            name: profile.name,
+            role: profile.role,
+        };
+    } catch (e: any) {
+        if (e.message === 'Query timeout') {
+            console.error("CRITICAL: Timed out while fetching user profile. This is very likely an RLS policy issue.");
+            throw new Error('فشل جلب ملف المستخدم: استغرق الطلب وقتاً طويلاً. يرجى التحقق من صلاحيات الوصول إلى قاعدة البيانات (RLS).');
+        }
+        // Re-throw other errors (like the ones we throw manually above)
+        throw e;
     }
-    setCurrentUser(null);
-  }, []);
-  
-  const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading, login, logout]);
+};
 
-  return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const getSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                try {
+                    const appUser = await getAppUser(session.user);
+                    setCurrentUser(appUser);
+                } catch (e) {
+                    console.error("Failed to restore session:", e);
+                    // If we can't get the profile, treat the user as logged out.
+                    await supabase.auth.signOut();
+                    setCurrentUser(null);
+                }
+            }
+            setLoading(false);
+        };
+
+        getSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (_event, session) => {
+                if (session?.user) {
+                    try {
+                        const appUser = await getAppUser(session.user);
+                        setCurrentUser(appUser);
+                    } catch (e) {
+                        console.error("Auth state change failed to update user:", e);
+                        setCurrentUser(null);
+                    }
+                } else {
+                    setCurrentUser(null);
+                }
+            }
+        );
+
+        return () => {
+            subscription?.unsubscribe();
+        };
+    }, []);
+
+    const login = async (email: string, password: string) => {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+            return { success: false, error: signInError.message };
+        }
+        if (data.user) {
+            try {
+                // This will throw if the profile fetch fails, and the catch block will handle it.
+                const appUser = await getAppUser(data.user);
+                setCurrentUser(appUser); // Manually set user for immediate feedback before navigation.
+                return { success: true, error: null };
+            } catch (e: any) {
+                // If getAppUser fails (e.g., no profile found), sign out the user to prevent an inconsistent state.
+                await supabase.auth.signOut();
+                // The error from getAppUser is user-friendly and explains the likely RLS issue.
+                return { success: false, error: e.message };
+            }
+        }
+        return { success: false, error: 'An unknown error occurred during login.' };
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
+        // The onAuthStateChange listener will set currentUser to null.
+    };
+
+    const value = { currentUser, loading, login, logout };
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

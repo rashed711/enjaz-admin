@@ -1,13 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { navigationConfig } from '../navigation';
 import { Role } from '../types';
 
 const ManagementPage: React.FC = () => {
     const { currentUser } = useAuth();
-    
-    const managementNav = navigationConfig.find(item => item.path === '/management');
+    const location = useLocation();
+    const managementNav = navigationConfig.find(item => item.path === location.pathname);
     
     if (!currentUser || !managementNav || !managementNav.children) {
         return <p>لا يمكن الوصول لهذه الصفحة.</p>;
@@ -18,7 +18,7 @@ const ManagementPage: React.FC = () => {
         return roles.includes(currentUser.role);
     };
 
-    const accessibleLinks = managementNav.children.filter(child => canShowLink(child.roles));
+    const accessibleLinks = managementNav.children.filter(child => child.inSubMenu && canShowLink(child.roles));
 
     return (
         <div className="space-y-6">

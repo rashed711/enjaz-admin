@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../hooks/useAuth';
 import { User, Role } from '../types';
 import UserModal, { UserFormData } from '../components/UserModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
@@ -12,6 +13,7 @@ import TrashIcon from '../components/icons/TrashIcon';
 
 // --- UserManagementPage Component ---
 const UserManagementPage: React.FC = () => {
+  const { currentUser, loading: isAuthLoading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,8 +54,18 @@ const UserManagementPage: React.FC = () => {
 
 
   useEffect(() => {
+    // Don't fetch until the auth state is confirmed
+    if (isAuthLoading) {
+        return;
+    }
+    // If auth is resolved and there's no user, stop loading and show empty state.
+    if (!currentUser) {
+        setLoading(false);
+        setUsers([]);
+        return;
+    }
     fetchUsers();
-  }, []);
+  }, [currentUser, isAuthLoading]);
   
   const showNotification = (message: string) => {
     setNotification(message);

@@ -18,8 +18,15 @@ const AppRoutes: React.FC = () => {
       return roles.includes(currentUser.role);
   }
   
-  const allRoutes = navigationConfig.flatMap(({ path, component: Component, roles, title, children }) => {
-      const parentRoute = userCanAccess(roles) ? [
+  const allRoutes = navigationConfig.flatMap((navItem) => {
+      const { path, component: Component, roles, title, children } = navItem;
+
+      // A user can access a parent route if they have the role for the parent itself,
+      // OR if they have access to at least one of its children. This logic must match the Sidebar's logic.
+      const hasChildAccess = children?.some(child => userCanAccess(child.roles)) ?? false;
+      const canAccessParent = userCanAccess(roles) || hasChildAccess;
+
+      const parentRoute = canAccessParent ? [
           <Route 
               key={path}
               path={path}
@@ -33,7 +40,7 @@ const AppRoutes: React.FC = () => {
           />
       ] : [];
 
-      const childRoutes = children?.flatMap(({ path: childPath, component: ChildComponent, roles: childRoles, title: childTitle }) => 
+      const childRoutes = children?.flatMap(({ path: childPath, component: ChildComponent, roles: childRoles, title: childTitle }) =>
           userCanAccess(childRoles) ? [
               <Route 
                   key={childPath}

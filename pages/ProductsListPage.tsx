@@ -18,7 +18,7 @@ import CheckIcon from '../components/icons/CheckIcon';
 
 const ProductsListPage: React.FC = () => {
     const { products, loading, addProduct, updateProduct, deleteProduct } = useProducts();
-    const { currentUser } = useAuth();
+    const { currentUser, loading: isAuthLoading } = useAuth();
     const permissions = usePermissions();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +32,12 @@ const ProductsListPage: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
 
     const canManage = permissions.can(PermissionModule.PRODUCTS, PermissionAction.MANAGE);
+
+    // The useProducts hook has its own loading state, but we must wait for authentication to resolve first.
+    // This prevents rendering the page with incorrect permissions or data.
+    if (isAuthLoading) {
+        return <div className="flex justify-center items-center p-10"><Spinner /></div>;
+    }
 
     const handleOpenModalForAdd = () => {
         setIsModalOpen(true);

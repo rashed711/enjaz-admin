@@ -4,7 +4,6 @@ import DocumentTextIcon from './components/icons/DocumentTextIcon';
 import CubeIcon from './components/icons/CubeIcon';
 import UsersIcon from './components/icons/UsersIcon';
 import UserCircleIcon from './components/icons/UserCircleIcon';
-import ReceiptIcon from './components/icons/ReceiptIcon';
 import ShieldCheckIcon from './components/icons/ShieldCheckIcon';
 import CogIcon from './components/icons/CogIcon'; // New Icon
 import DashboardPage from './pages/DashboardPage';
@@ -17,6 +16,7 @@ import PurchaseInvoicesListPage from './pages/PurchaseInvoicesListPage';
 import PurchaseInvoiceEditorPage from './pages/PurchaseInvoiceEditorPage';
 import SalesInvoicesListPage from './pages/SalesInvoicesListPage';
 import SalesInvoiceEditorPage from './pages/SalesInvoiceEditorPage';
+import ReceiptIcon from './components/icons/ReceiptIcon';
 import PermissionsPage from './pages/PermissionsPage';
 import ManagementPage from './pages/ManagementPage'; // New Page
 import React from 'react';
@@ -42,6 +42,7 @@ interface NavLinkChild {
     roles: Role[];
     component: React.ComponentType;
     title: string;
+    inSubMenu?: boolean;
 }
 
 export const navigationConfig: NavLink[] = [
@@ -49,7 +50,7 @@ export const navigationConfig: NavLink[] = [
     path: '/',
     label: 'الرئيسية',
     Icon: HomeIcon,
-    roles: Object.values(Role), // All roles can see the dashboard
+    roles: Object.values(Role),
     inSidebar: true,
     inBottomNav: true,
     component: DashboardPage,
@@ -65,61 +66,85 @@ export const navigationConfig: NavLink[] = [
     component: QuotationsListPage,
     title: 'عروض الأسعار',
     children: [
-        {
-            path: '/quotations/:id/:mode?',
-            label: 'محرر عروض الأسعار',
-            Icon: DocumentTextIcon,
-            roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.CEO],
-            component: QuotationEditorPage,
-            title: 'عرض / تعديل السعر'
-        }
-    ]
+      {
+        path: '/quotations/:id/:mode?',
+        label: 'محرر عروض الأسعار',
+        Icon: DocumentTextIcon,
+        roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.CEO],
+        component: QuotationEditorPage,
+        title: 'عرض / تعديل عرض السعر',
+      },
+    ],
   },
   {
-    path: '/sales-invoices',
-    label: 'فواتير المبيعات',
-    Icon: DocumentTextIcon,
-    roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.ACCOUNTING_MANAGER, Role.CEO],
-    inSidebar: true,
-    inBottomNav: true,
-    component: SalesInvoicesListPage,
-    title: 'فواتير المبيعات',
-    children: [
-        {
-            path: '/sales-invoices/:id/:mode?',
-            label: 'محرر فواتير المبيعات',
-            Icon: DocumentTextIcon,
-            roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.ACCOUNTING_MANAGER, Role.CEO],
-            component: SalesInvoiceEditorPage,
-            title: 'عرض / تعديل فاتورة مبيعات'
-        }
-    ]
-  },
-  {
-    path: '/invoices',
-    label: 'فواتير المشتريات',
+    path: '/invoices-hub',
+    label: 'الفواتير',
     Icon: ReceiptIcon,
-    roles: [Role.ACCOUNTING_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.CEO],
+    roles: [],
     inSidebar: true,
     inBottomNav: true,
-    component: PurchaseInvoicesListPage,
-    title: 'فواتير المشتريات',
+    component: ManagementPage,
+    title: 'الفواتير',
     children: [
-        {
-            path: '/invoices/:id/:mode?',
-            label: 'محرر فواتير المشتريات',
-            Icon: ReceiptIcon,
-            roles: [Role.ACCOUNTING_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.CEO],
-            component: PurchaseInvoiceEditorPage,
-            title: 'عرض / تعديل فاتورة'
-        }
-    ]
+      {
+        path: '/sales-invoices',
+        label: 'فواتير المبيعات',
+        Icon: DocumentTextIcon,
+        roles: [
+          Role.SALES_EMPLOYEE,
+          Role.SALES_MANAGER,
+          Role.ACCOUNTING_MANAGER,
+          Role.CEO,
+        ],
+        component: SalesInvoicesListPage,
+        title: 'فواتير المبيعات',
+        inSubMenu: true,
+      },
+      {
+        path: '/invoices',
+        label: 'فواتير المشتريات',
+        Icon: DocumentTextIcon,
+        roles: [
+          Role.ACCOUNTING_EMPLOYEE,
+          Role.ACCOUNTING_MANAGER,
+          Role.CEO,
+        ],
+        component: PurchaseInvoicesListPage,
+        title: 'فواتير المشتريات',
+        inSubMenu: true,
+      },
+      {
+        path: '/sales-invoices/:id/:mode?',
+        label: 'محرر فواتير المبيعات',
+        Icon: DocumentTextIcon,
+        roles: [
+          Role.SALES_EMPLOYEE,
+          Role.SALES_MANAGER,
+          Role.ACCOUNTING_MANAGER,
+          Role.CEO,
+        ],
+        component: SalesInvoiceEditorPage,
+        title: 'عرض / تعديل فاتورة مبيعات',
+      },
+      {
+        path: '/invoices/:id/:mode?',
+        label: 'محرر فواتير المشتريات',
+        Icon: ReceiptIcon,
+        roles: [
+          Role.ACCOUNTING_EMPLOYEE,
+          Role.ACCOUNTING_MANAGER,
+          Role.CEO,
+        ],
+        component: PurchaseInvoiceEditorPage,
+        title: 'عرض / تعديل فاتورة مشتريات',
+      },
+    ],
   },
   {
     path: '/management',
     label: 'الإدارة',
     Icon: CogIcon,
-    roles: Object.values(Role), // Accessible to anyone who can access at least one child
+    roles: [],
     inSidebar: true,
     inBottomNav: true,
     component: ManagementPage,
@@ -129,9 +154,15 @@ export const navigationConfig: NavLink[] = [
         path: '/products',
         label: 'المنتجات',
         Icon: CubeIcon,
-        roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.ACCOUNTING_MANAGER, Role.CEO],
+        roles: [
+          Role.SALES_EMPLOYEE,
+          Role.SALES_MANAGER,
+          Role.ACCOUNTING_MANAGER,
+          Role.CEO,
+        ],
         component: ProductsListPage,
-        title: 'المنتجات'
+        title: 'المنتجات',
+        inSubMenu: true,
       },
       {
         path: '/users',
@@ -139,7 +170,8 @@ export const navigationConfig: NavLink[] = [
         Icon: UsersIcon,
         roles: [Role.CEO, Role.ACCOUNTING_MANAGER],
         component: UserManagementPage,
-        title: 'إدارة المستخدمين'
+        title: 'إدارة المستخدمين',
+        inSubMenu: true,
       },
       {
         path: '/permissions',
@@ -147,16 +179,19 @@ export const navigationConfig: NavLink[] = [
         Icon: ShieldCheckIcon,
         roles: [Role.CEO],
         component: PermissionsPage,
-        title: 'إدارة الصلاحيات'
+        title: 'إدارة الصلاحيات',
+        inSubMenu: true,
       },
-      {
-        path: '/profile',
-        label: 'الملف الشخصي',
-        Icon: UserCircleIcon,
-        roles: Object.values(Role),
-        component: ProfilePage,
-        title: 'الملف الشخصي'
-      },
-    ]
+    ],
+  },
+  {
+    path: '/profile',
+    label: 'الملف الشخصي',
+    Icon: UserCircleIcon,
+    roles: Object.values(Role),
+    inSidebar: false,
+    inBottomNav: false,
+    component: ProfilePage,
+    title: 'الملف الشخصي',
   },
 ];
