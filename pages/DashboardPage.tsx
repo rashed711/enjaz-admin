@@ -25,7 +25,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => (
 );
 
 const DashboardPage: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, loading: isAuthLoading } = useAuth();
   const [stats, setStats] = useState({
     quotations: 0,
     salesInvoices: 0,
@@ -36,7 +36,7 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
-        if (!currentUser) return;
+        if (!currentUser || isAuthLoading) return;
 
         try {
             // Helper to get count and handle errors gracefully
@@ -67,6 +67,13 @@ const DashboardPage: React.FC = () => {
                 return uniqueCompanies.size;
             }
 
+            // Base query for quotations
+            let quotationsQuery = supabase.from('quotations').select('*', { count: 'exact', head: true });
+            // Only filter by created_by if the user is not a CEO
+            if (currentUser.role !== 'CEO') {
+                quotationsQuery = quotationsQuery.eq('created_by', currentUser.id);
+            }
+
             // Fetch all stats concurrently
             const [
                 quotationsRes,
@@ -75,7 +82,7 @@ const DashboardPage: React.FC = () => {
                 purchaseInvoicesRes,
                 companiesRes
             ] = await Promise.all([
-                supabase.from('quotations').select('*', { count: 'exact', head: true }).eq('created_by', currentUser.id),
+                quotationsQuery,
                 supabase.from('sales_invoices').select('*', { count: 'exact', head: true }),
                 supabase.from('profiles').select('*', { count: 'exact', head: true }),
                 supabase.from('purchase_invoices').select('*', { count: 'exact', head: true }),
@@ -98,7 +105,7 @@ const DashboardPage: React.FC = () => {
     if (currentUser) {
         fetchDashboardStats();
     }
-  }, [currentUser]);
+  }, [currentUser, isAuthLoading]);
 
   return (
     <div className="space-y-8">

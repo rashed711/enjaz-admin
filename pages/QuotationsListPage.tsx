@@ -14,6 +14,7 @@ import EyeIcon from '../components/icons/EyeIcon';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
+import Pagination from '../components/Pagination';
 
 const QuotationsListPage: React.FC = () => {
     const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -25,6 +26,11 @@ const QuotationsListPage: React.FC = () => {
     const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(15);
+    const [totalCount, setTotalCount] = useState(0);
 
     const canCreate = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.CREATE);
     const canViewAll = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.VIEW_ALL);
@@ -48,13 +54,19 @@ const QuotationsListPage: React.FC = () => {
                     return;
                 }
 
-                let query = supabase.from('quotations').select('*');
+                // Calculate the range for the current page
+                const from = (currentPage - 1) * itemsPerPage;
+                const to = from + itemsPerPage - 1;
+
+                let query = supabase.from('quotations').select('*', { count: 'exact' });
                 
                 if (!canViewAll && canViewOwn) {
                     query = query.eq('created_by', currentUser.id);
                 }
                 
-                const { data, error } = await query.order('date', { ascending: false });
+                const { data, error, count } = await query
+                    .order('date', { ascending: false })
+                    .range(from, to);
 
                 if (error) {
                     console.error('Error fetching quotations:', error.message);
@@ -72,10 +84,12 @@ const QuotationsListPage: React.FC = () => {
                         items: [],
                         totalAmount: q.total_amount,
                         createdBy: q.created_by,
-                        taxIncluded: q.tax_included ?? false, // Default to false for older records
-                        discount: 0, // Not available in list view
+                        taxIncluded: q.tax_included ?? false,
+                        discount: q.discount || 0,
+                        creatorName: 'غير معروف', // This data is no longer fetched
                     }));
                     setQuotations(formattedQuotations);
+                    setTotalCount(count ?? 0);
                 }
             } catch (e: any) {
                 console.error("An unexpected error occurred while fetching quotations:", e.message);
@@ -86,7 +100,7 @@ const QuotationsListPage: React.FC = () => {
         };
 
         fetchQuotations();
-    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn]);
+    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn, currentPage, itemsPerPage]);
 
     const handleConfirmDelete = async () => {
         if (!quotationToDelete || !quotationToDelete.id) return;
@@ -215,6 +229,12 @@ const QuotationsListPage: React.FC = () => {
                             })}
                         </tbody>
                     </table>
+                    <Pagination
+                        currentPage={currentPage}
+                        totalCount={totalCount}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={page => setCurrentPage(page)}
+                    />
                 </div>
             )}
 

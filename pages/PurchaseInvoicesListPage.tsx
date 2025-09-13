@@ -12,6 +12,7 @@ import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import { getStatusChipClassName } from '../utils/uiHelpers';
+import Pagination from '../components/Pagination';
 
 const PurchaseInvoicesListPage: React.FC = () => {
     const [invoices, setInvoices] = useState<PurchaseInvoice[]>([]);
@@ -22,6 +23,11 @@ const PurchaseInvoicesListPage: React.FC = () => {
     const [invoiceToDelete, setInvoiceToDelete] = useState<PurchaseInvoice | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(15);
+    const [totalCount, setTotalCount] = useState(0);
 
     const canCreate = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.CREATE);
     const canViewAll = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_ALL);
@@ -45,15 +51,21 @@ const PurchaseInvoicesListPage: React.FC = () => {
                     return;
                 }
 
+                // Calculate the range for the current page
+                const from = (currentPage - 1) * itemsPerPage;
+                const to = from + itemsPerPage - 1;
+
                 let query = supabase
                     .from('purchase_invoices')
-                    .select('*');
+                    .select('*', { count: 'exact' });
 
                 if (!canViewAll && canViewOwn) {
                     query = query.eq('created_by', currentUser.id);
                 }
 
-                let { data, error } = await query.order('date', { ascending: false });
+                let { data, error, count } = await query
+                    .order('date', { ascending: false })
+                    .range(from, to);
 
                 if (error) {
                     if (error.message.includes('does not exist')) {
@@ -74,8 +86,10 @@ const PurchaseInvoicesListPage: React.FC = () => {
                         items: [],
                         totalAmount: i.total_amount,
                         createdBy: i.created_by,
+                        creatorName: 'غير معروف', // This data is no longer fetched
                     }));
                     setInvoices(formattedInvoices);
+                    setTotalCount(count ?? 0);
                 }
             } catch (e: any) {
                 console.error("An unexpected error occurred while fetching purchase invoices:", e.message);
@@ -86,7 +100,7 @@ const PurchaseInvoicesListPage: React.FC = () => {
         };
 
         fetchInvoices();
-    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn]);
+    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn, currentPage, itemsPerPage]);
 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete || !invoiceToDelete.id) return;
@@ -195,6 +209,12 @@ const PurchaseInvoicesListPage: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+                    <Pagination
+                        currentPage={currentPage}
+                        totalCount={totalCount}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={page => setCurrentPage(page)}
+                    />
 
                     {/* Mobile Card View */}
                     <div className="lg:hidden space-y-4">

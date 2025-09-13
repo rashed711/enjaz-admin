@@ -58,7 +58,7 @@ const SalesInvoicesListPage: React.FC = () => {
 
                 let query = supabase
                     .from('sales_invoices')
-                    .select('*, profiles(name)', { count: 'exact' });
+                    .select('*', { count: 'exact' });
 
                 if (!canViewAll && canViewOwn) {
                     query = query.eq('created_by', currentUser.id);
@@ -92,7 +92,7 @@ const SalesInvoicesListPage: React.FC = () => {
                         totalAmount: i.total_amount,
                         createdBy: i.created_by,
                         quotationId: i.quotation_id,
-                        creatorName: (i.profiles as { name: string })?.name || 'غير معروف',
+                        creatorName: 'غير معروف', // This data is no longer fetched
                     }));
                     setInvoices(formattedInvoices);
                     setTotalCount(count ?? 0);

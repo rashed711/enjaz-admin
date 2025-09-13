@@ -50,18 +50,28 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [currentUser, fetchConfig]);
 
   const updateConfig = useCallback(async (newConfig: PermissionsConfig): Promise<{ success: boolean; error: string | null }> => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('app_settings')
       .update({ value: newConfig, updated_at: new Date().toISOString() })
-      .eq('key', 'permissions');
+      .eq('key', 'permissions')
+      .select('value') // We only need the value back
+      .single();
 
     if (error) {
       console.error('Error updating permissions:', error);
+      // Check for the specific RLS failure error where no rows are returned for update
+      if (error.code === 'PGRST116') { 
+        return { success: false, error: 'فشل الحفظ. لم يتم العثور على الصف للتحديث. يرجى التحقق من صلاحيات التحديث (UPDATE RLS Policy) والتأكد من أن دورك يسمح بالتعديل.' };
+      }
       return { success: false, error: `فشل تحديث الصلاحيات: ${error.message}` };
     }
 
-    setConfig(newConfig);
-    return { success: true, error: null };
+    if (data) {
+        setConfig(data.value as PermissionsConfig);
+        return { success: true, error: null };
+    }
+
+    return { success: false, error: 'فشل الحفظ لسبب غير معروف.' };
   }, []);
 
   const value = useMemo(() => ({ config, loading, updateConfig }), [config, loading, updateConfig]);
