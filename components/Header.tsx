@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import UserCircleIcon from './icons/UserCircleIcon';
 import ChevronDownIcon from './icons/ChevronDownIcon';
+import MenuIcon from './icons/MenuIcon';
 
 interface HeaderProps {
   title: string;
+  onMenuClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title }) => {
+const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -33,7 +35,12 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
 
   return (
     <header className="bg-white px-6 py-4 flex justify-between items-center flex-shrink-0 sticky top-0 z-30 border-b border-border">
-      <h2 className="text-xl sm:text-2xl font-bold text-text-primary">{title}</h2>
+      <div className="flex items-center gap-4">
+        <button onClick={onMenuClick} className="text-text-secondary p-1 -mr-2 md:hidden" aria-label="Open menu">
+          <MenuIcon className="w-6 h-6" />
+        </button>
+        <h2 className="text-xl sm:text-2xl font-bold text-text-primary">{title}</h2>
+      </div>
 
       {currentUser && (
         <div className="relative" ref={menuRef}>

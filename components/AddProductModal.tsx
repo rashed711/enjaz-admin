@@ -73,10 +73,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
     
     const footer = (
         <>
-            <button onClick={onClose} className="bg-white border border-border text-text-secondary px-6 py-2 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-400 font-semibold" disabled={isSaving}>إلغاء</button>
-            <button onClick={handleSaveClick} className="bg-primary text-white font-semibold px-6 py-2 rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-primary flex items-center justify-center gap-2 min-w-[150px] shadow-md hover:shadow-lg" disabled={isSaving}>
+            <button onClick={onClose} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-500 font-semibold" disabled={isSaving}>إلغاء</button>
+            <button onClick={handleSaveClick} className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-green-600 flex items-center justify-center gap-2 w-32 shadow-md hover:shadow-lg" disabled={isSaving}>
                 {isSaving && <Spinner />}
-                {isSaving ? 'جاري الحفظ...' : 'حفظ المنتج'}
+                {isSaving ? 'جاري الحفظ...' : 'حفظ'}
             </button>
         </>
     );
@@ -88,13 +88,13 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
             title='إضافة منتج جديد'
             footer={footer}
         >
-            <div className="space-y-5">
+            <div className="space-y-6">
                 <div>
-                    <label htmlFor="name" className="block text-sm font-medium mb-2 text-right text-text-secondary">اسم المنتج</label>
+                    <label htmlFor="name" className="block text-sm font-medium mb-2 text-right text-text-secondary">اسم المنتج/الخدمة</label>
                     <input type="text" id="name" name="name" value={productData.name} onChange={handleChange} className={inputClasses}/>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label htmlFor="productType" className="block text-sm font-medium mb-2 text-right text-text-secondary">التصنيف</label>
                         <select id="productType" name="productType" value={productData.productType} onChange={handleChange} className={inputClasses}>
@@ -103,7 +103,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                             ))}
                         </select>
                     </div>
-                    <div>
+                     <div>
+                        <label htmlFor="sellingPrice" className="block text-sm font-medium mb-2 text-right text-text-secondary">سعر البيع</label>
+                        <input type="number" id="sellingPrice" name="sellingPrice" value={productData.sellingPrice || ''} onChange={e => setProductData({...productData, sellingPrice: parseFloat(e.target.value) || 0})} className={inputClasses}/>
+                    </div>
+                     <div>
                         <label htmlFor="unit" className="block text-sm font-medium mb-2 text-right text-text-secondary">الوحدة</label>
                         <select id="unit" name="unit" value={productData.unit} onChange={handleChange} className={inputClasses}>
                             {Object.values(Unit).map(unit => (
@@ -111,11 +115,6 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                             ))}
                         </select>
                     </div>
-                </div>
-
-                <div>
-                    <label htmlFor="sellingPrice" className="block text-sm font-medium mb-2 text-right text-text-secondary">سعر البيع</label>
-                    <input type="number" id="sellingPrice" name="sellingPrice" value={productData.sellingPrice || ''} onChange={e => setProductData({...productData, sellingPrice: parseFloat(e.target.value) || 0})} className={inputClasses}/>
                 </div>
             </div>
             {error && <p className="text-red-500 text-sm mt-4 text-center" role="alert">{error}</p>}

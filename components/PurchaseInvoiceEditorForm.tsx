@@ -35,13 +35,13 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
     }, [invoice?.items]);
 
     useEffect(() => {
-        if (invoice) {
+        setInvoice(prev => {
+            if (!prev) return null;
             const newTotalAmount = parseFloat(subTotal.toFixed(2));
-            if (invoice.totalAmount !== newTotalAmount) {
-                setInvoice(prev => prev ? { ...prev, totalAmount: newTotalAmount } : null);
-            }
-        }
-    }, [subTotal, invoice, setInvoice]);
+            if (prev.totalAmount === newTotalAmount) return prev; // Avoid re-render if total is the same
+            return { ...prev, totalAmount: newTotalAmount };
+        });
+    }, [subTotal, setInvoice]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -65,7 +65,7 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleAddProduct}
             />
-            <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
+            <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل الفاتورة</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <input type="text" name="supplierName" placeholder="اسم المورد" value={invoice.supplierName} onChange={handleInputChange} className={inputClasses} />
@@ -112,7 +112,7 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
                     )}
                     <div className="flex justify-end gap-4">
                         <button onClick={onCancel} className={`bg-gray-200 hover:bg-gray-300 text-gray-800 ${buttonClasses}`} disabled={isSaving}>إلغاء</button>
-                        <button onClick={onSave} className={`bg-primary hover:bg-primary-hover text-white ${buttonClasses} w-40`} disabled={isSaving}>
+                        <button onClick={onSave} className={`bg-green-600 hover:bg-green-700 text-white focus:ring-green-600 ${buttonClasses} w-40`} disabled={isSaving}>
                             {isSaving && <Spinner />}
                             {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                         </button>

@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PurchaseInvoice, DocumentItemState } from '../types';
+import { PurchaseInvoice, DocumentItemState, Currency } from '../types';
 import { useDocument } from '../hooks/useDocument';
 import PurchaseInvoiceViewer from '../components/PurchaseInvoiceViewer';
 import PurchaseInvoiceEditorForm from '../components/PurchaseInvoiceEditorForm';
@@ -26,6 +26,13 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
 
     const isNew = idParam === 'new';
     const isEditMode = mode === 'edit' || isNew;
+
+    useEffect(() => {
+        // Set default currency to EGP for new invoices
+        if (isNew && invoice && invoice.currency !== Currency.EGP) {
+            setInvoice(prev => prev ? { ...prev, currency: Currency.EGP } : null);
+        }
+    }, [isNew, invoice, setInvoice]);
 
     if (loading || !invoice) {
         return <div className="flex justify-center items-center h-full text-dark-text">جاري التحميل...</div>;

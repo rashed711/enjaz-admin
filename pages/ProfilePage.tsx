@@ -17,7 +17,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-5xl mx-auto">
         <div className="bg-card p-6 sm:p-8 rounded-lg shadow-sm text-center border border-border">
             <h2 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">
                 ملفك الشخصي

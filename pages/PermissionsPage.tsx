@@ -141,8 +141,8 @@ const PermissionsPage: React.FC = () => {
           </thead>
           <tbody className="text-text-primary divide-y divide-border">
             {roles.map(roleName => (
-              <tr key={roleName} className="hover:bg-slate-50">
-                <td className="px-3 py-4 font-semibold sticky right-0 bg-card hover:bg-slate-50 border-l border-border z-10">{roleName}</td>
+              <tr key={roleName} className="hover:bg-slate-100 even:bg-slate-50/50">
+                <td className="px-3 py-4 font-semibold sticky right-0 bg-inherit border-l border-border z-10">{roleName}</td>
                 {modules.map(moduleName => {
                   const currentPermissions = editablePermissions[roleName]?.[moduleName] || [];
                   const hasManage = currentPermissions.includes(PermissionAction.MANAGE);
@@ -177,7 +177,7 @@ const PermissionsPage: React.FC = () => {
       {/* --- Mobile Card View --- */}
       <div className="lg:hidden space-y-4">
         {roles.map(roleName => (
-            <div key={roleName} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+            <div key={roleName} className="bg-card border border-border rounded-lg p-4 shadow-sm even:bg-slate-50/50">
                 <h3 className="font-bold text-lg text-primary mb-3 pb-3 border-b border-border">{roleName}</h3>
                 <div className="space-y-4">
                     {modules.map(moduleName => {
@@ -213,7 +213,7 @@ const PermissionsPage: React.FC = () => {
 
        <div className="mt-8 flex justify-end gap-4">
           <button onClick={handleReset} className="bg-gray-200 text-gray-800 font-semibold px-6 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-500" disabled={isSaving}>إعادة تعيين</button>
-          <button onClick={handleSave} className="bg-primary text-white font-semibold px-6 py-2 rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-primary disabled:bg-primary/50" disabled={isSaving}>
+          <button onClick={handleSave} className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-green-600 disabled:bg-green-600/50" disabled={isSaving}>
               {isSaving ? <><Spinner /> جاري الحفظ...</> : 'حفظ التغييرات'}
           </button>
       </div>

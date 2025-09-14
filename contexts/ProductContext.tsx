@@ -24,45 +24,31 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      // This RPC function is much more efficient as it calculates averages in the database.
-      const { data, error } = await supabase.rpc('get_products_with_stats');
+      // Fetch products directly from the view that calculates stats.
+      // This is more reliable than an RPC function for this use case.
+      const { data, error } = await supabase
+        .from('products_with_stats')
+        .select('*')
+        .order('name', { ascending: true });
 
       if (error) {
-        console.warn('Warning: RPC "get_products_with_stats" failed. Falling back to client-side calculation. This is less performant. Please ensure the database function is created for optimal performance. Error:', error.message);
-        // The RPC call failed, likely because the DB function is not set up.
-        // We will proceed with the slower, client-side calculation method.
-        // Fallback to a simpler fetch if the RPC fails (e.g., not migrated yet)
-        const { data: basicProducts, error: basicError } = await supabase
-          .from('products')
-          .select('id, name, unit_price, product_type, unit')
-          .order('created_at', { ascending: false });
-        
-        if (basicError) throw basicError;
-
-        const fallbackProducts: Product[] = basicProducts.map(p => ({
-          id: p.id,
-          name: p.name,
-          sellingPrice: p.unit_price, // Map db field `unit_price` to `sellingPrice`
-          productType: p.product_type as ProductType,
-          unit: p.unit as Unit,
-          averagePurchasePrice: 0,
-          averageSellingPrice: 0,
-        }));
-        setProducts(fallbackProducts);
-      } else {
-        const formattedProducts: Product[] = data.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          sellingPrice: p.unit_price,
-          productType: p.product_type as ProductType,
-          unit: p.unit as Unit,
-          averagePurchasePrice: p.average_purchase_price,
-          averageSellingPrice: p.average_selling_price,
-        }));
-        setProducts(formattedProducts);
+        // If the view fails, it's a critical error (likely permissions or it doesn't exist).
+        // Throwing the error will be caught by the catch block.
+        throw error;
       }
+
+      const formattedProducts: Product[] = data.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sellingPrice: p.unit_price,
+        productType: p.product_type as ProductType,
+        unit: p.unit as Unit,
+        averagePurchasePrice: p.average_purchase_price || 0,
+        averageSellingPrice: p.average_selling_price || 0,
+      }));
+      setProducts(formattedProducts);
     } catch (error: any) {
-        console.error('Critical error in fetchProducts:', error.message);
+        console.error('Critical error in fetchProducts. Ensure the `products_with_stats` VIEW is created and has SELECT permissions granted. Error:', error.message);
         setProducts([]);
     } finally {
         setLoading(false);

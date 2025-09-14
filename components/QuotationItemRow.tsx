@@ -42,7 +42,7 @@ const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
                 <button
                     type="button" 
                     onClick={onRemoveItem}
-                    className="p-2 text-red-500 hover:bg-red-100 rounded-full"
+                    className="p-2 bg-red-100 text-red-600 hover:bg-red-200 rounded-full transition-colors"
                     title="حذف البند"
                 >
                     <TrashIcon className="w-5 h-5" />
@@ -98,7 +98,7 @@ const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
                     <button
                         type="button"
                         onClick={onRemoveItem}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-100 rounded-full"
+                        className="p-2 bg-red-100 text-red-600 hover:bg-red-200 rounded-full transition-colors"
                         title="حذف البند"
                     >
                         <TrashIcon className="w-5 h-5" />

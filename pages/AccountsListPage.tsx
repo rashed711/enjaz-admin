@@ -73,8 +73,7 @@ const AccountsListPage: React.FC = () => {
                     message="ابدأ بإضافة أول عميل أو مورد."
                     action={{
                         label: '+ إضافة جهة اتصال',
-                        onClick: () => { /* Navigate to new contact page */ },
-                        disabled: true, // Temporarily disabled
+                        onClick: () => { /* Navigate to new contact page */ }, // Temporarily disabled
                     }}
                 />
             ) : (
@@ -92,7 +91,7 @@ const AccountsListPage: React.FC = () => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {contacts.map((contact) => (
-                                <tr key={contact.id} className="hover:bg-slate-50">
+                                <tr key={contact.id} className="hover:bg-slate-100 even:bg-slate-50/50">
                                     <td className="px-3 py-3 font-semibold">{contact.name}</td>
                                     <td className="px-3 py-3">
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -117,7 +116,7 @@ const AccountsListPage: React.FC = () => {
                     {/* --- Mobile Card View --- */}
                     <div className="lg:hidden space-y-4">
                         {contacts.map((contact) => (
-                            <div key={contact.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                            <div key={contact.id} className="bg-card border border-border rounded-lg p-4 shadow-sm even:bg-slate-50/50">
                                 <div className="flex justify-between items-start mb-3">
                                     <p className="font-bold text-lg text-primary">{contact.name}</p>
                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${

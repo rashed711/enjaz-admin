@@ -7,12 +7,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useProducts } from '../contexts/ProductContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { supabase } from '../services/supabaseClient';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import EmptyState from '../components/EmptyState';
 import Spinner from '../components/Spinner';
-import EyeIcon from '../components/icons/EyeIcon';
-import PencilIcon from '../components/icons/PencilIcon';
-import TrashIcon from '../components/icons/TrashIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import Pagination from '../components/Pagination';
 
@@ -23,9 +19,6 @@ const QuotationsListPage: React.FC = () => {
     const { fetchProducts } = useProducts();
     const navigate = useNavigate();
     const permissions = usePermissions();
-    const [quotationToDelete, setQuotationToDelete] = useState<Quotation | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -102,58 +95,8 @@ const QuotationsListPage: React.FC = () => {
         fetchQuotations();
     }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn, currentPage, itemsPerPage]);
 
-    const handleConfirmDelete = async () => {
-        if (!quotationToDelete || !quotationToDelete.id) return;
-    
-        setIsDeleting(true);
-        setDeleteError(null);
-    
-        try {
-            const { error: itemsError } = await supabase
-                .from('quotation_items')
-                .delete()
-                .eq('quotation_id', quotationToDelete.id);
-    
-            if (itemsError) throw itemsError;
-    
-            const { error: quotationError } = await supabase
-                .from('quotations')
-                .delete()
-                .eq('id', quotationToDelete.id);
-    
-            if (quotationError) throw quotationError;
-    
-            setQuotations(prev => prev.filter(q => q.id !== quotationToDelete.id));
-            setQuotationToDelete(null);
-            await fetchProducts();
-    
-        } catch (error: any) {
-            console.error("Error deleting quotation:", error.message);
-            setDeleteError(error.message || "فشل حذف عرض السعر. يرجى المحاولة مرة أخرى.");
-        } finally {
-            setIsDeleting(false);
-        }
-    };
-
     return (
         <>
-            <DeleteConfirmationModal
-                isOpen={!!quotationToDelete}
-                onClose={() => {
-                    setQuotationToDelete(null);
-                    setDeleteError(null);
-                }}
-                onConfirm={handleConfirmDelete}
-                title="تأكيد الحذف"
-                message={
-                    <>
-                        هل أنت متأكد أنك تريد حذف عرض السعر رقم <span className="font-bold text-text-primary">{quotationToDelete?.quotationNumber}</span>؟ سيتم حذف جميع البنود المرتبطة به.
-                    </>
-                }
-                isProcessing={isDeleting}
-                error={deleteError}
-            />
-
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary">قائمة عروض الأسعار</h2>
                 {canCreate && (
@@ -181,7 +124,7 @@ const QuotationsListPage: React.FC = () => {
                     } : undefined}
                  />
             ) : (
-                <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <div className="hidden md:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[700px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -191,39 +134,22 @@ const QuotationsListPage: React.FC = () => {
                                 <th className="px-3 py-3 font-bold text-text-secondary">المسئول</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">المشروع</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">الإجمالي</th>
-                                <th className="px-3 py-3 font-bold text-text-secondary text-left sticky left-0 bg-slate-50 border-r border-border">إجراءات</th>
                             </tr>
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {quotations.map((q) => {
-                                const canEdit = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.EDIT_OWN, q.createdBy);
-                                const canDelete = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.DELETE_OWN, q.createdBy);
-
                                 return (
-                                    <tr key={q.id} className="hover:bg-slate-50">
-                                        <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-card hover:bg-slate-50 border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
+                                    <tr 
+                                        key={q.id} 
+                                        className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer"
+                                        onClick={() => navigate(`/quotations/${q.id}/view`)}
+                                    >
+                                        <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{q.date}</td>
                                         <td className="px-3 py-3">{q.company}</td>
                                         <td className="px-3 py-3">{q.clientName}</td>
                                         <td className="px-3 py-3">{q.project}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{q.totalAmount?.toLocaleString()} {q.currency}</td>
-                                        <td className="px-3 py-3 text-left sticky left-0 bg-card hover:bg-slate-50 border-r border-border">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Link to={`/quotations/${q.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">
-                                                    <EyeIcon className="w-4 h-4" />
-                                                </Link>
-                                                {canEdit && (
-                                                    <Link to={`/quotations/${q.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
-                                                        <PencilIcon className="w-4 h-4" />
-                                                    </Link>
-                                                )}
-                                                {canDelete && (
-                                                    <button onClick={() => setQuotationToDelete(q)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
-                                                        <TrashIcon className="w-4 h-4" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
                                     </tr>
                                 );
                             })}
@@ -240,43 +166,27 @@ const QuotationsListPage: React.FC = () => {
 
             {/* --- Mobile Card View --- */}
             {!loading && quotations.length > 0 && (
-                <div className="lg:hidden space-y-4">
-                    {quotations.map((q) => {
-                        const canEdit = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.EDIT_OWN, q.createdBy);
-                        const canDelete = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.DELETE_OWN, q.createdBy);
-
-                        return (
-                            <div key={q.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
-                                <div className="flex justify-between items-start mb-3">
-                                    <Link to={`/quotations/${q.id}/view`} className="font-bold text-lg text-primary hover:underline">{q.quotationNumber}</Link>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${!q.taxIncluded ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                                        {!q.taxIncluded ? 'غير شامل ضريبة' : 'شامل ضريبة'}
-                                    </span>
-                                </div>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{q.company}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">المشروع:</span> <span className="font-medium text-right">{q.project}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{q.date}</span></div>
-                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{q.totalAmount?.toLocaleString()} {q.currency}</span></div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2 mt-4">
-                                    <Link to={`/quotations/${q.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200">
-                                        <EyeIcon className="w-4 h-4" />
-                                    </Link>
-                                    {canEdit && (
-                                        <Link to={`/quotations/${q.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
-                                            <PencilIcon className="w-4 h-4" />
-                                        </Link>
-                                    )}
-                                    {canDelete && (
-                                        <button onClick={() => setQuotationToDelete(q)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
-                                            <TrashIcon className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                </div>
+                <div className="md:hidden space-y-4">
+                    {quotations.map((q) => (
+                        <div 
+                            key={q.id} 
+                            className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50"
+                            onClick={() => navigate(`/quotations/${q.id}/view`)}
+                        >
+                            <div className="flex justify-between items-start mb-3">
+                                <p className="font-bold text-lg text-primary">{q.quotationNumber}</p>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${!q.taxIncluded ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                                    {!q.taxIncluded ? 'غير شامل ضريبة' : 'شامل ضريبة'}
+                                </span>
                             </div>
-                        );
-                    })}
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{q.company}</span></div>
+                                <div className="flex justify-between"><span className="text-text-secondary">المشروع:</span> <span className="font-medium text-right">{q.project}</span></div>
+                                <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{q.date}</span></div>
+                                <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{q.totalAmount?.toLocaleString()} {q.currency}</span></div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
         </>

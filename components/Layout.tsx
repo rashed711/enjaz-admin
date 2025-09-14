@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import BottomNav from './BottomNav';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,15 +8,30 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, title }) => {
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const toggleMobileSidebar = () => {
+    setMobileSidebarOpen(!isMobileSidebarOpen);
+  };
+
+  const closeMobileSidebar = () => {
+    setMobileSidebarOpen(false);
+  };
+
   return (
     <div className="flex h-screen bg-background text-text-primary">
-      <Sidebar />
-      <div className="flex-1 md:mr-56 flex flex-col h-screen">
-        <Header title={title} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
+      <Sidebar isOpen={isMobileSidebarOpen} onClose={closeMobileSidebar} />
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={closeMobileSidebar}
+        ></div>
+      )}
+      <div className="flex-1 md:mr-48 flex flex-col h-screen">
+        <Header title={title} onMenuClick={toggleMobileSidebar} />
+        <main className="flex-1 overflow-y-auto p-[5px]">
           {children}
         </main>
-        <BottomNav />
       </div>
     </div>
   );

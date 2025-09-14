@@ -76,12 +76,13 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
 
 
     useEffect(() => {
-        if (!quotation) return;
-        const finalTotal = parseFloat(grandTotal.toFixed(2));
-        if (quotation.totalAmount !== finalTotal) {
-            setQuotation(prev => prev ? { ...prev, totalAmount: finalTotal } : null);
-        }
-    }, [quotation, grandTotal, setQuotation]);
+        setQuotation(prev => {
+            if (!prev) return null;
+            const finalTotal = parseFloat(grandTotal.toFixed(2));
+            if (prev.totalAmount === finalTotal) return prev; // Avoid re-render if total is the same
+            return { ...prev, totalAmount: finalTotal };
+        });
+    }, [grandTotal, setQuotation]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -99,7 +100,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
 
     return (
         <>
-            <div className="bg-card p-6 rounded-lg shadow-sm max-w-7xl mx-auto border border-border">
+            <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input type="text" name="clientName" placeholder="اسم العميل" value={quotation.clientName} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />

@@ -20,10 +20,11 @@ const UserManagementPage: React.FC = () => {
     const [editingUser, setEditingUser] = useState<UserFormData | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
     const [modalError, setModalError] = useState<string | null>(null);
-    const [notification, setNotification] = useState<string | null>(null);
+    const [notification, setNotification] = useState<{ message: string; isError?: boolean } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isSendingResetLink, setIsSendingResetLink] = useState(false);
 
 
     const fetchUsers = async () => {
@@ -67,8 +68,8 @@ const UserManagementPage: React.FC = () => {
         fetchUsers();
     }, [currentUser, isAuthLoading]);
 
-    const showNotification = (message: string) => {
-        setNotification(message);
+    const showNotification = (message: string, isError = false) => {
+        setNotification({ message, isError });
         setTimeout(() => setNotification(null), 4000);
     };
 
@@ -92,23 +93,34 @@ const UserManagementPage: React.FC = () => {
             throw new Error('البريد الإلكتروني وكلمة المرور مطلوبان للمستخدمين الجدد.');
         }
 
+        if (userData.password !== userData.confirmPassword) {
+            throw new Error('كلمتا المرور غير متطابقتين.');
+        }
+
         if (userData.password.length < 6) {
             throw new Error('يجب أن تكون كلمة المرور 6 أحرف على الأقل.');
         }
 
-        // Use the supabase-js v2 `signUp` signature.
-        const { error: signUpError } = await supabase.auth.signUp({
-            email: userData.email,
-            password: userData.password,
-            options: {
-                data: {
-                    name: userData.name,
-                    role: userData.role,
-                }
-            }
+        // Get the current session to authorize the Edge Function call
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+            throw new Error("لا يمكن الحصول على جلسة المستخدم. يرجى إعادة تحميل الصفحة.");
+        }
+
+        // Invoke the 'create-user' Edge Function
+        const { error: functionError } = await supabase.functions.invoke('create-user', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+            body: {
+                email: userData.email,
+                password: userData.password,
+                name: userData.name,
+                role: userData.role,
+            },
         });
 
-        if (signUpError) throw signUpError;
+        if (functionError) {
+            throw new Error(`فشل إنشاء المستخدم: ${functionError.message}`);
+        }
 
         await fetchUsers();
     };
@@ -117,7 +129,7 @@ const UserManagementPage: React.FC = () => {
         const originalUser = users.find(u => u.id === userData.id);
         if (!originalUser) throw new Error("المستخدم غير موجود.");
 
-        const payload: { name?: string; role?: Role; email?: string } = {};
+        const payload: { name?: string; role?: Role; email?: string; password?: string } = {};
         if (originalUser.name !== userData.name && userData.name) payload.name = userData.name;
         if (originalUser.role !== userData.role) payload.role = userData.role;
         if (originalUser.email !== userData.email && userData.email) payload.email = userData.email;
@@ -166,6 +178,26 @@ const UserManagementPage: React.FC = () => {
         }
     };
 
+    const handleResetPassword = async (email: string) => {
+        if (!email) {
+            setModalError('لا يوجد بريد إلكتروني لهذا المستخدم.');
+            return;
+        }
+        setIsSendingResetLink(true);
+        setModalError(null);
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+        if (error) {
+            console.error('Error sending password reset email:', error.message);
+            setModalError(`فشل إرسال البريد: ${error.message}`);
+        } else {
+            showNotification(`تم إرسال رابط إعادة تعيين كلمة المرور إلى ${email} بنجاح.`);
+            closeModal();
+        }
+        setIsSendingResetLink(false);
+    };
+
     const handleConfirmDelete = async () => {
         if (!userToDelete) return;
         setIsDeleting(true);
@@ -210,6 +242,8 @@ const UserManagementPage: React.FC = () => {
                 initialData={editingUser}
                 isSaving={isSaving}
                 error={modalError}
+                onResetPassword={handleResetPassword}
+                isSendingResetLink={isSendingResetLink}
             />
             <DeleteConfirmationModal
                 isOpen={!!userToDelete}
@@ -235,8 +269,8 @@ const UserManagementPage: React.FC = () => {
             </div>
 
             {notification && (
-                <div className="p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50 fixed top-24 right-1/2 translate-x-1/2 z-50 shadow-lg" role="alert">
-                    {notification}
+                <div className={`p-4 mb-4 text-sm rounded-lg fixed top-24 right-1/2 translate-x-1/2 z-50 shadow-lg ${notification.isError ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`} role="alert">
+                    {notification.message}
                 </div>
             )}
 
@@ -257,7 +291,7 @@ const UserManagementPage: React.FC = () => {
                     }}
                 />
             ) : (
-                <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <div className="hidden md:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[640px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -269,11 +303,11 @@ const UserManagementPage: React.FC = () => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {users.map((user) => (
-                                <tr key={user.id} className="hover:bg-slate-50">
-                                    <td className="px-3 py-2 font-semibold whitespace-nowrap sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{user.name}</td>
+                                <tr key={user.id} className="hover:bg-slate-100 even:bg-slate-50/50">
+                                    <td className="px-3 py-2 font-semibold whitespace-nowrap sticky right-0 bg-inherit border-l border-border">{user.name}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{user.email}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{user.role}</td>
-                                    <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
+                                    <td className="px-3 py-2 text-left sticky left-0 bg-inherit border-r border-border">
                                         <div className="flex items-center justify-end gap-2">
                                             <button onClick={() => openModal(user)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
                                                 <PencilIcon className="w-5 h-5" />
@@ -292,9 +326,9 @@ const UserManagementPage: React.FC = () => {
 
             {/* --- Mobile Card View --- */}
             {!loading && !pageError && users.length > 0 && (
-                <div className="lg:hidden space-y-4">
+                <div className="md:hidden space-y-4">
                     {users.map((user) => (
-                        <div key={user.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                        <div key={user.id} className="bg-card border border-border rounded-lg p-4 shadow-sm even:bg-slate-50/50">
                             <div className="flex justify-between items-start mb-3">
                                 <div className="flex items-center gap-3">
                                     <UserCircleIcon className="w-10 h-10 text-text-secondary" />

@@ -4,12 +4,8 @@ import { PurchaseInvoice, Currency, PermissionModule, PermissionAction } from '.
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { supabase } from '../services/supabaseClient';
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import EmptyState from '../components/EmptyState';
 import Spinner from '../components/Spinner';
-import EyeIcon from '../components/icons/EyeIcon';
-import PencilIcon from '../components/icons/PencilIcon';
-import TrashIcon from '../components/icons/TrashIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import { getStatusChipClassName } from '../utils/uiHelpers';
 import Pagination from '../components/Pagination';
@@ -20,9 +16,6 @@ const PurchaseInvoicesListPage: React.FC = () => {
     const { currentUser, loading: isAuthLoading } = useAuth();
     const permissions = usePermissions();
     const navigate = useNavigate();
-    const [invoiceToDelete, setInvoiceToDelete] = useState<PurchaseInvoice | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -102,46 +95,8 @@ const PurchaseInvoicesListPage: React.FC = () => {
         fetchInvoices();
     }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn, currentPage, itemsPerPage]);
 
-    const handleConfirmDelete = async () => {
-        if (!invoiceToDelete || !invoiceToDelete.id) return;
-    
-        setIsDeleting(true);
-        setDeleteError(null);
-    
-        try {
-            await supabase
-                .from('purchase_invoice_items')
-                .delete()
-                .eq('invoice_id', invoiceToDelete.id);
-    
-            await supabase
-                .from('purchase_invoices')
-                .delete()
-                .eq('id', invoiceToDelete.id);
-    
-            setInvoices(prev => prev.filter(i => i.id !== invoiceToDelete.id));
-            setInvoiceToDelete(null);
-    
-        } catch (error: any) {
-            console.error("Error deleting purchase invoice:", error.message);
-            setDeleteError(error.message || "فشل حذف فاتورة المشتريات.");
-        } finally {
-            setIsDeleting(false);
-        }
-    };
-
     return (
         <>
-            <DeleteConfirmationModal
-                isOpen={!!invoiceToDelete}
-                onClose={() => { setInvoiceToDelete(null); setDeleteError(null); }}
-                onConfirm={handleConfirmDelete}
-                title="تأكيد الحذف"
-                message={<>هل أنت متأكد أنك تريد حذف الفاتورة من المورد <span className="font-bold text-text-primary">{invoiceToDelete?.supplierName}</span>؟</>}
-                isProcessing={isDeleting}
-                error={deleteError}
-            />
-
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary">قائمة فواتير المشتريات</h2>
                 {canCreate && (
@@ -178,34 +133,22 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                     <th className="px-3 py-3 font-bold text-text-secondary">المورد</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الحالة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الإجمالي</th>
-                                    <th className="px-3 py-3 font-bold text-text-secondary text-left sticky left-0 bg-slate-50 border-r border-border">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody className="text-text-primary divide-y divide-border">
-                                {invoices.map((i) => {
-                                    const canEdit = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.EDIT_OWN, i.createdBy);
-                                    const canDelete = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.DELETE_OWN, i.createdBy);
-
-                                    return (
-                                    <tr key={i.id} className="hover:bg-slate-50">
-                                        <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-card hover:bg-slate-50 border-l border-border">{i.invoiceNumber || '-'}</td>
+                                {invoices.map((i) => (
+                                    <tr 
+                                        key={i.id} 
+                                        className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer"
+                                        onClick={() => navigate(`/purchase-invoices/${i.id}/view`)}
+                                    >
+                                        <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border">{i.invoiceNumber || '-'}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                         <td className="px-3 py-3">{i.supplierName}</td>
                                         <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString()} {i.currency}</td>
-                                        <td className="px-3 py-3 text-left sticky left-0 bg-card hover:bg-slate-50 border-r border-border">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Link to={`/purchase-invoices/${i.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"><EyeIcon className="w-4 h-4" /></Link>
-                                                {canEdit && (
-                                                    <Link to={`/purchase-invoices/${i.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200"><PencilIcon className="w-4 h-4" /></Link>
-                                                )}
-                                                {canDelete && (
-                                                    <button onClick={() => setInvoiceToDelete(i)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200"><TrashIcon className="w-4 h-4" /></button>
-                                                )}
-                                            </div>
-                                        </td>
                                     </tr>
-                                )})}
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -218,33 +161,23 @@ const PurchaseInvoicesListPage: React.FC = () => {
 
                     {/* Mobile Card View */}
                     <div className="lg:hidden space-y-4">
-                        {invoices.map((i) => {
-                            const canEdit = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.EDIT_OWN, i.createdBy);
-                            const canDelete = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.DELETE_OWN, i.createdBy);
-
-                            return (
-                                <div key={i.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <Link to={`/purchase-invoices/${i.id}/view`} className="font-bold text-lg text-primary hover:underline">{i.invoiceNumber || `فاتورة من ${i.supplierName}`}</Link>
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span>
-                                    </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between"><span className="text-text-secondary">المورد:</span> <span className="font-medium text-right">{i.supplierName}</span></div>
-                                        <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
-                                        <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>
-                                    </div>
-                                    <div className="flex items-center justify-end gap-2 mt-4">
-                                        <Link to={`/purchase-invoices/${i.id}/view`} title="عرض" className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200"><EyeIcon className="w-4 h-4" /></Link>
-                                        {canEdit && (
-                                            <Link to={`/purchase-invoices/${i.id}/edit`} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200"><PencilIcon className="w-4 h-4" /></Link>
-                                        )}
-                                        {canDelete && (
-                                            <button onClick={() => setInvoiceToDelete(i)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200"><TrashIcon className="w-4 h-4" /></button>
-                                        )}
-                                    </div>
+                        {invoices.map((i) => (
+                            <div 
+                                key={i.id} 
+                                className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50"
+                                onClick={() => navigate(`/purchase-invoices/${i.id}/view`)}
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <p className="font-bold text-lg text-primary">{i.invoiceNumber || `فاتورة من ${i.supplierName}`}</p>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span>
                                 </div>
-                            )
-                        })}
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-text-secondary">المورد:</span> <span className="font-medium text-right">{i.supplierName}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
+                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </>
             )}

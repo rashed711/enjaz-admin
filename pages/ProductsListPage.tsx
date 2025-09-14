@@ -232,15 +232,15 @@ const ProductsListPage: React.FC = () => {
                                         )}
                                     </tr>
                                 ) : (
-                                    <tr key={product.id} className="hover:bg-slate-50">
-                                        <td className="px-3 py-2 font-semibold sticky right-0 bg-white hover:bg-slate-50 border-l border-border">{product.name}</td>
+                                    <tr key={product.id} className="hover:bg-slate-100 even:bg-slate-50/50">
+                                        <td className="px-3 py-2 font-semibold sticky right-0 bg-inherit border-l border-border">{product.name}</td>
                                         <td className="px-3 py-2">{product.productType}</td>
                                         <td className="px-3 py-2">{product.unit}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.sellingPrice)}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
                                         {canManage && (
-                                            <td className="px-3 py-2 text-left sticky left-0 bg-white hover:bg-slate-50 border-r border-border">
+                                            <td className="px-3 py-2 text-left sticky left-0 bg-inherit border-r border-border">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button onClick={() => handleStartEdit(product)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
                                                         <PencilIcon className="w-5 h-5" />
@@ -262,7 +262,7 @@ const ProductsListPage: React.FC = () => {
             {!loading && filteredProducts.length > 0 && (
                 <div className="lg:hidden space-y-4">
                     {filteredProducts.map((product) => (
-                        <div key={product.id} className={`bg-card border border-border rounded-lg p-4 shadow-sm ${editingProductId === product.id ? 'ring-2 ring-primary' : ''}`}>
+                        <div key={product.id} className={`bg-card border border-border rounded-lg p-4 shadow-sm even:bg-slate-50/50 ${editingProductId === product.id ? 'ring-2 ring-primary' : ''}`}>
                             {editingProductId === product.id ? (
                                 // --- Edit Mode Card ---
                                 <div className="space-y-3">

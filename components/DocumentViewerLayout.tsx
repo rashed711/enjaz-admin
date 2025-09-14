@@ -6,7 +6,6 @@ import { Quotation, PurchaseInvoice, SalesInvoice } from '../types';
 import Spinner from './Spinner';
 import { generatePdfBlob } from '../utils/pdfUtils';
 import WhatsappIcon from './icons/WhatsappIcon';
-import DocumentArrowDownIcon from './icons/DocumentArrowDownIcon';
 
 type AnyDocument = Quotation | PurchaseInvoice | SalesInvoice;
 
@@ -17,41 +16,13 @@ interface DocumentViewerLayoutProps {
     pdfElementId: string;
     isProcessing: boolean;
     setIsProcessing: (isProcessing: boolean) => void;
-    actions?: React.ReactNode;
+    customActions?: React.ReactNode;
 }
 
-const DocumentViewerLayout: React.FC<DocumentViewerLayoutProps> = ({
-    children,
-    backPath,
-    document,
-    pdfElementId,
-    isProcessing,
-    setIsProcessing,
-    actions,
-}) => {
+const DocumentViewerLayout: React.FC<DocumentViewerLayoutProps> = ({ children, backPath, document, pdfElementId, isProcessing, setIsProcessing, customActions, }) => {
     const navigate = useNavigate();
     const documentNumber = 'quotationNumber' in document ? document.quotationNumber : document.invoiceNumber;
     const documentTypeLabel = 'quotationNumber' in document ? 'عرض سعر' : ('supplierName' in document ? 'فاتورة مشتريات' : 'فاتورة مبيعات');
-
-
-    const handleExportToPDF = async () => {
-        setIsProcessing(true);
-        const blob = await generatePdfBlob(pdfElementId);
-        if (blob && documentNumber) {
-            const url = URL.createObjectURL(blob);
-            const a = window.document.createElement('a');
-            a.href = url;
-            a.download = `${documentNumber}.pdf`;
-            window.document.body.appendChild(a);
-            a.click();
-            window.document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } else {
-            alert("حدث خطأ أثناء إنشاء ملف PDF.");
-        }
-        setIsProcessing(false);
-    };
-
     const handleShare = async () => {
         setIsProcessing(true);
         const blob = await generatePdfBlob(pdfElementId);
@@ -82,24 +53,20 @@ const DocumentViewerLayout: React.FC<DocumentViewerLayoutProps> = ({
         }
     };
 
-    const iconButtonClasses = "w-12 h-10 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center";
     const buttonClasses = "w-full sm:w-auto px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
 
     return (
         <>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mb-6">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-3 mb-6">
                 <button onClick={() => navigate(backPath)} className={`bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-500 ${buttonClasses}`} disabled={isProcessing}>
                     العودة للقائمة
                 </button>
                 
-                {actions}
-
-                <div className="flex justify-end gap-3">
-                    <button onClick={handleShare} className={`bg-green-500 hover:bg-green-600 text-white focus:ring-green-500 ${iconButtonClasses}`} disabled={isProcessing} title="مشاركة">
-                        <WhatsappIcon className="w-5 h-5" />
-                    </button>
-                    <button onClick={handleExportToPDF} className={`bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 ${iconButtonClasses}`} disabled={isProcessing} title="تصدير PDF">
-                        {isProcessing ? <Spinner /> : <DocumentArrowDownIcon className="w-5 h-5" />}
+                <div className="flex justify-end items-center gap-2 bg-slate-100 p-2 rounded-lg border border-border w-full sm:w-auto">
+                    {customActions}
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <button onClick={handleShare} className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-full transition-colors" disabled={isProcessing} title="مشاركة عبر واتساب">
+                        <WhatsappIcon className="w-6 h-6" />
                     </button>
                 </div>
             </div>
