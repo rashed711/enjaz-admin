@@ -4,7 +4,7 @@ import { useAuth } from './useAuth';
 import { usePermissions } from './usePermissions';
 import { PermissionModule, PermissionAction } from '../types';
 
-interface UsePaginatedListProps<T extends { createdBy: string; creatorName?: string }> {
+interface UsePaginatedListProps<T> {
     tableName: string;
     permissionModule: PermissionModule;
     formatter: (item: any) => T;
@@ -13,7 +13,7 @@ interface UsePaginatedListProps<T extends { createdBy: string; creatorName?: str
     itemsPerPage?: number;
 }
 
-export const usePaginatedList = <T>({
+export const usePaginatedList = <T extends { createdBy?: string | null; creatorName?: string }>({
     tableName,
     permissionModule,
     formatter,
@@ -79,7 +79,7 @@ export const usePaginatedList = <T>({
                             ...item,
                             creatorName: creatorMap.get(item.createdBy) || item.creatorName || 'غير معروف'
                         }));
-                        setItems(enrichedItems as T[]);
+                        setItems(enrichedItems);
                     }
                 } else {
                     setItems(formattedItems);

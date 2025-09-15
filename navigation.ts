@@ -7,21 +7,8 @@ import UserCircleIcon from './components/icons/UserCircleIcon';
 import ShieldCheckIcon from './components/icons/ShieldCheckIcon';
 import CogIcon from './components/icons/CogIcon'; // New Icon
 import BanknotesIcon from './components/icons/BanknotesIcon';
-import DashboardPage from './pages/DashboardPage';
-import QuotationsListPage from './pages/QuotationsListPage';
-import QuotationEditorPage from './pages/QuotationEditorPage';
-import ProductsListPage from './pages/ProductsListPage';
-import UserManagementPage from './pages/UserManagementPage';
-import ProfilePage from './pages/ProfilePage';
-import PurchaseInvoicesListPage from './pages/PurchaseInvoicesListPage';
-import PurchaseInvoiceEditorPage from './pages/PurchaseInvoiceEditorPage';
-import SalesInvoicesListPage from './pages/SalesInvoicesListPage';
-import SalesInvoiceEditorPage from './pages/SalesInvoiceEditorPage';
 import ReceiptIcon from './components/icons/ReceiptIcon';
-import PermissionsPage from './pages/PermissionsPage';
-import ManagementPage from './pages/ManagementPage'; // New Page
-import AccountsListPage from './pages/AccountsListPage';
-import React from 'react';
+import ArchiveBoxIcon from './components/icons/ArchiveBoxIcon';
 
 export const navigationConfig: NavLink[] = [
   {
@@ -31,19 +18,53 @@ export const navigationConfig: NavLink[] = [
     roles: Object.values(Role),
     inSidebar: true,
     inBottomNav: true,
-    component: DashboardPage,
     title: 'لوحة التحكم',
   },
   {
-    path: '/accounts',
+    path: '/accounting',
     label: 'الحسابات',
     Icon: BanknotesIcon,
-    roles: [], // Use permissions instead
-    permission: [PermissionModule.ACCOUNTS, 'VIEW_ANY'],
+    roles: [],
     inSidebar: true,
     inBottomNav: false,
-    component: AccountsListPage,
-    title: 'دليل الحسابات',
+    title: 'إدارة الحسابات',
+    children: [
+      {
+        path: '/accounts/chart-of-accounts',
+        label: 'دليل الحسابات',
+        Icon: BanknotesIcon,
+        roles: [],
+        permission: [PermissionModule.ACCOUNTS, PermissionAction.VIEW_ALL],
+        title: 'دليل الحسابات',
+        inSubMenu: true,
+      },
+      {
+        path: '/accounts/journal-entries',
+        label: 'القيود اليومية',
+        Icon: DocumentTextIcon,
+        roles: [],
+        permission: [PermissionModule.JOURNAL_ENTRIES, PermissionAction.VIEW_ALL],
+        title: 'القيود اليومية',
+        inSubMenu: true,
+      },
+      {
+        path: '/accounts/receipts',
+        label: 'سندات القبض',
+        Icon: ArchiveBoxIcon,
+        roles: [],
+        permission: [PermissionModule.RECEIPTS, PermissionAction.VIEW_ALL],
+        title: 'سندات القبض',
+        inSubMenu: true,
+      },
+      {
+        path: '/accounts/receipts/:id/:mode?',
+        label: 'محرر سندات القبض',
+        Icon: ArchiveBoxIcon,
+        roles: [],
+        permission: [PermissionModule.RECEIPTS, PermissionAction.CREATE],
+        title: 'عرض / تعديل سند قبض',
+      },
+    ],
   },
   {
     path: '/quotations',
@@ -52,7 +73,6 @@ export const navigationConfig: NavLink[] = [
     roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.CEO],
     inSidebar: true,
     inBottomNav: true,
-    component: QuotationsListPage,
     title: 'عروض الأسعار',
     children: [
       {
@@ -60,7 +80,6 @@ export const navigationConfig: NavLink[] = [
         label: 'محرر عروض الأسعار',
         Icon: DocumentTextIcon,
         roles: [Role.SALES_EMPLOYEE, Role.SALES_MANAGER, Role.CEO],
-        component: QuotationEditorPage,
         title: 'عرض / تعديل عرض السعر',
       },
     ],
@@ -72,7 +91,6 @@ export const navigationConfig: NavLink[] = [
     roles: [],
     inSidebar: true,
     inBottomNav: true,
-    component: ManagementPage,
     title: 'الفواتير',
     children: [
       {
@@ -85,7 +103,6 @@ export const navigationConfig: NavLink[] = [
           Role.ACCOUNTING_MANAGER,
           Role.CEO,
         ],
-        component: SalesInvoicesListPage,
         title: 'فواتير المبيعات',
         inSubMenu: true,
       },
@@ -98,7 +115,6 @@ export const navigationConfig: NavLink[] = [
           Role.ACCOUNTING_MANAGER,
           Role.CEO,
         ],
-        component: PurchaseInvoicesListPage,
         title: 'فواتير المشتريات',
         inSubMenu: true,
       },
@@ -112,7 +128,6 @@ export const navigationConfig: NavLink[] = [
           Role.ACCOUNTING_MANAGER,
           Role.CEO,
         ],
-        component: SalesInvoiceEditorPage,
         title: 'عرض / تعديل فاتورة مبيعات',
       },
       {
@@ -124,7 +139,6 @@ export const navigationConfig: NavLink[] = [
           Role.ACCOUNTING_MANAGER,
           Role.CEO,
         ],
-        component: PurchaseInvoiceEditorPage,
         title: 'عرض / تعديل فاتورة مشتريات',
       },
     ],
@@ -136,7 +150,6 @@ export const navigationConfig: NavLink[] = [
     roles: [],
     inSidebar: true,
     inBottomNav: true,
-    component: ManagementPage,
     title: 'الإدارة',
     children: [
       {
@@ -149,7 +162,6 @@ export const navigationConfig: NavLink[] = [
           Role.ACCOUNTING_MANAGER,
           Role.CEO,
         ],
-        component: ProductsListPage,
         title: 'المنتجات',
         inSubMenu: true,
       },
@@ -158,7 +170,6 @@ export const navigationConfig: NavLink[] = [
         label: 'إدارة المستخدمين',
         Icon: UsersIcon,
         roles: [Role.CEO, Role.ACCOUNTING_MANAGER],
-        component: UserManagementPage,
         title: 'إدارة المستخدمين',
         inSubMenu: true,
       },
@@ -167,7 +178,6 @@ export const navigationConfig: NavLink[] = [
         label: 'إدارة الصلاحيات',
         Icon: ShieldCheckIcon,
         roles: [Role.CEO],
-        component: PermissionsPage,
         title: 'إدارة الصلاحيات',
         inSubMenu: true,
       },
@@ -180,7 +190,6 @@ export const navigationConfig: NavLink[] = [
     roles: Object.values(Role),
     inSidebar: false,
     inBottomNav: true,
-    component: ProfilePage,
     title: 'الملف الشخصي',
   },
 ];

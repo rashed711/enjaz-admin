@@ -23,7 +23,7 @@ const formatSalesInvoice = (i: any): SalesInvoice => ({
     status: i.status,
     items: [],
     totalAmount: i.total_amount,
-    createdBy: i.created_by,
+    createdBy: i.created_by || null,
     quotationId: i.quotation_id,
     creatorName: i.creator_name || 'غير معروف',
 });

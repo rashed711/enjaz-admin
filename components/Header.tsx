@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
           </button>
 
           {isMenuOpen && (
-            <div className="absolute left-0 mt-2 w-48 bg-card rounded-md shadow-lg py-1 z-40 border border-border">
+            <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-40 border border-border">
               <Link
                 to="/profile"
                 onClick={() => setIsMenuOpen(false)}

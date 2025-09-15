@@ -23,7 +23,7 @@ const formatQuotation = (q: any): Quotation => ({
     currency: q.currency as Currency,
     items: [],
     totalAmount: q.total_amount,
-    createdBy: q.created_by,
+    createdBy: q.created_by || null,
     taxIncluded: q.tax_included ?? false,
     discount: q.discount || 0,
     creatorName: q.creator_name || 'غير معروف',

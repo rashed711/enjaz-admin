@@ -75,7 +75,7 @@ export interface Quotation {
   currency: Currency;
   items: DocumentItem[];
   totalAmount: number;
-  createdBy: string; // Stays string for Supabase UUID
+  createdBy: string | null;
   taxIncluded: boolean;
   discount: number;
   creatorName?: string;
@@ -97,7 +97,7 @@ export interface PurchaseInvoice {
   status: PurchaseInvoiceStatus;
   items: DocumentItem[];
   totalAmount: number;
-  createdBy: string;
+  createdBy: string | null;
   creatorName?: string;
 }
 
@@ -121,10 +121,56 @@ export interface SalesInvoice {
   status: SalesInvoiceStatus;
   items: DocumentItem[];
   totalAmount: number;
-  createdBy: string;
+  createdBy: string | null;
   quotationId?: number; // Link to the original quotation
   creatorName?: string;
 }
+
+// --- New Interfaces for Accounting Module ---
+export enum AccountType {
+  ASSET = 'Asset',
+  LIABILITY = 'Liability',
+  EQUITY = 'Equity',
+  REVENUE = 'Revenue',
+  EXPENSE = 'Expense',
+}
+
+export interface Account {
+  id: number;
+  name: string;
+  code?: string;
+  account_type: AccountType;
+  parent_id?: number | null;
+  children?: Account[]; // For building the tree structure
+}
+
+export interface JournalEntry {
+  id: number;
+  date: string;
+  description?: string;
+  debit: number;
+  credit: number;
+  account_id: number;
+  account_name?: string; // Joined data
+  account_code?: string; // Joined data
+  createdBy: string | null;
+  creatorName?: string;
+}
+
+export interface Receipt {
+    id: number;
+    date: string;
+    amount: number;
+    payment_method: string;
+    description?: string;
+    account_id: number; // Credit account (e.g., customer)
+    cash_account_id: number; // Debit account (e.g., bank/cash)
+    createdBy: string | null;
+    creatorName?: string;
+    account_name?: string;
+    cash_account_name?: string;
+}
+
 
 // --- New Types for Permissions System ---
 export enum PermissionModule {
@@ -135,6 +181,8 @@ export enum PermissionModule {
   USERS = 'المستخدمين',
   PERMISSIONS = 'الصلاحيات',
   ACCOUNTS = 'الحسابات',
+  JOURNAL_ENTRIES = 'القيود اليومية',
+  RECEIPTS = 'سندات القبض',
 }
 
 export enum PermissionAction {
@@ -167,10 +215,9 @@ export interface NavLink {
     inSidebar: boolean;
     inBottomNav: boolean;
     bottomNavLabel?: string;
-    component: React.ComponentType;
     title: string;
     children?: NavLinkChild[];
-    permission?: [PermissionModule, 'VIEW_ANY' | PermissionAction];
+    permission?: [PermissionModule, PermissionAction];
 }
 
 export interface NavLinkChild {
@@ -178,8 +225,7 @@ export interface NavLinkChild {
     label: string;
     Icon: React.FC<React.SVGProps<SVGSVGElement>>;
     roles: Role[];
-    component: React.ComponentType;
     title: string;
     inSubMenu?: boolean;
-    permission?: [PermissionModule, 'VIEW_ANY' | PermissionAction];
+    permission?: [PermissionModule, PermissionAction];
 }

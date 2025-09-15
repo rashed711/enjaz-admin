@@ -136,7 +136,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                 unit: Unit.COUNT
             }],
             totalAmount: 0,
-            createdBy: currentUser?.id || '',
+            createdBy: currentUser?.id ?? null,
         };
 
         switch (documentType) {
@@ -309,7 +309,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             let savedDocId = id;
 
             if (isNew) {
-                payload.created_by = currentUser?.id || '';
+                payload.created_by = currentUser?.id ?? null;
                 const { data: newDoc, error } = await supabase.from(config.mainTable).insert(payload).select('id').single();
                 if (error || !newDoc) throw error || new Error('Failed to create document');
                 savedDocId = newDoc.id;
@@ -347,8 +347,34 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                 if (itemsError) throw itemsError;
             }
 
+            let journalError = null;
+            // --- New: Trigger journal entry creation for PAID sales invoices ---
+            if (documentType === 'sales_invoice' && document.status === SalesInvoiceStatus.PAID) {
+                console.log(`Sales invoice ${savedDocId} is PAID. Triggering journal entry creation...`);
+                try {
+                    const { data: functionData, error: functionError } = await supabase.functions.invoke('create-journal-from-invoice', {
+                        body: { invoiceId: savedDocId },
+                    });
+
+                    if (functionError) throw functionError;
+                    if (functionData?.error) throw new Error(functionData.error);
+
+                    console.log('Successfully triggered journal entry creation.');
+                } catch (e: any) {
+                    journalError = e;
+                }
+            }
+
             await fetchProducts();
-            navigate(config.viewPath.replace(':id', savedDocId!.toString()), { replace: true });
+
+            if (journalError) {
+                const warningMessage = `تم حفظ الفاتورة بنجاح، ولكن فشل إنشاء القيد المحاسبي: ${journalError.message}`;
+                console.error('Journal entry creation failed:', journalError);
+                setSaveError(warningMessage);
+                // NOTE: We don't navigate away, so the user can see the error on the form.
+            } else {
+                navigate(config.viewPath.replace(':id', savedDocId!.toString()), { replace: true });
+            }
 
         } catch (error: any) {
             console.error(`Failed to save ${documentType}:`, error.message);
