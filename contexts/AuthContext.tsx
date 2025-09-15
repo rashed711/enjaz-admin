@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useEffect, useState, useCallback, useMemo, useContext } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, Role } from '../types';
@@ -10,7 +10,6 @@ interface AuthContextType {
     logout: () => Promise<void>;
 }
 
-// Create a default no-op implementation for the context to satisfy the initial createContext call.
 const defaultAuthContext: AuthContextType = {
     currentUser: null,
     loading: true,
@@ -20,20 +19,11 @@ const defaultAuthContext: AuthContextType = {
 
 export const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
-/**
- * This function is the single source of truth for creating a valid app user object.
- * It relies exclusively on the user's JWT metadata (`user_metadata` for name, `app_metadata` for role)
- * making `auth.users` the single source of truth and removing dependency on the `profiles` table during login.
- *
- * IMPORTANT: It will throw an error if essential data (name, role) cannot be found, making failures explicit.
- */
 const getAppUser = (supabaseUser: SupabaseUser): User => {
-    // Attempt to get name and role from metadata first.
     let name = supabaseUser.user_metadata?.name;
     let role = supabaseUser.app_metadata?.role as Role;
     const email = supabaseUser.email || '';
 
-    // If metadata is incomplete, provide sensible fallbacks to ensure login is always possible.
     if (!name || !role) {
         const missingData = [];
         if (!name) missingData.push("الاسم");
@@ -46,13 +36,10 @@ const getAppUser = (supabaseUser: SupabaseUser): User => {
             { user: supabaseUser }
         );
 
-        // Fallback for name: use the email address as a temporary name.
         if (!name) {
             name = email;
         }
 
-        // Fallback for role: This is a temporary measure to allow login.
-        // Assign CEO role for the specific CEO email, otherwise default to a safe role (Client).
         if (!role) {
             role = email === 'Rashed1711@gmail.com' ? Role.CEO : Role.CLIENT;
             console.log(`Assigning fallback role: ${role} for ${email}`);
@@ -72,30 +59,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // The onAuthStateChange listener is called immediately with the current session upon subscription.
-        // This handles both the initial session check and any subsequent changes,
-        // so a separate getSession() call is not needed.
+        // First, check for an active session when the provider mounts.
+        // This gives us the initial state faster than waiting for onAuthStateChange.
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                try {
+                    setCurrentUser(getAppUser(session.user));
+                } catch (e) {
+                    console.error("Auth: Error processing user from initial session", e);
+                    setCurrentUser(null);
+                }
+            }
+            setLoading(false); // Finished initial check
+        });
+
+        // Then, listen for subsequent changes.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                setCurrentUser(prevUser => {
-                    if (!session?.user) {
-                        // If session is null, user is logged out.
-                        return prevUser === null ? prevUser : null;
-                    }
+            (_event, session) => {
+                if (session?.user) {
                     try {
-                        const newUser = getAppUser(session.user);
-                        // Prevent re-renders if the user object is functionally identical.
-                        if (prevUser && JSON.stringify(prevUser) === JSON.stringify(newUser)) {
-                            return prevUser;
-                        }
-                        return newUser;
+                        setCurrentUser(getAppUser(session.user));
                     } catch (e) {
-                        console.error("Auth state change failed to process user:", e);
-                        // If processing fails, it's safer to log them out.
-                        return null;
+                        console.error("Auth: Error processing user from auth state change", e);
+                        setCurrentUser(null);
                     }
-                });
-                setLoading(false); // Set loading to false after the first auth event is handled.
+                } else {
+                    setCurrentUser(null);
+                }
             }
         );
 
@@ -130,4 +120,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading, login, logout]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

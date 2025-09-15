@@ -100,9 +100,9 @@ const ReceiptsListPage: React.FC = () => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {receipts.map((receipt) => (
-                                <tr key={receipt.id} className="hover:bg-slate-100 even:bg-slate-50/50">
+                                <tr key={receipt.id} className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer" onClick={() => navigate(`/accounts/receipts/${receipt.id}/view`)}>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono">{receipt.id}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{new Date(receipt.date).toLocaleDateString('ar-EG')}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{new Date(receipt.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                                     <td className="px-3 py-2 font-semibold">{receipt.account_name}</td>
                                     <td className="px-3 py-2">{receipt.cash_account_name}</td>
                                     <td className="px-3 py-2 font-mono">{formatCurrency(receipt.amount)}</td>

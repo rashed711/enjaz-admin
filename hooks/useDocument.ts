@@ -119,10 +119,8 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
     const isNew = idParam === 'new';
 
     const getNewDocumentDefault = useCallback(async (): Promise<T> => {
-        const { count } = await supabase.from(config.mainTable).select('*', { count: 'exact', head: true });
-        const prefix = config.mainTable.replace('_', '-').slice(0, 4).toUpperCase();
-        const newDocNumber = `${prefix}-2024-${(count ?? 0) + 1}`;
-
+        // Number is now generated on save to have access to the latest data (e.g. tax status).
+        const newDocNumber = 'جديد';
         const base = {
             id: undefined,
             date: new Date().toISOString().split('T')[0],
@@ -309,6 +307,49 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             let savedDocId = id;
 
             if (isNew) {
+                // --- START: New logic for document numbering ---
+                if (documentType === 'quotation' || documentType === 'sales_invoice' || documentType === 'purchase_invoice') {
+                    const today = new Date();
+                    const day = String(today.getDate()).padStart(2, '0');
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const year = today.getFullYear();
+                    const dateString = `${day}-${month}-${year}`;
+
+                    let prefix = '';
+                    let numberField = '';
+
+                    if (documentType === 'quotation') {
+                        const quote = document as Quotation;
+                        prefix = quote.taxIncluded ? 'TQUOT' : 'QUOT';
+                        numberField = 'quotation_number';
+                    } else if (documentType === 'sales_invoice') {
+                        prefix = 'SINV';
+                        numberField = 'invoice_number';
+                    } else if (documentType === 'purchase_invoice') {
+                        prefix = 'PINV';
+                        numberField = 'invoice_number';
+                    }
+
+                    const numberPrefix = `${prefix}-${dateString}-`;
+
+                    const { data: lastDoc, error: lastDocError } = await supabase
+                        .from(config.mainTable)
+                        .select(numberField)
+                        .like(numberField, `${numberPrefix}%`)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    if (lastDocError && lastDocError.code !== 'PGRST116') throw lastDocError;
+
+                    let nextSeqNum = 1001;
+                    if (lastDoc) {
+                        const lastNum = parseInt(lastDoc[numberField].split('-').pop() || '1000', 10);
+                        if (!isNaN(lastNum)) nextSeqNum = lastNum + 1;
+                    }
+                    payload[numberField] = `${numberPrefix}${nextSeqNum}`;
+                }
+                // --- END: New logic for document numbering ---
                 payload.created_by = currentUser?.id ?? null;
                 const { data: newDoc, error } = await supabase.from(config.mainTable).insert(payload).select('id').single();
                 if (error || !newDoc) throw error || new Error('Failed to create document');

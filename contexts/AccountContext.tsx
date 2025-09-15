@@ -8,6 +8,7 @@ interface AccountContextType {
   accountsFlat: Account[];
   loading: boolean;
   fetchAccounts: () => Promise<void>;
+  deleteAccount: (accountId: number) => Promise<{ success: boolean; error: string | null }>;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -36,8 +37,8 @@ export const AccountProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [accountsFlat, setAccountsFlat] = useState<Account[]>([]);
   const [accountsTree, setAccountsTree] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const { currentUser } = useAuth();
-
+  const { currentUser, loading: authLoading } = useAuth(); // Get auth loading state
+  
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
@@ -57,17 +58,40 @@ export const AccountProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   useEffect(() => {
-    if (currentUser) {
-      fetchAccounts();
+    // Don't do anything until the authentication state is resolved.
+    if (authLoading) {
+      return;
+    }
+
+    if (currentUser) { // Now we know for sure if there's a user or not.
+        fetchAccounts();
     } else {
-      // If user logs out, clear the accounts data and stop loading.
       setAccountsFlat([]);
       setAccountsTree([]);
       setLoading(false);
     }
-  }, [currentUser, fetchAccounts]);
+  }, [currentUser, authLoading, fetchAccounts]);
 
-  const value = useMemo(() => ({ accountsTree, accountsFlat, loading, fetchAccounts }), [accountsTree, accountsFlat, loading, fetchAccounts]);
+  const deleteAccount = useCallback(async (accountId: number): Promise<{ success: boolean; error: string | null }> => {
+    const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', accountId);
+
+    if (error) {
+        console.error('Error deleting account:', error);
+        if (error.code === '23503') { // foreign key violation
+            return { success: false, error: 'لا يمكن حذف هذا الحساب لأنه مرتبط بقيود يومية أو حسابات فرعية.' };
+        }
+        return { success: false, error: error.message };
+    }
+
+    // On success, refetch the accounts to update the tree
+    await fetchAccounts();
+    return { success: true, error: null };
+  }, [fetchAccounts]);
+
+  const value = useMemo(() => ({ accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount }), [accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount]);
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 };

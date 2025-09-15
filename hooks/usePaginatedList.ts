@@ -54,7 +54,7 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
             }
 
             const { data, error, count } = await query
-                .order('date', { ascending: false })
+                .order('created_at', { ascending: false })
                 .range(from, to);
 
             if (error) {
@@ -98,5 +98,5 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
         fetchData();
     }, [fetchData]);
 
-    return { items, loading, totalCount, currentPage, setCurrentPage, itemsPerPage };
+    return { items, loading, totalCount, currentPage, setCurrentPage, itemsPerPage, refetch: fetchData };
 };

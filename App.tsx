@@ -53,8 +53,14 @@ const componentMap: { [key: string]: React.ComponentType<any> } = {
 };
 
 const AppRoutes: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth();
   const { canAccessRoute } = usePermissions();
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center"><Spinner /></div>
+    );
+  }
   
   const allRoutes = navigationConfig.flatMap((navItem) => {
       const { path, title, children } = navItem;
