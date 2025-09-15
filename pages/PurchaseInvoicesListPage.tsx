@@ -1,122 +1,87 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { PurchaseInvoice, Currency, PermissionModule, PermissionAction } from '../types';
-import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
-import { supabase } from '../services/supabaseClient';
 import EmptyState from '../components/EmptyState';
 import Spinner from '../components/Spinner';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
+import SearchIcon from '../components/icons/SearchIcon';
 import { getStatusChipClassName } from '../utils/uiHelpers';
 import Pagination from '../components/Pagination';
+import { useNavigate } from 'react-router-dom';
+import { usePaginatedList } from '../hooks/usePaginatedList';
+import { useDebounce } from '../hooks/useDebounce';
 
+const formatPurchaseInvoice = (i: any): PurchaseInvoice => ({
+    id: i.id,
+    invoiceNumber: i.invoice_number,
+    supplierName: i.supplier_name,
+    date: i.date,
+    currency: i.currency as Currency,
+    status: i.status,
+    items: [],
+    totalAmount: i.total_amount,
+    createdBy: i.created_by,
+    creatorName: i.creator_name || 'غير معروف',
+});
+
+const purchaseInvoiceSearchColumns = ['invoice_number', 'supplier_name'];
 const PurchaseInvoicesListPage: React.FC = () => {
-    const [invoices, setInvoices] = useState<PurchaseInvoice[]>([]);
-    const [loading, setLoading] = useState(true);
-    const { currentUser, loading: isAuthLoading } = useAuth();
     const permissions = usePermissions();
     const navigate = useNavigate();
-
-    // Pagination state
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(15);
-    const [totalCount, setTotalCount] = useState(0);
+    const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
     const canCreate = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.CREATE);
-    const canViewAll = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_ALL);
-    const canViewOwn = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_OWN);
-
-    useEffect(() => {
-        const fetchInvoices = async () => {
-            // Don't fetch until the auth state is confirmed
-            if (isAuthLoading) {
-                return;
-            }
-            
-            // If auth is resolved and there's no user, stop loading and show empty state.
-            if (!currentUser) { setLoading(false); setInvoices([]); return; }
-
-            setLoading(true);
-            try {
-                if (!canViewAll && !canViewOwn) {
-                    setInvoices([]);
-                    setLoading(false);
-                    return;
-                }
-
-                // Calculate the range for the current page
-                const from = (currentPage - 1) * itemsPerPage;
-                const to = from + itemsPerPage - 1;
-
-                let query = supabase
-                    .from('purchase_invoices')
-                    .select('*', { count: 'exact' });
-
-                if (!canViewAll && canViewOwn) {
-                    query = query.eq('created_by', currentUser.id);
-                }
-
-                let { data, error, count } = await query
-                    .order('date', { ascending: false })
-                    .range(from, to);
-
-                if (error) {
-                    if (error.message.includes('does not exist')) {
-                        console.warn("`purchase_invoices` table not found. Displaying an empty list.");
-                        setInvoices([]);
-                    } else {
-                        console.error('Error fetching purchase invoices:', error.message);
-                        setInvoices([]);
-                    }
-                } else if (data) {
-                    const formattedInvoices: PurchaseInvoice[] = data.map(i => ({
-                        id: i.id,
-                        invoiceNumber: i.invoice_number,
-                        supplierName: i.supplier_name,
-                        date: i.date,
-                        currency: i.currency as Currency,
-                        status: i.status,
-                        items: [],
-                        totalAmount: i.total_amount,
-                        createdBy: i.created_by,
-                        creatorName: 'غير معروف', // This data is no longer fetched
-                    }));
-                    setInvoices(formattedInvoices);
-                    setTotalCount(count ?? 0);
-                }
-            } catch (e: any) {
-                console.error("An unexpected error occurred while fetching purchase invoices:", e.message);
-                setInvoices([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchInvoices();
-    }, [currentUser, isAuthLoading, permissions, canViewAll, canViewOwn, currentPage, itemsPerPage]);
+    const canView = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_ALL) || permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_OWN);
+    const { items: invoices, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
+        tableName: 'purchase_invoices',
+        permissionModule: PermissionModule.PURCHASE_INVOICES,
+        formatter: formatPurchaseInvoice,
+        searchQuery: debouncedSearchQuery,
+        searchColumns: purchaseInvoiceSearchColumns,
+    });
 
     return (
         <>
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary">قائمة فواتير المشتريات</h2>
-                {canCreate && (
-                    <button 
-                        onClick={() => navigate('/purchase-invoices/new')}
-                        className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
-                    >
-                        + إنشاء فاتورة جديدة
-                    </button>
-                )}
+                <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-4">
+                    <div className="relative w-full sm:w-64">
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                            <SearchIcon className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="ابحث بالرقم أو اسم المورد..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full border border-border bg-card text-text-primary p-2 pl-3 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+                            aria-label="Search purchase invoices"
+                        />
+                    </div>
+                    {canCreate && (
+                        <button 
+                            onClick={() => navigate('/purchase-invoices/new')}
+                            className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg"
+                        >
+                            + إنشاء فاتورة جديدة
+                        </button>
+                    )}
+                </div>
             </div>
 
             {loading ? (
                 <div className="flex justify-center items-center p-10"><Spinner /></div>
-            ) : invoices.length === 0 ? (
+            ) : invoices.length === 0 && !loading ? (
                 <EmptyState
                     Icon={DocumentTextIcon}
-                    title="لا توجد فواتير مشتريات"
-                    message={canCreate ? "ابدأ بتسجيل أول فاتورة مشتريات." : "ليس لديك صلاحية لعرض فواتير المشتريات."}
-                    action={canCreate ? {
+                    title={searchQuery ? 'لا توجد نتائج' : (canView ? 'لا توجد فواتير مشتريات' : 'الوصول مرفوض')}
+                    message={
+                        searchQuery 
+                        ? 'لم نجد أي فواتير تطابق بحثك.' 
+                        : (canView ? "ابدأ بتسجيل أول فاتورة مشتريات." : "ليس لديك الصلاحية اللازمة لعرض هذه البيانات.")
+                    }
+                    action={!searchQuery && canCreate && canView ? {
                         label: '+ إنشاء فاتورة جديدة',
                         onClick: () => navigate('/purchase-invoices/new')
                     } : undefined}
@@ -132,6 +97,7 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                     <th className="px-3 py-3 font-bold text-text-secondary">التاريخ</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">المورد</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الحالة</th>
+                                    <th className="px-3 py-3 font-bold text-text-secondary">أنشئ بواسطة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الإجمالي</th>
                                 </tr>
                             </thead>
@@ -146,18 +112,13 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                         <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                         <td className="px-3 py-3">{i.supplierName}</td>
                                         <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{i.creatorName}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString()} {i.currency}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    <Pagination
-                        currentPage={currentPage}
-                        totalCount={totalCount}
-                        itemsPerPage={itemsPerPage}
-                        onPageChange={page => setCurrentPage(page)}
-                    />
 
                     {/* Mobile Card View */}
                     <div className="lg:hidden space-y-4">
@@ -174,11 +135,19 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between"><span className="text-text-secondary">المورد:</span> <span className="font-medium text-right">{i.supplierName}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{i.creatorName}</span></div>
                                     <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>
                                 </div>
                             </div>
                         ))}
                     </div>
+
+                    <Pagination
+                        currentPage={currentPage}
+                        totalCount={totalCount}
+                        itemsPerPage={itemsPerPage}
+                        onPageChange={page => setCurrentPage(page)}
+                    />
                 </>
             )}
         </>

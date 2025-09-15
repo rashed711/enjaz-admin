@@ -1,8 +1,7 @@
-import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../services/supabaseClient';
+import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
 import { PermissionsConfig } from '../types';
+import { supabase } from '../services/supabaseClient';
 import { permissionsConfig as staticPermissionsConfig } from '../utils/permissionsConfig';
-import { useAuth } from '../hooks/useAuth';
 
 interface PermissionsContextType {
   config: PermissionsConfig;
@@ -12,68 +11,60 @@ interface PermissionsContextType {
 
 const PermissionsContext = createContext<PermissionsContextType | undefined>(undefined);
 
+const CONFIG_KEY = 'permissions_config';
+
 export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [config, setConfig] = useState<PermissionsConfig>(staticPermissionsConfig);
   const [loading, setLoading] = useState(true);
-  const { currentUser } = useAuth();
-
-  const fetchConfig = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'permissions')
-        .single();
-
-      if (error) {
-        console.warn('Could not fetch permissions from database, falling back to static config. Error:', error.message);
-        setConfig(staticPermissionsConfig);
-      } else if (data) {
-        setConfig(data.value as PermissionsConfig);
-      }
-    } catch (e: any) {
-      console.error('Failed to fetch permissions config:', e.message);
-      setConfig(staticPermissionsConfig); // Fallback on any other error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
-    if (currentUser) {
-      fetchConfig();
-    } else {
-      setConfig(staticPermissionsConfig);
-      setLoading(false);
-    }
-  }, [currentUser, fetchConfig]);
+    const fetchConfig = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('app_config')
+          .select('value')
+          .eq('key', CONFIG_KEY)
+          .single();
 
-  const updateConfig = useCallback(async (newConfig: PermissionsConfig): Promise<{ success: boolean; error: string | null }> => {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .update({ value: newConfig, updated_at: new Date().toISOString() })
-      .eq('key', 'permissions')
-      .select('value') // We only need the value back
-      .single();
+        if (error && error.code !== 'PGRST116') { // PGRST116 = 'single row not found'
+          throw error;
+        }
 
-    if (error) {
-      console.error('Error updating permissions:', error);
-      // Check for the specific RLS failure error where no rows are returned for update
-      if (error.code === 'PGRST116') { 
-        return { success: false, error: 'فشل الحفظ. لم يتم العثور على الصف للتحديث. يرجى التحقق من صلاحيات التحديث (UPDATE RLS Policy) والتأكد من أن دورك يسمح بالتعديل.' };
+        if (data?.value) {
+          setConfig(data.value as PermissionsConfig);
+        } else {
+          // If no config in DB, use the static one as a fallback/default.
+          setConfig(staticPermissionsConfig);
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch permissions config:", err.message);
+        // Fallback to static config on error
+        setConfig(staticPermissionsConfig);
+      } finally {
+        setLoading(false);
       }
-      return { success: false, error: `فشل تحديث الصلاحيات: ${error.message}` };
-    }
+    };
 
-    if (data) {
-        setConfig(data.value as PermissionsConfig);
-        return { success: true, error: null };
-    }
-
-    return { success: false, error: 'فشل الحفظ لسبب غير معروف.' };
+    fetchConfig();
   }, []);
 
+  const updateConfig = useCallback(async (newConfig: PermissionsConfig): Promise<{ success: boolean; error: string | null }> => {
+    try {
+      const { error } = await supabase
+        .from('app_config')
+        .upsert({ key: CONFIG_KEY, value: newConfig }, { onConflict: 'key' });
+
+      if (error) throw error;
+
+      setConfig(newConfig); // Update local state on successful save
+      return { success: true, error: null };
+    } catch (err: any) {
+      console.error("Failed to update permissions config:", err.message);
+      return { success: false, error: `فشل تحديث الصلاحيات: ${err.message}` };
+    }
+  }, []);
+  
   const value = useMemo(() => ({ config, loading, updateConfig }), [config, loading, updateConfig]);
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

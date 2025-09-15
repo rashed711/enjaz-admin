@@ -126,7 +126,15 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
         const base = {
             id: undefined,
             date: new Date().toISOString().split('T')[0],
-            items: [{ description: '', quantity: 1, unitPrice: 0, total: 0, unit: Unit.COUNT }],
+            items: [{
+                id: -Date.now(), // Temporary unique ID for new items
+                productName: '',
+                description: '',
+                quantity: 1,
+                unitPrice: 0,
+                total: 0,
+                unit: Unit.COUNT
+            }],
             totalAmount: 0,
             createdBy: currentUser?.id || '',
         };
@@ -137,7 +145,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             case 'purchase_invoice':
                 return { ...base, invoiceNumber: newDocNumber, supplierName: '', status: PurchaseInvoiceStatus.DRAFT, currency: Currency.EGP } as T;
             case 'sales_invoice':
-                return { ...base, invoiceNumber: newDocNumber, clientName: '', company: '', project: '', status: SalesInvoiceStatus.DRAFT, currency: Currency.SAR } as T;
+                return { ...base, invoiceNumber: newDocNumber, clientName: '', company: '', project: '', status: SalesInvoiceStatus.DRAFT, currency: Currency.EGP } as T;
             default:
                 throw new Error("Invalid document type for new document generation.");
         }
@@ -147,11 +155,30 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
         const fetchDocument = async (docId: number) => {
             setLoading(true);
             try {
-                const { data: docData, error: docError } = await supabase.from(config.mainTable).select('*').eq('id', docId).single();
+                // Fetch main document and its items concurrently for better performance.
+                const [docResult, itemsResult] = await Promise.all([
+                    supabase.from(config.mainTable).select('*').eq('id', docId).single(),
+                    supabase.from(config.itemsTable).select('*').eq(config.foreignKey, docId)
+                ]);
+
+                const { data: docData, error: docError } = docResult;
                 if (docError) throw docError;
 
-                const { data: itemsData, error: itemsError } = await supabase.from(config.itemsTable).select('*').eq(config.foreignKey, docId);
+                const { data: itemsData, error: itemsError } = itemsResult;
                 if (itemsError) throw itemsError;
+
+                // Fetch creator name
+                let creatorName = 'غير معروف';
+                if (docData.created_by) {
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('name')
+                        .eq('id', docData.created_by)
+                        .single();
+                    
+                    if (profile) creatorName = profile.name;
+                    else if (profileError) console.warn(`Could not fetch creator name for user ${docData.created_by}:`, profileError.message);
+                }
 
                 // For quotations, extract the discount which is saved as a special line item.
                 const discountItem = documentType === 'quotation' 
@@ -187,15 +214,13 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     return {
                         id: item.id,
                         productId: item.product_id,
+                        productName: product?.name,
                         description: item.description,
                         quantity: item.quantity,
                         unitPrice: item.unit_price,
                         total: item.total,
                         unit: (item.unit as Unit) || (product?.unit || Unit.COUNT),
                         productType: product?.productType || ProductType.SIMPLE,
-                        length: item.length,
-                        width: item.width,
-                        height: item.height,
                     };
                 });
                 
@@ -217,6 +242,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     currency: docData.currency,
                     totalAmount: docData.total_amount,
                     createdBy: docData.created_by,
+                    creatorName: creatorName,
                     items: augmentedItems,
                     ...docFields
                 } as T;
@@ -316,9 +342,6 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     unit_price: item.unitPrice,
                     total: item.total,
                     unit: item.unit,
-                    length: item.length,
-                    width: item.width,
-                    height: item.height,
                 }));
                 const { error: itemsError } = await supabase.from(config.itemsTable).insert(itemsToInsert);
                 if (itemsError) throw itemsError;

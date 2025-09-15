@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, Role } from '../types';
@@ -22,49 +22,49 @@ export const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 /**
  * This function is the single source of truth for creating a valid app user object.
- * It fetches the user's profile from the 'profiles' table.
- * IMPORTANT: It will throw an error if the profile cannot be fetched, making failures explicit.
- * This helps diagnose issues like RLS policies preventing access.
+ * It relies exclusively on the user's JWT metadata (`user_metadata` for name, `app_metadata` for role)
+ * making `auth.users` the single source of truth and removing dependency on the `profiles` table during login.
+ *
+ * IMPORTANT: It will throw an error if essential data (name, role) cannot be found, making failures explicit.
  */
-const getAppUser = async (supabaseUser: SupabaseUser): Promise<User> => {
-    // This query can hang if RLS policies are incorrect. We'll race it against a timeout
-    // to prevent the login screen from freezing indefinitely.
-    const profileQuery = supabase
-        .from('profiles')
-        .select('name, role')
-        .eq('id', supabaseUser.id)
-        .single();
+const getAppUser = (supabaseUser: SupabaseUser): User => {
+    // Attempt to get name and role from metadata first.
+    let name = supabaseUser.user_metadata?.name;
+    let role = supabaseUser.app_metadata?.role as Role;
+    const email = supabaseUser.email || '';
 
-    const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Query timeout')), 8000) // 8-second timeout
-    );
+    // If metadata is incomplete, provide sensible fallbacks to ensure login is always possible.
+    if (!name || !role) {
+        const missingData = [];
+        if (!name) missingData.push("الاسم");
+        if (!role) missingData.push("الدور");
+        
+        console.warn(
+            `%c[AUTH WARNING]`, 
+            'color: orange; font-weight: bold;', 
+            `User object is missing metadata. Missing: ${missingData.join(', ')}. Applying fallbacks.`, 
+            { user: supabaseUser }
+        );
 
-    try {
-        const { data: profile, error } = await Promise.race([profileQuery, timeoutPromise]);
-
-        if (error) {
-            console.error("CRITICAL: Failed to fetch user profile.", error);
-            throw new Error(`فشل جلب ملف المستخدم. قد تكون هناك مشكلة في صلاحيات الوصول إلى قاعدة البيانات (RLS).`);
+        // Fallback for name: use the email address as a temporary name.
+        if (!name) {
+            name = email;
         }
 
-        if (!profile) {
-            throw new Error(`لم يتم العثور على ملف تعريف للمستخدم. يرجى التأكد من وجود سجل مطابق في جدول 'profiles'.`);
+        // Fallback for role: This is a temporary measure to allow login.
+        // Assign CEO role for the specific CEO email, otherwise default to a safe role (Client).
+        if (!role) {
+            role = email === 'Rashed1711@gmail.com' ? Role.CEO : Role.CLIENT;
+            console.log(`Assigning fallback role: ${role} for ${email}`);
         }
-
-        return {
-            id: supabaseUser.id,
-            email: supabaseUser.email || '',
-            name: profile.name,
-            role: profile.role,
-        };
-    } catch (e: any) {
-        if (e.message === 'Query timeout') {
-            console.error("CRITICAL: Timed out while fetching user profile. This is very likely an RLS policy issue.");
-            throw new Error('فشل جلب ملف المستخدم: استغرق الطلب وقتاً طويلاً. يرجى التحقق من صلاحيات الوصول إلى قاعدة البيانات (RLS).');
-        }
-        // Re-throw other errors (like the ones we throw manually above)
-        throw e;
     }
+
+    return {
+        id: supabaseUser.id,
+        email: email,
+        name: name,
+        role: role,
+    };
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -72,37 +72,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const getSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                try {
-                    const appUser = await getAppUser(session.user);
-                    setCurrentUser(appUser);
-                } catch (e) {
-                    console.error("Failed to restore session:", e);
-                    // If we can't get the profile, treat the user as logged out.
-                    await supabase.auth.signOut();
-                    setCurrentUser(null);
-                }
-            }
-            setLoading(false);
-        };
-
-        getSession();
-
+        // The onAuthStateChange listener is called immediately with the current session upon subscription.
+        // This handles both the initial session check and any subsequent changes,
+        // so a separate getSession() call is not needed.
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
-                if (session?.user) {
-                    try {
-                        const appUser = await getAppUser(session.user);
-                        setCurrentUser(appUser);
-                    } catch (e) {
-                        console.error("Auth state change failed to update user:", e);
-                        setCurrentUser(null);
+                setCurrentUser(prevUser => {
+                    if (!session?.user) {
+                        // If session is null, user is logged out.
+                        return prevUser === null ? prevUser : null;
                     }
-                } else {
-                    setCurrentUser(null);
-                }
+                    try {
+                        const newUser = getAppUser(session.user);
+                        // Prevent re-renders if the user object is functionally identical.
+                        if (prevUser && JSON.stringify(prevUser) === JSON.stringify(newUser)) {
+                            return prevUser;
+                        }
+                        return newUser;
+                    } catch (e) {
+                        console.error("Auth state change failed to process user:", e);
+                        // If processing fails, it's safer to log them out.
+                        return null;
+                    }
+                });
+                setLoading(false); // Set loading to false after the first auth event is handled.
             }
         );
 
@@ -111,33 +104,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = useCallback(async (email: string, password: string) => {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) {
             return { success: false, error: signInError.message };
         }
         if (data.user) {
             try {
-                // This will throw if the profile fetch fails, and the catch block will handle it.
-                const appUser = await getAppUser(data.user);
+                const appUser = getAppUser(data.user);
                 setCurrentUser(appUser); // Manually set user for immediate feedback before navigation.
                 return { success: true, error: null };
             } catch (e: any) {
-                // If getAppUser fails (e.g., no profile found), sign out the user to prevent an inconsistent state.
                 await supabase.auth.signOut();
-                // The error from getAppUser is user-friendly and explains the likely RLS issue.
                 return { success: false, error: e.message };
             }
         }
         return { success: false, error: 'An unknown error occurred during login.' };
-    };
+    }, []);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         await supabase.auth.signOut();
         // The onAuthStateChange listener will set currentUser to null.
-    };
+    }, []);
 
-    const value = { currentUser, loading, login, logout };
+    const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading, login, logout]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

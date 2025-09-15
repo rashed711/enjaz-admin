@@ -3,29 +3,26 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProductProvider } from './contexts/ProductContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
-import { UserProvider } from './contexts/UserContext';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import { useAuth } from './hooks/useAuth';
 import { navigationConfig } from './navigation';
+import { usePermissions } from './hooks/usePermissions';
+import { PermissionModule, PermissionAction, Role } from './types';
 
 const AppRoutes: React.FC = () => {
   const { currentUser } = useAuth();
-
-  const userCanAccess = (roles: string[]) => {
-      if (!currentUser) return false;
-      return roles.includes(currentUser.role);
-  }
+  const { canAccessRoute } = usePermissions();
   
   const allRoutes = navigationConfig.flatMap((navItem) => {
-      const { path, component: Component, roles, title, children } = navItem;
+      const { path, component: Component, title, children } = navItem;
 
       // A user can access a parent route if they have the role for the parent itself,
       // OR if they have access to at least one of its children. This logic must match the Sidebar's logic.
-      const hasChildAccess = children?.some(child => userCanAccess(child.roles)) ?? false;
-      const canAccessParent = userCanAccess(roles) || hasChildAccess;
+      const hasChildAccess = children?.some(child => canAccessRoute(child)) ?? false;
+      const canAccessParent = canAccessRoute(navItem) || hasChildAccess;
 
       const parentRoute = canAccessParent ? [
           <Route 
@@ -41,8 +38,9 @@ const AppRoutes: React.FC = () => {
           />
       ] : [];
 
-      const childRoutes = children?.flatMap(({ path: childPath, component: ChildComponent, roles: childRoles, title: childTitle }) =>
-          userCanAccess(childRoles) ? [
+      const childRoutes = children?.flatMap((child) => {
+          const { path: childPath, component: ChildComponent, title: childTitle } = child;
+          return canAccessRoute(child) ? [
               <Route 
                   key={childPath}
                   path={childPath}
@@ -54,8 +52,8 @@ const AppRoutes: React.FC = () => {
                       </ProtectedRoute>
                   }
               />
-          ] : []
-      ) ?? [];
+          ] : [];
+      }) ?? [];
 
       return [...parentRoute, ...childRoutes];
   });
@@ -79,11 +77,9 @@ const App: React.FC = () => {
     <AuthProvider>
       <ProductProvider>
         <PermissionsProvider>
-          <UserProvider>
-            <HashRouter>
-              <AppRoutes />
-            </HashRouter>
-          </UserProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
         </PermissionsProvider>
       </ProductProvider>
     </AuthProvider>

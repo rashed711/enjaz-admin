@@ -52,7 +52,7 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
         if (!currentUser) {
             return { product: null, error: "User not authenticated to add a product." };
         }
-        return addProduct(productData, currentUser.id);
+        return addProduct(productData);
     };
 
     const inputClasses = "border border-border bg-white text-text-primary p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";

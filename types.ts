@@ -39,6 +39,7 @@ export enum Unit {
 export interface Product {
   id: number;
   name: string;
+  description: string;
   sellingPrice: number;
   productType: ProductType;
   unit: Unit;
@@ -50,14 +51,12 @@ export interface Product {
 export interface DocumentItem {
   id?: number;
   productId?: number;
+  productName?: string;
   description: string;
   quantity: number;
   unitPrice: number;
   total: number;
   unit?: Unit;
-  length?: number;
-  width?: number;
-  height?: number;
 }
 
 // Refactored: Generic DocumentItemState for use in editors
@@ -135,6 +134,7 @@ export enum PermissionModule {
   PRODUCTS = 'المنتجات',
   USERS = 'المستخدمين',
   PERMISSIONS = 'الصلاحيات',
+  ACCOUNTS = 'الحسابات',
 }
 
 export enum PermissionAction {
@@ -154,3 +154,32 @@ export type PermissionsConfig = {
     [key in PermissionModule]?: PermissionAction[];
   };
 };
+
+// --- Navigation Types ---
+// Placing these here to avoid circular dependencies if they were in navigation.ts
+// and imported by hooks that navigation.ts also imports.
+
+export interface NavLink {
+    path: string;
+    label: string;
+    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+    roles: Role[];
+    inSidebar: boolean;
+    inBottomNav: boolean;
+    bottomNavLabel?: string;
+    component: React.ComponentType;
+    title: string;
+    children?: NavLinkChild[];
+    permission?: [PermissionModule, 'VIEW_ANY' | PermissionAction];
+}
+
+export interface NavLinkChild {
+    path: string;
+    label: string;
+    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+    roles: Role[];
+    component: React.ComponentType;
+    title: string;
+    inSubMenu?: boolean;
+    permission?: [PermissionModule, 'VIEW_ANY' | PermissionAction];
+}

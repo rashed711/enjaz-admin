@@ -27,13 +27,6 @@ const QuotationEditorPage: React.FC = () => {
     const isNew = idParam === 'new';
     const isEditMode = mode === 'edit' || isNew;
 
-    useEffect(() => {
-        // Set default currency to EGP for new quotations
-        if (isNew && quotation && quotation.currency !== Currency.EGP) {
-            setQuotation(prev => prev ? { ...prev, currency: Currency.EGP } : null);
-        }
-    }, [isNew, quotation, setQuotation]);
-
     if (loading || !quotation) {
         return <div className="flex justify-center items-center h-full text-dark-text">جاري التحميل...</div>;
     }

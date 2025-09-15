@@ -27,13 +27,6 @@ const PurchaseInvoiceEditorPage: React.FC = () => {
     const isNew = idParam === 'new';
     const isEditMode = mode === 'edit' || isNew;
 
-    useEffect(() => {
-        // Set default currency to EGP for new invoices
-        if (isNew && invoice && invoice.currency !== Currency.EGP) {
-            setInvoice(prev => prev ? { ...prev, currency: Currency.EGP } : null);
-        }
-    }, [isNew, invoice, setInvoice]);
-
     if (loading || !invoice) {
         return <div className="flex justify-center items-center h-full text-dark-text">جاري التحميل...</div>;
     }

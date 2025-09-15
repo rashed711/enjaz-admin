@@ -14,6 +14,7 @@ interface AddProductModalProps {
 const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSave }) => {
     const [productData, setProductData] = useState({ 
         name: '', 
+        description: '',
         sellingPrice: 0,
         productType: ProductType.SIMPLE,
         unit: Unit.COUNT,
@@ -25,6 +26,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
         if (isOpen) {
             setProductData({ 
                 name: '', 
+                description: '',
                 sellingPrice: 0,
                 productType: ProductType.SIMPLE,
                 unit: Unit.COUNT,
@@ -64,9 +66,12 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
         }
     };
     
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setProductData(prev => ({ ...prev, [name]: value }));
+        setProductData(prev => ({ ...prev, [name]: name === 'sellingPrice'
+            ? parseFloat(value) || 0
+            : value 
+        }));
     };
 
     const inputClasses = "border border-border bg-white text-text-primary py-2 px-3 rounded-lg w-full text-right focus:outline-none focus:ring-2 focus:ring-primary transition-colors";
@@ -93,6 +98,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                     <label htmlFor="name" className="block text-sm font-medium mb-2 text-right text-text-secondary">اسم المنتج/الخدمة</label>
                     <input type="text" id="name" name="name" value={productData.name} onChange={handleChange} className={inputClasses}/>
                 </div>
+                <div>
+                    <label htmlFor="description" className="block text-sm font-medium mb-2 text-right text-text-secondary">الوصف</label>
+                    <textarea id="description" name="description" value={productData.description} onChange={handleChange} rows={3} className={inputClasses}></textarea>
+                </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
@@ -105,7 +114,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
                     </div>
                      <div>
                         <label htmlFor="sellingPrice" className="block text-sm font-medium mb-2 text-right text-text-secondary">سعر البيع</label>
-                        <input type="number" id="sellingPrice" name="sellingPrice" value={productData.sellingPrice || ''} onChange={e => setProductData({...productData, sellingPrice: parseFloat(e.target.value) || 0})} className={inputClasses}/>
+                        <input type="number" id="sellingPrice" name="sellingPrice" value={productData.sellingPrice || ''} onChange={handleChange} className={inputClasses}/>
                     </div>
                      <div>
                         <label htmlFor="unit" className="block text-sm font-medium mb-2 text-right text-text-secondary">الوحدة</label>

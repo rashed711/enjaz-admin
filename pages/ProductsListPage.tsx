@@ -28,7 +28,7 @@ const ProductsListPage: React.FC = () => {
 
     // State for inline editing
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
-    const [editedProductData, setEditedProductData] = useState<Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>>({ name: '', sellingPrice: 0, productType: ProductType.SIMPLE, unit: Unit.COUNT });
+    const [editedProductData, setEditedProductData] = useState<Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>>({ name: '', description: '', sellingPrice: 0, productType: ProductType.SIMPLE, unit: Unit.COUNT });
     const [isSaving, setIsSaving] = useState(false);
 
     const canManage = permissions.can(PermissionModule.PRODUCTS, PermissionAction.MANAGE);
@@ -47,7 +47,7 @@ const ProductsListPage: React.FC = () => {
         if (!currentUser) {
             return { product: null, error: "User not authenticated" };
         }
-        return addProduct(productData, currentUser.id);
+        return addProduct(productData);
     };
 
     const handleConfirmDelete = async () => {
@@ -77,7 +77,7 @@ const ProductsListPage: React.FC = () => {
         setEditingProductId(null);
     };
 
-    const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setEditedProductData(prev => ({
             ...prev,
@@ -188,11 +188,12 @@ const ProductsListPage: React.FC = () => {
                         <thead className="bg-slate-50">
                             <tr>
                                 <th className="px-3 py-2 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">اسم المنتج</th>
+                                <th className="px-3 py-2 font-bold text-text-secondary">الوصف</th>
                                 <th className="px-3 py-2 font-bold text-text-secondary">التصنيف</th>
                                 <th className="px-3 py-2 font-bold text-text-secondary">الوحدة</th>
                                 <th className="px-3 py-2 font-bold text-text-secondary">سعر البيع</th>
-                                <th className="px-3 py-2 font-bold text-text-secondary">متوسط سعر الشراء</th>
-                                <th className="px-3 py-2 font-bold text-text-secondary">متوسط سعر البيع</th>
+                                {canManage && <th className="px-3 py-2 font-bold text-text-secondary">متوسط سعر الشراء</th>}
+                                {canManage && <th className="px-3 py-2 font-bold text-text-secondary">متوسط سعر البيع</th>}
                                 {canManage && <th className="px-3 py-2 font-bold text-text-secondary text-left sticky left-0 bg-slate-50 border-r border-border">إجراءات</th>}
                             </tr>
                         </thead>
@@ -202,6 +203,9 @@ const ProductsListPage: React.FC = () => {
                                     <tr key={product.id} className="bg-indigo-50">
                                         <td className="px-3 py-2 sticky right-0 bg-indigo-50 border-l border-border">
                                             <input type="text" name="name" value={editedProductData.name} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <textarea name="description" value={editedProductData.description || ''} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white text-sm" rows={1}></textarea>
                                         </td>
                                         <td className="px-3 py-2">
                                             <select name="productType" value={editedProductData.productType} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white">
@@ -216,8 +220,8 @@ const ProductsListPage: React.FC = () => {
                                         <td className="px-3 py-2">
                                             <input type="number" name="sellingPrice" value={editedProductData.sellingPrice || ''} onChange={handleEditInputChange} className="w-full p-1 border rounded bg-white" />
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
+                                        {canManage && <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>}
+                                        {canManage && <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>}
                                         {canManage && (
                                             <td className="px-3 py-2 text-left sticky left-0 bg-indigo-50 border-r border-border">
                                                 <div className="flex items-center justify-end gap-2">
@@ -234,11 +238,12 @@ const ProductsListPage: React.FC = () => {
                                 ) : (
                                     <tr key={product.id} className="hover:bg-slate-100 even:bg-slate-50/50">
                                         <td className="px-3 py-2 font-semibold sticky right-0 bg-inherit border-l border-border">{product.name}</td>
+                                        <td className="px-3 py-2 text-text-secondary truncate max-w-xs">{product.description}</td>
                                         <td className="px-3 py-2">{product.productType}</td>
                                         <td className="px-3 py-2">{product.unit}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.sellingPrice)}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>
+                                        {canManage && <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averagePurchasePrice)}</td>}
+                                        {canManage && <td className="px-3 py-2 whitespace-nowrap">{formatPrice(product.averageSellingPrice)}</td>}
                                         {canManage && (
                                             <td className="px-3 py-2 text-left sticky left-0 bg-inherit border-r border-border">
                                                 <div className="flex items-center justify-end gap-2">
@@ -269,6 +274,10 @@ const ProductsListPage: React.FC = () => {
                                     <div>
                                         <label className="text-xs font-medium text-text-secondary">اسم المنتج</label>
                                         <input type="text" name="name" value={editedProductData.name} onChange={handleEditInputChange} className="w-full p-2 border rounded bg-white text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-text-secondary">الوصف</label>
+                                        <textarea name="description" value={editedProductData.description || ''} onChange={handleEditInputChange} className="w-full p-2 border rounded bg-white text-sm" rows={2}></textarea>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
@@ -304,11 +313,14 @@ const ProductsListPage: React.FC = () => {
                                         <p className="font-bold text-lg text-text-primary">{product.name}</p>
                                         <span className="text-sm font-semibold text-primary">{formatPrice(product.sellingPrice)}</span>
                                     </div>
+                                    {product.description && (
+                                        <p className="text-sm text-text-secondary mb-3 pb-3 border-b border-border">{product.description}</p>
+                                    )}
                                     <div className="space-y-2 text-sm">
                                         <div className="flex justify-between"><span className="text-text-secondary">التصنيف:</span> <span className="font-medium">{product.productType}</span></div>
                                         <div className="flex justify-between"><span className="text-text-secondary">الوحدة:</span> <span className="font-medium">{product.unit}</span></div>
-                                        <div className="flex justify-between"><span className="text-text-secondary">متوسط الشراء:</span> <span className="font-medium">{formatPrice(product.averagePurchasePrice)}</span></div>
-                                        <div className="flex justify-between"><span className="text-text-secondary">متوسط البيع:</span> <span className="font-medium">{formatPrice(product.averageSellingPrice)}</span></div>
+                                        {canManage && <div className="flex justify-between"><span className="text-text-secondary">متوسط الشراء:</span> <span className="font-medium">{formatPrice(product.averagePurchasePrice)}</span></div>}
+                                        {canManage && <div className="flex justify-between"><span className="text-text-secondary">متوسط البيع:</span> <span className="font-medium">{formatPrice(product.averageSellingPrice)}</span></div>}
                                     </div>
                                     {canManage && (
                                         <div className="flex items-center justify-end gap-2 mt-4 border-t border-border pt-3">

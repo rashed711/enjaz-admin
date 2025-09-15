@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabaseClient';
+import { usePermissions } from '../hooks/usePermissions';
+import { PermissionModule, PermissionAction } from '../types';
 import UsersIcon from '../components/icons/UsersIcon';
 import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import ReceiptIcon from '../components/icons/ReceiptIcon';
 import BuildingOfficeIcon from '../components/icons/BuildingOfficeIcon';
 import DocumentDuplicateIcon from '../components/icons/DocumentDuplicateIcon';
-
 
 interface StatCardProps {
   title: string;
@@ -26,6 +27,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => (
 
 const DashboardPage: React.FC = () => {
   const { currentUser, loading: isAuthLoading } = useAuth();
+  const permissions = usePermissions();
   const [stats, setStats] = useState({
     quotations: 0,
     salesInvoices: 0,
@@ -34,13 +36,20 @@ const DashboardPage: React.FC = () => {
     companies: 0, // Added companies count
   });
 
+  const canViewUsers = permissions.can(PermissionModule.USERS, PermissionAction.MANAGE);
+  const canViewPurchaseInvoices = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_ALL) || permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_OWN);
+  const canViewAllQuotations = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.VIEW_ALL);
+  const canViewAnyQuotations = canViewAllQuotations || permissions.can(PermissionModule.QUOTATIONS, PermissionAction.VIEW_OWN);
+  const canViewSalesInvoices = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_ALL) || permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_OWN);
+
   useEffect(() => {
     const fetchDashboardStats = async () => {
         if (!currentUser || isAuthLoading) return;
 
         try {
             // Helper to get count and handle errors gracefully
-            const getCount = (res: { count: number | null, error: any }, tableName: string) => {
+            const getCount = (res: { count: number | null, error: any } | undefined, tableName: string) => {
+                if (!res) return 0;
                 if (res.error) {
                     if (res.error.message.includes('does not exist') || res.error.message.includes('in the schema cache')) {
                         console.warn(`Dashboard: Table '${tableName}' not found. Defaulting count to 0.`);
@@ -50,10 +59,11 @@ const DashboardPage: React.FC = () => {
                     return 0;
                 }
                 return res.count ?? 0;
-            }
+            };
             
             // Helper to get unique companies count
-            const getCompanyCount = (res: { data: { company: string }[] | null, error: any }, tableName: string) => {
+            const getCompanyCount = (res: { data: { company: string }[] | null, error: any } | undefined, tableName: string) => {
+                if (!res) return 0;
                 if (res.error) {
                     if (res.error.message.includes('does not exist') || res.error.message.includes('in the schema cache')) {
                         console.warn(`Dashboard: Table '${tableName}' for company count not found. Defaulting to 0.`);
@@ -65,14 +75,34 @@ const DashboardPage: React.FC = () => {
                 if (!res.data) return 0;
                 const uniqueCompanies = new Set(res.data.map(q => q.company).filter(Boolean)); // Filter out null/empty company names
                 return uniqueCompanies.size;
-            }
+            };
 
-            // Base query for quotations
-            let quotationsQuery = supabase.from('quotations').select('*', { count: 'exact', head: true });
-            // Only filter by created_by if the user is not a CEO
-            if (currentUser.role !== 'CEO') {
-                quotationsQuery = quotationsQuery.eq('created_by', currentUser.id);
-            }
+            // --- Define queries based on permissions ---
+
+            // Quotations
+            const quotationsQuery = canViewAnyQuotations
+                ? supabase.from('quotations').select('*', { count: 'exact', head: true })
+                : Promise.resolve(undefined);
+
+            // Sales Invoices
+            const salesInvoicesQuery = canViewSalesInvoices
+                ? supabase.from('sales_invoices').select('*', { count: 'exact', head: true })
+                : Promise.resolve(undefined);
+
+            // Users
+            const usersQuery = canViewUsers 
+                ? supabase.from('profiles').select('*', { count: 'exact', head: true }) 
+                : Promise.resolve(undefined);
+
+            // Purchase Invoices
+            const purchaseInvoicesQuery = canViewPurchaseInvoices
+                ? supabase.from('purchase_invoices').select('*', { count: 'exact', head: true })
+                : Promise.resolve(undefined);
+
+            // Companies
+            const companiesQuery = canViewAllQuotations 
+                ? supabase.from('quotations').select('company') 
+                : Promise.resolve(undefined);
 
             // Fetch all stats concurrently
             const [
@@ -83,10 +113,10 @@ const DashboardPage: React.FC = () => {
                 companiesRes
             ] = await Promise.all([
                 quotationsQuery,
-                supabase.from('sales_invoices').select('*', { count: 'exact', head: true }),
-                supabase.from('profiles').select('*', { count: 'exact', head: true }),
-                supabase.from('purchase_invoices').select('*', { count: 'exact', head: true }),
-                supabase.from('quotations').select('company') // Fetch all company names
+                salesInvoicesQuery,
+                usersQuery,
+                purchaseInvoicesQuery,
+                companiesQuery
             ]);
 
             setStats({
@@ -94,7 +124,7 @@ const DashboardPage: React.FC = () => {
                 salesInvoices: getCount(salesInvoicesRes, 'sales_invoices'),
                 users: getCount(usersRes, 'profiles'),
                 purchaseInvoices: getCount(purchaseInvoicesRes, 'purchase_invoices'),
-                companies: getCompanyCount(companiesRes, 'quotations'), // Calculate and set unique company count
+                companies: getCompanyCount(companiesRes, 'quotations'),
             });
 
         } catch (e) {
@@ -105,7 +135,7 @@ const DashboardPage: React.FC = () => {
     if (currentUser) {
         fetchDashboardStats();
     }
-  }, [currentUser, isAuthLoading]);
+  }, [currentUser, isAuthLoading, canViewUsers, canViewPurchaseInvoices, canViewAllQuotations, canViewAnyQuotations, canViewSalesInvoices]);
 
   return (
     <div className="space-y-8">
@@ -113,47 +143,9 @@ const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard title="عروض الأسعار" value={stats.quotations} icon={<DocumentTextIcon />} />
         <StatCard title="فواتير المبيعات" value={stats.salesInvoices} icon={<DocumentTextIcon />} />
-        <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} />
-        <StatCard title="فواتير المشتريات" value={stats.purchaseInvoices} icon={<ReceiptIcon />} />
-        <StatCard title="الشركات" value={stats.companies} icon={<BuildingOfficeIcon />} />
-        <StatCard title="الصفحات" value={3} icon={<DocumentDuplicateIcon />} />
-      </div>
-
-      {/* Charts and Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Visitor Rate Chart */}
-        <div className="lg:col-span-2 bg-card p-5 rounded-lg shadow-sm border border-border">
-           <h3 className="font-bold text-lg text-text-primary mb-4">معدل الزوار</h3>
-           <div className="h-64 flex items-end justify-center">
-            {/* Simplified static representation of the chart */}
-             <svg width="100%" height="100%" viewBox="0 0 500 200" preserveAspectRatio="none" className="text-primary">
-                <path d="M 50 180 L 150 150 L 250 40 L 350 100 L 450 120" stroke="currentColor" strokeWidth="4" fill="url(#gradient)" />
-                <defs>
-                    <linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.4"/>
-                        <stop offset="100%" stopColor="currentColor" stopOpacity="0"/>
-                    </linearGradient>
-                </defs>
-                <g className="text-text-secondary" fontSize="12" fill="currentColor">
-                    <text x="45" y="195" textAnchor="middle">10-10</text>
-                    <text x="250" y="195" textAnchor="middle">10-11</text>
-                    <text x="450" y="195" textAnchor="middle">10-12</text>
-                </g>
-             </svg>
-           </div>
-        </div>
-        
-        {/* Quick Actions */}
-        <div className="bg-card p-5 rounded-lg shadow-sm border border-border">
-          <h3 className="font-bold text-lg text-text-primary mb-4">إجراءات سريعة</h3>
-          <div className="grid grid-cols-2 gap-4 text-center">
-            {['تعديل ملفي', 'الموقع', 'الإعدادات', 'الإشعارات', 'ملفي', 'الإعلانات'].map(action => (
-                <div key={action} className="bg-slate-100 p-4 rounded-md cursor-pointer hover:bg-slate-200">
-                    <p className="font-semibold text-text-primary">{action}</p>
-                </div>
-            ))}
-          </div>
-        </div>
+        {canViewUsers && <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} />}
+        {canViewPurchaseInvoices && <StatCard title="فواتير المشتريات" value={stats.purchaseInvoices} icon={<ReceiptIcon />} />}
+        {canViewAllQuotations && <StatCard title="الشركات" value={stats.companies} icon={<BuildingOfficeIcon />} />}
       </div>
     </div>
   );

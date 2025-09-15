@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, matchPath } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { navigationConfig } from '../navigation';
-import { Role } from '../types';
+import { Role, PermissionModule, PermissionAction } from '../types';
+import { usePermissions } from '../hooks/usePermissions';
 import ChevronDownIcon from './icons/ChevronDownIcon';
 import XIcon from './icons/XIcon';
 
@@ -14,6 +15,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const { currentUser } = useAuth();
     const location = useLocation();
+    const { canAccessRoute } = usePermissions();
 
     const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
 
@@ -29,13 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
     const toggleSubmenu = (path: string) => {
         setOpenSubmenus(prev => ({ ...prev, [path]: !prev[path] }));
-    };
-
-    const userCanAccess = (roles: Role[]) => {
-        if (!currentUser) return false;
-        // An empty roles array means the link's visibility is determined by its children.
-        if (roles.length === 0) return true;
-        return roles.includes(currentUser.role);
     };
 
     // Define style objects for active state to ensure highest specificity
@@ -77,9 +72,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     );
 
                     const hasChildren = item.children && item.children.some(child => child.inSubMenu);
-                    const accessibleChildren = item.children?.filter(child => child.inSubMenu && userCanAccess(child.roles)) ?? [];
+                    const accessibleChildren = item.children?.filter(child => child.inSubMenu && canAccessRoute(child)) ?? [];
                     
-                    if (!userCanAccess(item.roles) && accessibleChildren.length === 0) {
+                    if (!canAccessRoute(item) && accessibleChildren.length === 0) {
                         return null;
                     }
 

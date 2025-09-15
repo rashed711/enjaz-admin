@@ -129,17 +129,17 @@ const UserManagementPage: React.FC = () => {
         const originalUser = users.find(u => u.id === userData.id);
         if (!originalUser) throw new Error("المستخدم غير موجود.");
 
-        const payload: { name?: string; role?: Role; email?: string; password?: string } = {};
-        if (originalUser.name !== userData.name && userData.name) payload.name = userData.name;
-        if (originalUser.role !== userData.role) payload.role = userData.role;
+        // Always build a payload with name and role to ensure data is synced to auth.users metadata.
+        // This is crucial for fixing accounts with missing metadata, making the "Edit -> Save" flow reliable.
+        const payload: { name: string; role: Role; email?: string } = {
+            name: userData.name,
+            role: userData.role,
+        };
+
+        // Only include email in the payload if it has actually changed.
         if (originalUser.email !== userData.email && userData.email) payload.email = userData.email;
 
-        if (Object.keys(payload).length === 0) {
-            return; // Nothing changed
-        }
-
         // Always use the edge function to handle updates to ensure atomicity
-        // and to update auth.users metadata if role or email changes.
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !session) {
             throw new Error("لا يمكن الحصول على جلسة المستخدم. يرجى إعادة تحميل الصفحة.");
@@ -160,6 +160,13 @@ const UserManagementPage: React.FC = () => {
         if (!userData) return;
         setIsSaving(true);
         setModalError(null);
+
+        // Client-side validation to prevent submitting empty names
+        if (!userData.name || userData.name.trim() === '') {
+            setModalError('اسم المستخدم لا يمكن أن يكون فارغاً.');
+            setIsSaving(false);
+            return;
+        }
 
         try {
             if (userData.id) {

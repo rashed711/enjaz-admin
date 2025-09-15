@@ -1,4 +1,4 @@
-import { Role } from './types';
+import { Role, PermissionModule, PermissionAction, NavLink } from './types';
 import HomeIcon from './components/icons/HomeIcon';
 import DocumentTextIcon from './components/icons/DocumentTextIcon';
 import CubeIcon from './components/icons/CubeIcon';
@@ -23,30 +23,6 @@ import ManagementPage from './pages/ManagementPage'; // New Page
 import AccountsListPage from './pages/AccountsListPage';
 import React from 'react';
 
-interface NavLink {
-    path: string;
-    label: string;
-    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-    roles: Role[];
-    inSidebar: boolean;
-    inBottomNav: boolean;
-    bottomNavLabel?: string;
-    component: React.ComponentType;
-    title: string;
-    children?: NavLinkChild[];
-}
-
-// A more flexible type for children that includes properties needed by sub-menus and hub pages.
-interface NavLinkChild {
-    path: string;
-    label: string;
-    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-    roles: Role[];
-    component: React.ComponentType;
-    title: string;
-    inSubMenu?: boolean;
-}
-
 export const navigationConfig: NavLink[] = [
   {
     path: '/',
@@ -62,7 +38,8 @@ export const navigationConfig: NavLink[] = [
     path: '/accounts',
     label: 'الحسابات',
     Icon: BanknotesIcon,
-    roles: Object.values(Role), // Accessible to all authenticated users for now
+    roles: [], // Use permissions instead
+    permission: [PermissionModule.ACCOUNTS, 'VIEW_ANY'],
     inSidebar: true,
     inBottomNav: false,
     component: AccountsListPage,

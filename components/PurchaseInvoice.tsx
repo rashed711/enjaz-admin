@@ -51,22 +51,24 @@ const PrintView: React.FC<{
         <section className="mt-12">
             <table className="w-full text-sm">
                 <thead>
-                    <tr className="bg-[#10B981] text-white text-left">
-                        <th className="p-4 font-semibold uppercase tracking-wider">البند / الوصف</th>
-                        <th className="p-4 font-semibold uppercase tracking-wider text-center">الكمية</th>
-                        <th className="p-4 font-semibold uppercase tracking-wider text-center">الوحدة</th>
-                        <th className="p-4 font-semibold uppercase tracking-wider text-center">سعر الوحدة</th>
-                        <th className="p-4 font-semibold uppercase tracking-wider text-center">الإجمالي</th>
+                    <tr className="bg-[#10B981] text-white text-left text-xs">
+                        <th className="p-3 font-semibold uppercase tracking-wider w-1/5">Product</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider w-2/5">Description</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Unit</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Qty</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Unit Price</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Total</th>
                     </tr>
                 </thead>
                 <tbody className="text-gray-800">
                     {invoice.items.map((item, index) => (
                         <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
-                            <td className="p-4 align-top text-left">{item.description}</td>
-                            <td className="p-4 align-top text-center">{item.quantity}</td>
-                            <td className="p-4 align-top text-center">{item.unit || Unit.COUNT}</td>
-                            <td className="p-4 align-top text-center">{formatNumber(item.unitPrice)}</td>
-                            <td className="p-4 align-top font-semibold text-center">{formatNumber(item.total)}</td>
+                            <td className="p-3 align-top text-left font-semibold">{item.productName || '-'}</td>
+                            <td className="p-3 align-top text-left">{item.description}</td>
+                            <td className="p-3 align-top text-center">{item.unit || Unit.COUNT}</td>
+                            <td className="p-3 align-top text-center">{item.quantity}</td>
+                            <td className="p-3 align-top text-center">{formatNumber(item.unitPrice)}</td>
+                            <td className="p-3 align-top font-semibold text-center">{formatNumber(item.total)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -144,20 +146,25 @@ const OnScreenView: React.FC<{
         <div className="md:hidden mt-8">
             <h3 className="text-lg font-bold mb-4 text-primary border-b pb-2">البنود</h3>
             {invoice.items.map((item, index) => (
-                <div key={item.id || index} className="bg-slate-50 rounded-lg p-4 mb-4 border border-slate-200">
-                    <p dir="auto" className="font-bold text-text-primary mb-3 pb-3 border-b border-slate-200">{item.description}</p>
-                    <div className="space-y-3 text-sm">
-                        <div className="flex justify-between items-center">
-                            <span className="text-text-secondary">الكمية</span>
-                            <span className="font-semibold text-text-primary">{item.quantity} {item.unit || Unit.COUNT}</span>
+                <div key={item.id || index} className="bg-slate-50 rounded-lg p-4 mb-3 border border-slate-200 shadow-sm">
+                    {item.productName && <p className="font-bold text-primary mb-1">{item.productName}</p>}
+                    <p dir="auto" className={`font-semibold text-text-primary mb-3 ${item.productName ? 'text-sm' : 'text-base'}`}>{item.description}</p>
+                    <div className="grid grid-cols-4 gap-x-2 text-sm border-t border-slate-200 pt-3">
+                        <div className="text-center">
+                            <p className="text-xs text-text-secondary">الوحدة</p>
+                            <p className="font-semibold text-text-primary mt-1">{item.unit || Unit.COUNT}</p>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-text-secondary">سعر الوحدة</span>
-                            <span className="font-semibold text-text-primary">{formatNumber(item.unitPrice)}</span>
+                        <div className="text-center">
+                            <p className="text-xs text-text-secondary">الكمية</p>
+                            <p className="font-semibold text-text-primary mt-1">{item.quantity}</p>
                         </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                            <span className="text-text-secondary font-bold">الإجمالي</span>
-                            <span className="font-bold text-primary">{formatNumber(item.total)}</span>
+                        <div className="text-center">
+                            <p className="text-xs text-text-secondary">السعر</p>
+                            <p className="font-semibold text-text-primary mt-1">{formatNumber(item.unitPrice)}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-text-secondary">الإجمالي</p>
+                            <p className="font-bold text-primary mt-1">{formatNumber(item.total)}</p>
                         </div>
                     </div>
                 </div>
@@ -165,31 +172,31 @@ const OnScreenView: React.FC<{
         </div>
 
         {/* Desktop View: Table */}
-        <div className="hidden md:block overflow-x-auto">
-            <section className="mt-12">
-                <table className="w-full text-sm min-w-[600px]">
-                    <thead>
-                        <tr className="bg-[#10B981] text-white text-left">
-                            <th className="p-4 font-semibold uppercase tracking-wider">البند / الوصف</th>
-                            <th className="p-4 font-semibold uppercase tracking-wider text-center">الكمية</th>
-                            <th className="p-4 font-semibold uppercase tracking-wider text-center">الوحدة</th>
-                            <th className="p-4 font-semibold uppercase tracking-wider text-center">سعر الوحدة</th>
-                            <th className="p-4 font-semibold uppercase tracking-wider text-center">الإجمالي</th>
+        <div className="hidden md:block overflow-x-auto mt-12">
+            <table className="w-full text-sm min-w-[600px]">
+                <thead>
+                    <tr className="bg-[#10B981] text-white text-left text-xs">
+                        <th className="p-3 font-semibold uppercase tracking-wider w-1/5">Product</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider w-2/5">Description</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Unit</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Qty</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Unit Price</th>
+                        <th className="p-3 font-semibold uppercase tracking-wider text-center">Total</th>
+                    </tr>
+                </thead>
+                <tbody className="text-gray-800">
+                    {invoice.items.map((item, index) => (
+                        <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
+                            <td className="p-3 align-top text-left font-semibold">{item.productName || '-'}</td>
+                            <td className="p-3 align-top text-left">{item.description}</td>
+                            <td className="p-3 align-top text-center">{item.unit || Unit.COUNT}</td>
+                            <td className="p-3 align-top text-center">{item.quantity}</td>
+                            <td className="p-3 align-top text-center">{formatNumber(item.unitPrice)}</td>
+                            <td className="p-3 align-top font-semibold text-center">{formatNumber(item.total)}</td>
                         </tr>
-                    </thead>
-                    <tbody className="text-gray-800">
-                        {invoice.items.map((item, index) => (
-                            <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
-                                <td className="p-4 align-top text-left">{item.description}</td>
-                                <td className="p-4 align-top text-center">{item.quantity}</td>
-                                <td className="p-4 align-top text-center">{item.unit || Unit.COUNT}</td>
-                                <td className="p-4 align-top text-center">{formatNumber(item.unitPrice)}</td>
-                                <td className="p-4 align-top font-semibold text-center">{formatNumber(item.total)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </section>
+                    ))}
+                </tbody>
+            </table>
         </div>
         
         {/* Totals & Footer */}

@@ -1,72 +1,99 @@
-import React from 'react';
-import { DocumentItemState, Product, Unit } from '../types';
+import { useCallback } from 'react';
+import { Product, DocumentItemState, Unit, ProductType } from '../types';
 
-// A generic type for any document state that has an 'items' array.
+// A generic document state that we can work with.
 type DocumentWithItems = {
     items: DocumentItemState[];
     [key: string]: any;
 };
 
-// A generic type for the setDocument state dispatcher.
-type SetDocument<T> = React.Dispatch<React.SetStateAction<T | null>>;
-
 /**
- * A custom hook to manage document items (add, remove, update).
- * It ensures that new items get a unique temporary ID for stable keys in React.
+ * A hook to manage document items (add, remove, update, select product).
+ * This centralizes the logic used across Quotation, SalesInvoice, and PurchaseInvoice editors.
+ * @param setDocument - The state setter function for the document being edited.
+ * @param products - The list of available products.
  */
-export const useDocumentItems = <T extends DocumentWithItems>(
-    setDocument: SetDocument<T>,
+export const useDocumentItems = (
+    setDocument: React.Dispatch<React.SetStateAction<DocumentWithItems | null>>,
     products: Product[]
 ) => {
-    // This ref will provide unique negative IDs for new, unsaved items.
-    const tempIdCounter = React.useRef(-1);
 
-    const calculateItemTotal = (item: DocumentItemState): number => {
-        return (item.quantity || 0) * (item.unitPrice || 0);
-    };
-
-    const handleItemChange = (index: number, field: keyof DocumentItemState, value: any) => {
+    const handleItemChange = useCallback((index: number, field: keyof DocumentItemState, value: any) => {
         setDocument(prev => {
             if (!prev) return null;
             const newItems = [...prev.items];
-            const updatedItem = { ...newItems[index], [field]: value };
+            const currentItem = newItems[index];
             
-            // Recalculate total when a relevant field changes
-            if (['quantity', 'unitPrice'].includes(field)) {
-                updatedItem.total = calculateItemTotal(updatedItem);
+            const updatedItem = { ...currentItem, [field]: value };
+
+            // Recalculate total when quantity or unitPrice changes
+            if (field === 'quantity' || field === 'unitPrice') {
+                const quantity = updatedItem.quantity || 0;
+                const unitPrice = updatedItem.unitPrice || 0;
+                updatedItem.total = parseFloat((quantity * unitPrice).toFixed(2));
             }
 
             newItems[index] = updatedItem;
             return { ...prev, items: newItems };
         });
-    };
+    }, [setDocument]);
 
-    const handleProductSelection = (index: number, productId: number) => {
+    const handleProductSelection = useCallback((index: number, productId: number) => {
         const product = products.find(p => p.id === productId);
         if (!product) return;
 
         setDocument(prev => {
             if (!prev) return null;
             const newItems = [...prev.items];
-            const updatedItem = { ...newItems[index], productId: product.id, description: product.name, unit: product.unit, unitPrice: product.sellingPrice };
-            updatedItem.total = calculateItemTotal(updatedItem);
+            const currentItem = newItems[index];
+
+            // Auto-fill description from product, fallback to name. User can edit it later.
+            const description = product.description?.trim() ? product.description : product.name;
+
+            const updatedItem = {
+                ...currentItem,
+                productId: product.id,
+                productName: product.name,
+                description: description,
+                unitPrice: product.sellingPrice,
+                unit: product.unit,
+                productType: product.productType,
+            };
+
+            const quantity = updatedItem.quantity || 1;
+            updatedItem.total = parseFloat((quantity * updatedItem.unitPrice).toFixed(2));
+
             newItems[index] = updatedItem;
             return { ...prev, items: newItems };
         });
-    };
+    }, [products, setDocument]);
 
-    const addItem = () => {
+    const addItem = useCallback(() => {
         setDocument(prev => {
             if (!prev) return null;
-            const newItem: DocumentItemState = { id: tempIdCounter.current, description: '', quantity: 1, unit: Unit.COUNT, unitPrice: 0, total: 0 };
-            tempIdCounter.current -= 1; // Decrement for the next new item
+            const newItem: DocumentItemState = {
+                id: -Date.now(), // Temporary unique ID for new items
+                productName: '',
+                description: '',
+                quantity: 1,
+                unitPrice: 0,
+                total: 0,
+                unit: Unit.COUNT,
+                productType: ProductType.SIMPLE,
+            };
             return { ...prev, items: [...prev.items, newItem] };
         });
-    };
+    }, [setDocument]);
 
-    const removeItem = (idToRemove: number) => {
-        setDocument(prev => prev ? { ...prev, items: prev.items.filter(item => item.id !== idToRemove) } : null);
-    };
+    const removeItem = useCallback((itemId: number) => {
+        setDocument(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                items: prev.items.filter(item => item.id !== itemId),
+            };
+        });
+    }, [setDocument]);
 
     return { handleItemChange, handleProductSelection, addItem, removeItem };
 };

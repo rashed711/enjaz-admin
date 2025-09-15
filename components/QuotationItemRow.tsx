@@ -30,7 +30,7 @@ const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
 
     const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        const isNumeric = ['quantity', 'unitPrice', 'length', 'width', 'height'].includes(name);
+        const isNumeric = ['quantity', 'unitPrice'].includes(name);
         onItemChange(index, name as keyof DocumentItemState, isNumeric ? parseFloat(value) || 0 : value);
     };
 
@@ -51,7 +51,7 @@ const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
 
             <div className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-4">
                 {/* Product & Description */}
-                <div className="col-span-2 md:col-span-4 space-y-2">
+                <div className="col-span-2 md:col-span-7 space-y-2">
                     <div>
                         <label className="md:hidden text-xs font-medium text-text-secondary">اختر منتج (اختياري)</label>
                         <select onChange={handleSelectProduct} value={item.productId || ''} className={`${inputClasses} text-sm`}>
@@ -69,16 +69,6 @@ const DocumentItemRow: React.FC<DocumentItemRowProps> = ({
                             rows={2}
                             className={`${inputClasses} text-sm leading-snug`}
                         />
-                    </div>
-                </div>
-
-                {/* Dimensions */}
-                <div className="col-span-2 md:col-span-3">
-                    <label className="md:hidden text-xs font-medium text-text-secondary">الأبعاد (طول, عرض, ارتفاع)</label>
-                    <div className="grid grid-cols-3 gap-2">
-                        <input type="number" name="length" value={item.length || ''} onChange={handleFieldChange} placeholder="طول" className={`${inputClasses} text-center text-sm`} />
-                        <input type="number" name="width" value={item.width || ''} onChange={handleFieldChange} placeholder="عرض" className={`${inputClasses} text-center text-sm`} />
-                        <input type="number" name="height" value={item.height || ''} onChange={handleFieldChange} placeholder="ارتفاع" className={`${inputClasses} text-center text-sm`} />
                     </div>
                 </div>
 
