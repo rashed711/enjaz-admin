@@ -27,6 +27,7 @@ const formatQuotation = (q: any): Quotation => ({
     taxIncluded: q.tax_included ?? false,
     discount: q.discount || 0,
     creatorName: q.creator_name || 'غير معروف',
+    createdAt: q.created_at,
 });
 
 const quotationSearchColumns = ['quotation_number', 'client_name', 'company', 'project'];
@@ -97,6 +98,7 @@ const QuotationsListPage: React.FC = () => {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-3 py-3 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">رقم العرض</th>
+                                    <th className="px-3 py-3 font-bold text-text-secondary">الوقت</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">التاريخ</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الشركة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">المسئول</th>
@@ -113,6 +115,7 @@ const QuotationsListPage: React.FC = () => {
                                         onClick={() => navigate(`/quotations/${q.id}/view`)}
                                     >
                                         <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{q.createdAt ? new Date(q.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{q.date}</td>
                                         <td className="px-3 py-3">{q.company}</td>
                                         <td className="px-3 py-3">{q.clientName}</td>
@@ -142,6 +145,7 @@ const QuotationsListPage: React.FC = () => {
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{q.company}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">المشروع:</span> <span className="font-medium text-right">{q.project}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{q.createdAt ? new Date(q.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{q.date}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{q.creatorName}</span></div>
                                     <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{q.totalAmount?.toLocaleString()} {q.currency}</span></div>

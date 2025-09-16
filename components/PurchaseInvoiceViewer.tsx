@@ -11,10 +11,10 @@ import PencilIcon from './icons/PencilIcon';
 import TrashIcon from './icons/TrashIcon';
 
 interface PurchaseInvoiceViewerProps {
-    invoice: PurchaseInvoice;
+    document: PurchaseInvoice;
 }
 
-const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ invoice }) => {
+const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ document: invoice }) => {
     const navigate = useNavigate();
     const permissions = usePermissions();
     const { fetchProducts } = useProducts();

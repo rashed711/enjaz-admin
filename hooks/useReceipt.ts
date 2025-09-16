@@ -17,6 +17,7 @@ const formatFetchedReceipt = (data: any): Receipt => ({
     creatorName: data.creator_name,
     account_name: data.account_name,
     cash_account_name: data.cash_account_name,
+    createdAt: data.created_at,
 });
 
 interface UseReceiptProps {
@@ -44,7 +45,7 @@ export const useReceipt = ({ id: idParam, preloadedData }: UseReceiptProps) => {
       description: '',
       account_id: 0,
       cash_account_id: 0,
-      createdBy: currentUser?.id ?? null,
+      createdBy: currentUser?.id ?? null
     };
   }, [currentUser]);
 
@@ -166,6 +167,7 @@ export const useReceipt = ({ id: idParam, preloadedData }: UseReceiptProps) => {
         id: savedReceiptId,
         createdBy: currentUser?.id ?? null,
         creatorName: currentUser?.name || 'غير معروف',
+        createdAt: receipt.createdAt || new Date().toISOString(), // Ensure createdAt is present for preloading
         account_name: account?.name || 'حساب غير معروف',
         cash_account_name: cashAccount?.name || 'حساب غير معروف',
       };

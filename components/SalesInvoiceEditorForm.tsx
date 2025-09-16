@@ -13,8 +13,8 @@ import { getTaxInfo } from '../hooks/useDocument';
 import { useDocumentItems } from '../hooks/useDocumentItems';
 
 interface SalesInvoiceEditorFormProps {
-    invoice: SalesInvoiceState;
-    setInvoice: React.Dispatch<React.SetStateAction<SalesInvoiceState | null>>;
+    document: SalesInvoiceState;
+    setDocument: React.Dispatch<React.SetStateAction<SalesInvoiceState | null>>;
     onSave: () => Promise<void>;
     isSaving: boolean;
     onCancel: () => void;
@@ -48,7 +48,7 @@ const TotalsDisplay: React.FC<{
     );
 };
 
-const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice, setInvoice, onSave, isSaving, onCancel, saveError }) => {
+const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ document, setDocument, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
     const { currentUser } = useAuth();
     const permissions = usePermissions();
@@ -56,30 +56,30 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice
 
     const canChangeStatus = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CHANGE_STATUS);
 
-    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setInvoice, products);
+    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setDocument, products);
 
     const { subTotal, tax, taxInfo, grandTotal } = useMemo(() => {
-        if (!invoice) return { subTotal: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة'}, grandTotal: 0 };
-        const subTotal = invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
-        const taxInfo = getTaxInfo(invoice.currency);
+        if (!document) return { subTotal: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة'}, grandTotal: 0 };
+        const subTotal = document.items.reduce((sum, item) => sum + (item.total || 0), 0);
+        const taxInfo = getTaxInfo(document.currency);
         const tax = subTotal * taxInfo.rate;
         const grandTotal = subTotal + tax;
         return { subTotal, tax, taxInfo, grandTotal };
-    }, [invoice]);
+    }, [document]);
 
 
     useEffect(() => {
-        setInvoice(prev => {
+        setDocument(prev => {
             if (!prev) return null;
             const newTotal = parseFloat(grandTotal.toFixed(2));
             if (prev.totalAmount === newTotal) return prev; // Avoid re-render if total is the same
             return { ...prev, totalAmount: newTotal };
         });
-    }, [grandTotal, setInvoice]);
+    }, [grandTotal, setDocument]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setInvoice(prev => prev ? { ...prev, [name]: value } : null);
+        setDocument(prev => prev ? { ...prev, [name]: value } : null);
     };
 
     const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
@@ -100,14 +100,14 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice
             <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل والفاتورة</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input type="text" name="clientName" placeholder="اسم العميل" value={invoice.clientName} onChange={handleInputChange} className={inputClasses} />
-                    <input type="text" name="company" placeholder="الشركة" value={invoice.company} onChange={handleInputChange} className={inputClasses} />
-                    <input type="text" name="project" placeholder="المشروع" value={invoice.project} onChange={handleInputChange} className={inputClasses} />
-                    <input type="date" name="date" value={invoice.date} onChange={handleInputChange} className={`${inputClasses}`} />
-                    <select name="status" value={invoice.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
+                    <input type="text" name="clientName" placeholder="اسم العميل" value={document.clientName} onChange={handleInputChange} className={inputClasses} />
+                    <input type="text" name="company" placeholder="الشركة" value={document.company} onChange={handleInputChange} className={inputClasses} />
+                    <input type="text" name="project" placeholder="المشروع" value={document.project} onChange={handleInputChange} className={inputClasses} />
+                    <input type="date" name="date" value={document.date} onChange={handleInputChange} className={`${inputClasses}`} />
+                    <select name="status" value={document.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
                         {Object.values(SalesInvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <select name="currency" value={invoice.currency} onChange={handleInputChange} className={inputClasses}>
+                    <select name="currency" value={document.currency} onChange={handleInputChange} className={inputClasses}>
                         <option value={Currency.SAR}>ريال سعودي (SAR)</option>
                         <option value={Currency.EGP}>جنيه مصري (EGP)</option>
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
@@ -117,7 +117,7 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ invoice
                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
 
                 <div className="space-y-3">
-                    {invoice.items.map((item, index) => (
+                    {document.items.map((item, index) => (
                     <DocumentItemRow
                         // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
                         key={item.id}

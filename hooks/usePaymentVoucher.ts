@@ -17,6 +17,7 @@ const formatFetchedPaymentVoucher = (data: any): PaymentVoucher => ({
     creatorName: data.creator_name,
     account_name: data.account_name,
     cash_account_name: data.cash_account_name,
+    createdAt: data.created_at,
 });
 
 interface UsePaymentVoucherProps {
@@ -44,7 +45,7 @@ export const usePaymentVoucher = ({ id: idParam, preloadedData }: UsePaymentVouc
       description: '',
       account_id: 0,
       cash_account_id: 0,
-      createdBy: currentUser?.id ?? null,
+      createdBy: currentUser?.id ?? null
     };
   }, [currentUser]);
 
@@ -168,6 +169,7 @@ export const usePaymentVoucher = ({ id: idParam, preloadedData }: UsePaymentVouc
         id: savedVoucherId,
         createdBy: currentUser?.id ?? null,
         creatorName: currentUser?.name || 'غير معروف',
+        createdAt: voucher.createdAt || new Date().toISOString(), // Ensure createdAt is present for preloading
         account_name: account?.name || 'حساب غير معروف',
         cash_account_name: cashAccount?.name || 'حساب غير معروف',
       };

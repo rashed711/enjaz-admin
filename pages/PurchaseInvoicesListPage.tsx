@@ -22,6 +22,7 @@ const formatPurchaseInvoice = (i: any): PurchaseInvoice => ({
     totalAmount: i.total_amount,
     createdBy: i.created_by || null,
     creatorName: i.creator_name || 'غير معروف',
+    createdAt: i.created_at,
 });
 
 const purchaseInvoiceSearchColumns = ['invoice_number', 'supplier_name'];
@@ -94,6 +95,7 @@ const PurchaseInvoicesListPage: React.FC = () => {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-3 py-3 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">رقم الفاتورة</th>
+                                    <th className="px-3 py-3 font-bold text-text-secondary">الوقت</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">التاريخ</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">المورد</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الحالة</th>
@@ -109,6 +111,7 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                         onClick={() => navigate(`/purchase-invoices/${i.id}/view`)}
                                     >
                                         <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border">{i.invoiceNumber || '-'}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                         <td className="px-3 py-3">{i.supplierName}</td>
                                         <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
@@ -134,6 +137,7 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between"><span className="text-text-secondary">المورد:</span> <span className="font-medium text-right">{i.supplierName}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{i.creatorName}</span></div>
                                     <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>

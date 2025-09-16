@@ -22,6 +22,7 @@ const formatReceipt = (receipt: any): Receipt => ({
     creatorName: receipt.creator_name || 'غير معروف',
     account_name: receipt.account_name,
     cash_account_name: receipt.cash_account_name,
+    createdAt: receipt.created_at,
 });
 
 const receiptSearchColumns = ['description', 'payment_method', 'account_name', 'cash_account_name'];
@@ -37,7 +38,8 @@ const ReceiptsListPage: React.FC = () => {
     const canCreate = permissions.can(PermissionModule.RECEIPTS, PermissionAction.CREATE);
 
     const { items: receipts, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
-        tableName: 'receipts_with_names', // ملاحظة: يجب إنشاء view بهذا الاسم في قاعدة البيانات
+        // تم الإرجاع لاستخدام الـ view الذي يحتوي على أسماء الحسابات بعد التأكد من إنشائه في قاعدة البيانات
+        tableName: 'receipts_with_names',
         permissionModule: PermissionModule.RECEIPTS,
         formatter: formatReceipt,
         searchQuery: debouncedSearchQuery,
@@ -89,6 +91,7 @@ const ReceiptsListPage: React.FC = () => {
                         <thead className="bg-slate-50">
                             <tr>
                                 <th className="px-3 py-3 font-bold text-text-secondary">#</th>
+                                <th className="px-3 py-3 font-bold text-text-secondary">الوقت</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">التاريخ</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">الحساب الدائن</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">الحساب المدين</th>
@@ -102,6 +105,7 @@ const ReceiptsListPage: React.FC = () => {
                             {receipts.map((receipt) => (
                                 <tr key={receipt.id} className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer" onClick={() => navigate(`/accounts/receipts/${receipt.id}/view`)}>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono">{receipt.id}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{receipt.createdAt ? new Date(receipt.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{new Date(receipt.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                                     <td className="px-3 py-2 font-semibold">{receipt.account_name}</td>
                                     <td className="px-3 py-2">{receipt.cash_account_name}</td>

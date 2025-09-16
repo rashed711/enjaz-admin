@@ -26,6 +26,7 @@ const formatSalesInvoice = (i: any): SalesInvoice => ({
     createdBy: i.created_by || null,
     quotationId: i.quotation_id,
     creatorName: i.creator_name || 'غير معروف',
+    createdAt: i.created_at,
 });
 
 const salesInvoiceSearchColumns = ['invoice_number', 'client_name', 'company', 'project'];
@@ -94,6 +95,7 @@ const SalesInvoicesListPage: React.FC = () => {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-3 py-3 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">رقم الفاتورة</th>
+                                    <th className="px-3 py-3 font-bold text-text-secondary">الوقت</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">التاريخ</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الشركة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">المسئول</th>
@@ -110,6 +112,7 @@ const SalesInvoicesListPage: React.FC = () => {
                                         onClick={() => navigate(`/sales-invoices/${i.id}/view`)}
                                     >
                                         <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border">{i.invoiceNumber}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                         <td className="px-3 py-3">{i.company}</td>
                                         <td className="px-3 py-3">{i.clientName}</td>
@@ -137,6 +140,7 @@ const SalesInvoicesListPage: React.FC = () => {
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{i.company}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">المسئول:</span> <span className="font-medium text-right">{i.clientName}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{i.creatorName}</span></div>
                                     <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>

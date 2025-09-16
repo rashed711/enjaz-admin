@@ -44,6 +44,7 @@ const PrintView: React.FC<{
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Quotation No.:</span> {quotation.quotationNumber}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Date:</span> {quotation.date}</p>
+                    {quotation.createdAt && <p><span className="font-semibold text-gray-700 w-32 inline-block">Time:</span> {new Date(quotation.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>}
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Quotation Type:</span> {quotation.quotationType}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Issued By:</span> {quotation.creatorName || 'Unknown'}</p>
                 </div>
@@ -150,6 +151,7 @@ const OnScreenView: React.FC<{
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Quotation No.:</span> {quotation.quotationNumber}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Date:</span> {quotation.date}</p>
+                    {quotation.createdAt && <p><span className="font-semibold text-gray-700 w-32 inline-block">Time:</span> {new Date(quotation.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>}
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Quotation Type:</span> {quotation.quotationType}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">Issued By:</span> {quotation.creatorName || 'Unknown'}</p>
                 </div>

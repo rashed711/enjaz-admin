@@ -22,6 +22,7 @@ const formatPaymentVoucher = (voucher: any): PaymentVoucher => ({
     creatorName: voucher.creator_name || 'غير معروف',
     account_name: voucher.account_name,
     cash_account_name: voucher.cash_account_name,
+    createdAt: voucher.created_at,
 });
 
 const voucherSearchColumns = ['description', 'payment_method', 'account_name', 'cash_account_name'];
@@ -37,6 +38,7 @@ const PaymentVouchersListPage: React.FC = () => {
     const canCreate = permissions.can(PermissionModule.PAYMENT_VOUCHERS, PermissionAction.CREATE);
 
     const { items: vouchers, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
+        // تم الإرجاع لاستخدام الـ view الذي يحتوي على أسماء الحسابات بعد التأكد من إنشائه في قاعدة البيانات
         tableName: 'payment_vouchers_with_names',
         permissionModule: PermissionModule.PAYMENT_VOUCHERS,
         formatter: formatPaymentVoucher,
@@ -89,6 +91,7 @@ const PaymentVouchersListPage: React.FC = () => {
                         <thead className="bg-slate-50">
                             <tr>
                                 <th className="px-3 py-3 font-bold text-text-secondary">#</th>
+                                <th className="px-3 py-3 font-bold text-text-secondary">الوقت</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">التاريخ</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">الحساب المدين</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">الحساب الدائن</th>
@@ -101,6 +104,7 @@ const PaymentVouchersListPage: React.FC = () => {
                             {vouchers.map((voucher) => (
                                 <tr key={voucher.id} className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer" onClick={() => navigate(`/accounts/payment-vouchers/${voucher.id}/view`)}>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono">{voucher.id}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{voucher.createdAt ? new Date(voucher.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{new Date(voucher.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                                     <td className="px-3 py-2 font-semibold">{voucher.account_name}</td>
                                     <td className="px-3 py-2">{voucher.cash_account_name}</td>

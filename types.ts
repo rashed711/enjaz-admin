@@ -79,6 +79,7 @@ export interface Quotation {
   taxIncluded: boolean;
   discount: number;
   creatorName?: string;
+  createdAt?: string;
 }
 
 // --- New Interfaces for Purchase Invoices ---
@@ -100,6 +101,7 @@ export interface PurchaseInvoice {
   totalAmount: number;
   createdBy: string | null;
   creatorName?: string;
+  createdAt?: string;
 }
 
 // --- New Interfaces for Sales Invoices ---
@@ -125,6 +127,7 @@ export interface SalesInvoice {
   createdBy: string | null;
   quotationId?: number; // Link to the original quotation
   creatorName?: string;
+  createdAt?: string;
 }
 
 // --- New Interfaces for Accounting Module ---
@@ -171,6 +174,7 @@ export interface JournalEntry {
   account_code?: string; // Joined data
   createdBy: string | null;
   creatorName?: string;
+  createdAt?: string;
 }
 
 export interface Receipt {
@@ -185,6 +189,7 @@ export interface Receipt {
     creatorName?: string;
     account_name?: string;
     cash_account_name?: string;
+    createdAt?: string;
 }
 
 export interface PaymentVoucher {
@@ -199,6 +204,7 @@ export interface PaymentVoucher {
     creatorName?: string;
     account_name?: string;
     cash_account_name?: string;
+    createdAt?: string;
 }
 
 

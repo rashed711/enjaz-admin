@@ -60,6 +60,7 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                     <table className="w-full text-right min-w-[800px] text-sm">
                         <thead className="bg-[#10B981] text-white">
                             <tr>
+                                <th className="px-3 py-3 font-bold">الوقت</th>
                                 <th className="px-3 py-3 font-bold">التاريخ</th>
                                 <th className="px-3 py-3 font-bold">الوصف</th>
                                 <th className="px-3 py-3 font-bold text-center">مدين</th>
@@ -70,6 +71,7 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                         <tbody className="text-text-primary divide-y divide-border">
                             {entries.map((entry) => (
                                 <tr key={entry.id} className="hover:bg-slate-100 even:bg-slate-50/50">
+                                    <td className="px-3 py-2 whitespace-nowrap">{entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
                                     <td className="px-3 py-2">{entry.description}</td>
                                     <td className="px-3 py-2 text-center text-red-700">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</td>
@@ -80,7 +82,7 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                         </tbody>
                         <tfoot className="bg-[#10B981] text-white font-bold">
                             <tr>
-                                <td colSpan={2} className="px-3 py-3 text-left">الإجمالي</td>
+                                <td colSpan={3} className="px-3 py-3 text-left">الإجمالي</td>
                                 <td className="px-3 py-3 text-center">{formatCurrency(totalDebit)}</td>
                                 <td className="px-3 py-3 text-center">{formatCurrency(totalCredit)}</td>
                                 <td className="px-3 py-3 text-center">{formatCurrency(finalBalance)}</td>

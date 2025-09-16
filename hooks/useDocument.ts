@@ -203,17 +203,19 @@ const postPurchaseInvoiceJournal = async (
     if (journalError) throw new Error(`فشل إنشاء القيد المحاسبي: ${journalError.message}`);
 };
 
-interface UseDocumentProps {
+interface UseDocumentProps<T> {
     documentType: DocumentType;
     id?: string;
+    preloadedData?: T;
 }
 
 export const getTaxInfo = (currency: Currency): { rate: number; label: string } => {
     switch (currency) {
-        case Currency.EGP: return { rate: 0.14, label: 'Tax (14%)' };
-        case Currency.SAR: return { rate: 0.15, label: 'Tax (15%)' };
-        case Currency.USD: return { rate: 0, label: 'Tax (0%)' };
-        default: return { rate: 0, label: 'Tax' };
+        // تحسين: استخدام عناوين عربية للاتساق
+        case Currency.EGP: return { rate: 0.14, label: 'ضريبة (14%)' };
+        case Currency.SAR: return { rate: 0.15, label: 'ضريبة (15%)' };
+        case Currency.USD: return { rate: 0, label: 'ضريبة (0%)' };
+        default: return { rate: 0, label: 'ضريبة' };
     }
 };
 
@@ -296,14 +298,14 @@ const docConfig = {
     },
 };
 
-export const useDocument = <T extends AnyDocumentState>({ documentType, id: idParam }: UseDocumentProps) => {
+export const useDocument = <T extends AnyDocumentState>({ documentType, id: idParam, preloadedData }: UseDocumentProps<T>) => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     const { products, fetchProducts } = useProducts();
     const config = docConfig[documentType];
 
-    const [document, setDocument] = useState<T | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [document, setDocument] = useState<T | null>(preloadedData || null);
+    const [loading, setLoading] = useState(!preloadedData); // لا تظهر التحميل إذا كانت البيانات موجودة بالفعل
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -430,6 +432,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     date: docData.date,
                     currency: docData.currency,
                     totalAmount: docData.total_amount,
+                    createdAt: docData.created_at,
                     createdBy: docData.created_by,
                     creatorName: creatorName,
                     items: augmentedItems,
@@ -448,13 +451,17 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
 
         // If data was passed via navigation state, we don't need to fetch.
         if (preloadedData) {
-            setLoading(false);
+            // البيانات تم تعيينها بالفعل في useState، لذلك نتأكد فقط من أن التحميل متوقف
+            if (loading) setLoading(false);
             return;
         }
 
         if (isNew) {
             getNewDocumentDefault().then(setDocument).finally(() => setLoading(false));
-        } else if (idParam && products.length > 0) {
+        } else if (idParam) {
+            // We fetch the document even if products are not loaded yet.
+            // The item names will be missing initially, but will be populated
+            // when the products load and this effect re-runs.
             const docId = parseInt(idParam, 10);
             if (isNaN(docId)) {
                 console.error(`Invalid document ID in URL: "${idParam}" for type "${documentType}"`);
@@ -610,6 +617,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     ...document,
                     id: savedDocId,
                     creatorName: document.creatorName || currentUser?.name || 'غير معروف',
+                    createdAt: document.createdAt || new Date().toISOString(), // Ensure createdAt is present for preloading
                 };
                 if (docNumberPropertyName && numberField && payload[numberField]) {
                     fullDocumentObject[docNumberPropertyName] = payload[numberField];

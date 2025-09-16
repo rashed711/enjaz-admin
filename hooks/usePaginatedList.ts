@@ -13,7 +13,7 @@ interface UsePaginatedListProps<T> {
     itemsPerPage?: number;
 }
 
-export const usePaginatedList = <T extends { createdBy?: string | null; creatorName?: string }>({
+export const usePaginatedList = <T extends { createdBy?: string | null; creatorName?: string; createdAt?: string }>({
     tableName,
     permissionModule,
     formatter,
@@ -64,7 +64,10 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
             }
 
             const { data, error, count } = await query
-                .order('created_at', { ascending: false })
+                // Sort by date first, then by ID for consistent ordering.
+                // This is more robust than sorting by 'created_at' which might be missing from some views.
+                .order('date', { ascending: false })
+                .order('id', { ascending: false })
                 .range(from, to);
 
             if (error) {

@@ -12,15 +12,15 @@ import DocumentItemRow from './QuotationItemRow';
 import { useDocumentItems } from '../hooks/useDocumentItems';
 
 interface PurchaseInvoiceEditorFormProps {
-    invoice: PurchaseInvoiceState;
-    setInvoice: React.Dispatch<React.SetStateAction<PurchaseInvoiceState | null>>;
+    document: PurchaseInvoiceState;
+    setDocument: React.Dispatch<React.SetStateAction<PurchaseInvoiceState | null>>;
     onSave: () => Promise<void>;
     isSaving: boolean;
     onCancel: () => void;
     saveError: string | null;
 }
 
-const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ invoice, setInvoice, onSave, isSaving, onCancel, saveError }) => {
+const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ document, setDocument, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
     const { currentUser } = useAuth();
     const permissions = usePermissions();
@@ -28,24 +28,24 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
 
     const canChangeStatus = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.CHANGE_STATUS);
 
-    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setInvoice, products);
+    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setDocument, products);
 
     const subTotal = useMemo(() => {
-        return invoice?.items.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0;
-    }, [invoice?.items]);
+        return document?.items.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0;
+    }, [document?.items]);
 
     useEffect(() => {
-        setInvoice(prev => {
+        setDocument(prev => {
             if (!prev) return null;
             const newTotalAmount = parseFloat(subTotal.toFixed(2));
             if (prev.totalAmount === newTotalAmount) return prev; // Avoid re-render if total is the same
             return { ...prev, totalAmount: newTotalAmount };
         });
-    }, [subTotal, setInvoice]);
+    }, [subTotal, setDocument]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setInvoice(prev => prev ? { ...prev, [name]: value } : null);
+        setDocument(prev => prev ? { ...prev, [name]: value } : null);
     };
 
     const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
@@ -68,12 +68,12 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
             <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل الفاتورة</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input type="text" name="supplierName" placeholder="اسم المورد" value={invoice.supplierName} onChange={handleInputChange} className={inputClasses} />
-                    <input type="date" name="date" value={invoice.date} onChange={handleInputChange} className={`${inputClasses}`} />
-                    <select name="status" value={invoice.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
+                    <input type="text" name="supplierName" placeholder="اسم المورد" value={document.supplierName} onChange={handleInputChange} className={inputClasses} />
+                    <input type="date" name="date" value={document.date} onChange={handleInputChange} className={`${inputClasses}`} />
+                    <select name="status" value={document.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
                         {Object.values(PurchaseInvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <select name="currency" value={invoice.currency} onChange={handleInputChange} className={inputClasses}>
+                    <select name="currency" value={document.currency} onChange={handleInputChange} className={inputClasses}>
                         <option value={Currency.EGP}>جنيه مصري (EGP)</option>
                         <option value={Currency.SAR}>ريال سعودي (SAR)</option>
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
@@ -83,7 +83,7 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ i
                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
 
                 <div className="space-y-3">
-                    {invoice.items.map((item, index) => (
+                    {document.items.map((item, index) => (
                     <DocumentItemRow
                         // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
                         key={item.id}

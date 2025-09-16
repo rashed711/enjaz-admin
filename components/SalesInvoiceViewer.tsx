@@ -12,10 +12,10 @@ import TrashIcon from './icons/TrashIcon';
 
 
 interface SalesInvoiceViewerProps {
-    invoice: SalesInvoice;
+    document: SalesInvoice;
 }
 
-const SalesInvoiceViewer: React.FC<SalesInvoiceViewerProps> = ({ invoice }) => {
+const SalesInvoiceViewer: React.FC<SalesInvoiceViewerProps> = ({ document: invoice }) => {
     const navigate = useNavigate();
     const permissions = usePermissions();
     const { fetchProducts } = useProducts();

@@ -12,8 +12,8 @@ import { getTaxInfo } from '../hooks/useDocument';
 import { useDocumentItems } from '../hooks/useDocumentItems';
 
 interface QuotationEditorFormProps {
-    quotation: QuotationState;
-    setQuotation: React.Dispatch<React.SetStateAction<QuotationState | null>>;
+    document: QuotationState;
+    setDocument: React.Dispatch<React.SetStateAction<QuotationState | null>>;
     onSave: () => Promise<void>;
     isSaving: boolean;
     onCancel: () => void;
@@ -58,35 +58,35 @@ const TotalsDisplay: React.FC<{
     );
 };
 
-const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, setQuotation, onSave, isSaving, onCancel, saveError }) => {
+const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ document, setDocument, onSave, isSaving, onCancel, saveError }) => {
     const { products } = useProducts();
 
-    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setQuotation, products);
+    const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setDocument, products);
 
     const { subTotal, discount, tax, taxInfo, grandTotal } = useMemo(() => {
-        if (!quotation) return { subTotal: 0, discount: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة' }, grandTotal: 0 };
-        const subTotal = quotation.items.reduce((sum, item) => sum + (item.total || 0), 0);
-        const discount = Number(quotation.discount) || 0;
+        if (!document) return { subTotal: 0, discount: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة' }, grandTotal: 0 };
+        const subTotal = document.items.reduce((sum, item) => sum + (item.total || 0), 0);
+        const discount = Number(document.discount) || 0;
         const taxableAmount = subTotal - discount;
-        const taxInfo = getTaxInfo(quotation.currency);
-        const tax = quotation.taxIncluded ? taxableAmount * taxInfo.rate : 0;
+        const taxInfo = getTaxInfo(document.currency);
+        const tax = document.taxIncluded ? taxableAmount * taxInfo.rate : 0;
         const grandTotal = taxableAmount + tax;
         return { subTotal, discount, tax, taxInfo, grandTotal };
-    }, [quotation]);
+    }, [document]);
 
 
     useEffect(() => {
-        setQuotation(prev => {
+        setDocument(prev => {
             if (!prev) return null;
             const finalTotal = parseFloat(grandTotal.toFixed(2));
             if (prev.totalAmount === finalTotal) return prev; // Avoid re-render if total is the same
             return { ...prev, totalAmount: finalTotal };
         });
-    }, [grandTotal, setQuotation]);
+    }, [grandTotal, setDocument]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setQuotation(prev => {
+        setDocument(prev => {
             if (!prev) return null;
             if (name === 'discount') {
                 return { ...prev, [name]: parseFloat(value) || 0 };
@@ -103,17 +103,17 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
             <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="clientName" placeholder="اسم العميل" value={quotation.clientName} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
-                    <input type="text" name="company" placeholder="الشركة" value={quotation.company} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
-                    <input type="text" name="project" placeholder="المشروع" value={quotation.project} onChange={handleInputChange} className={`${inputClasses} lg:col-span-2`} />
-                    <input type="text" name="quotationType" placeholder="نوع العرض" value={quotation.quotationType} onChange={handleInputChange} className={inputClasses} />
-                    <input type="date" name="date" value={quotation.date} onChange={handleInputChange} className={`${inputClasses}`} />
-                    <select name="currency" value={quotation.currency} onChange={handleInputChange} className={inputClasses}>
+                    <input type="text" name="clientName" placeholder="اسم العميل" value={document.clientName} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    <input type="text" name="company" placeholder="الشركة" value={document.company} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    <input type="text" name="project" placeholder="المشروع" value={document.project} onChange={handleInputChange} className={`${inputClasses} lg:col-span-2`} />
+                    <input type="text" name="quotationType" placeholder="نوع العرض" value={document.quotationType} onChange={handleInputChange} className={inputClasses} />
+                    <input type="date" name="date" value={document.date} onChange={handleInputChange} className={`${inputClasses}`} />
+                    <select name="currency" value={document.currency} onChange={handleInputChange} className={inputClasses}>
                         <option value={Currency.SAR}>ريال سعودي (SAR)</option>
                         <option value={Currency.EGP}>جنيه مصري (EGP)</option>
                         <option value={Currency.USD}>دولار أمريكي (USD)</option>
                     </select>
-                    <input type="number" name="discount" placeholder="الخصم" value={quotation.discount || ''} onChange={handleInputChange} className={inputClasses} />
+                    <input type="number" name="discount" placeholder="الخصم" value={document.discount || ''} onChange={handleInputChange} className={inputClasses} />
                 </div>
 
                 <div className="mt-4 flex items-center gap-2">
@@ -121,15 +121,15 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={() => setQuotation(prev => prev ? { ...prev, taxIncluded: true } : null)}
-                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${quotation.taxIncluded ? 'bg-green-600 text-white shadow' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
+                            onClick={() => setDocument(prev => prev ? { ...prev, taxIncluded: true } : null)}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${document.taxIncluded ? 'bg-green-600 text-white shadow' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
                         >
                             شامل الضريبة
                         </button>
                         <button
                             type="button"
-                            onClick={() => setQuotation(prev => prev ? { ...prev, taxIncluded: false } : null)}
-                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!quotation.taxIncluded ? 'bg-orange-500 text-white shadow' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}`}
+                            onClick={() => setDocument(prev => prev ? { ...prev, taxIncluded: false } : null)}
+                            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!document.taxIncluded ? 'bg-orange-500 text-white shadow' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}`}
                         >
                             غير شامل الضريبة
                         </button>
@@ -139,7 +139,7 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ quotation, se
                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
 
                 <div className="space-y-3">
-                    {quotation.items.map((item, index) => (
+                    {document.items.map((item, index) => (
                         <DocumentItemRow
                             // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
                             key={item.id}

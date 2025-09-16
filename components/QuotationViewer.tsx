@@ -16,10 +16,10 @@ import DeleteConfirmationModal from './DeleteConfirmationModal';
 import { generateDocumentNumber } from '../utils/numbering';
 
 interface QuotationViewerProps {
-    quotation: Quotation;
+    document: Quotation;
 }
 
-const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
+const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }) => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     const permissions = usePermissions();

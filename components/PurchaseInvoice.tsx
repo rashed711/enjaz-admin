@@ -42,6 +42,7 @@ const PrintView: React.FC<{
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم الفاتورة:</span> {invoice.invoiceNumber}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">التاريخ:</span> {invoice.date}</p>
+                    {invoice.createdAt && <p><span className="font-semibold text-gray-700 w-32 inline-block">الوقت:</span> {new Date(invoice.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>}
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">الحالة:</span> {invoice.status}</p>
                 </div>
             </div>
@@ -136,6 +137,7 @@ const OnScreenView: React.FC<{
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم الفاتورة:</span> {invoice.invoiceNumber}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">التاريخ:</span> {invoice.date}</p>
+                    {invoice.createdAt && <p><span className="font-semibold text-gray-700 w-32 inline-block">الوقت:</span> {new Date(invoice.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>}
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">الحالة:</span> {invoice.status}</p>
                 </div>
             </div>
