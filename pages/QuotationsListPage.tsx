@@ -1,6 +1,6 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Quotation, Currency, PermissionModule, PermissionAction } from '../types';
 import { usePermissions } from '../hooks/usePermissions';
@@ -11,6 +11,7 @@ import SearchIcon from '../components/icons/SearchIcon';
 import Pagination from '../components/Pagination';
 import { usePaginatedList } from '../hooks/usePaginatedList';
 import { useDebounce } from '../hooks/useDebounce';
+import { supabase } from '../services/supabaseClient';
 
 const formatQuotation = (q: any): Quotation => ({
     id: q.id,
@@ -37,6 +38,32 @@ const QuotationsListPage: React.FC = () => {
     const permissions = usePermissions();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
+    const [convertedInvoicesMap, setConvertedInvoicesMap] = useState<Map<number, { id: number; invoiceNumber: string }>>(new Map());
+
+    useEffect(() => {
+        const fetchConvertedInvoices = async () => {
+            const { data, error } = await supabase
+                .from('sales_invoices')
+                .select('id, invoice_number, quotation_id')
+                .not('quotation_id', 'is', null);
+
+            if (error) {
+                console.error('Error fetching converted invoices:', error);
+                return;
+            }
+
+            if (data) {
+                const invoiceMap = new Map<number, { id: number; invoiceNumber: string }>();
+                data.forEach(inv => {
+                    if (inv.quotation_id) {
+                        invoiceMap.set(inv.quotation_id, { id: inv.id, invoiceNumber: inv.invoice_number });
+                    }
+                });
+                setConvertedInvoicesMap(invoiceMap);
+            }
+        };
+        fetchConvertedInvoices();
+    }, []);
 
     const canCreate = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.CREATE);
     const { items: quotations, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
@@ -105,53 +132,87 @@ const QuotationsListPage: React.FC = () => {
                                     <th className="px-3 py-3 font-bold text-text-secondary">المشروع</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">أنشئ بواسطة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الإجمالي</th>
+                                    <th className="px-3 py-3 font-bold text-text-secondary">الفاتورة المرتبطة</th>
                                 </tr>
                             </thead>
                             <tbody className="text-text-primary divide-y divide-border">
-                                {quotations.map((q) => (
-                                    <tr 
-                                        key={q.id} 
-                                        className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer"
-                                        onClick={() => navigate(`/quotations/${q.id}/view`)}
-                                    >
-                                        <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border ${!q.taxIncluded ? 'text-orange-600' : ''}`}>{q.quotationNumber}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{q.createdAt ? new Date(q.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{q.date}</td>
-                                        <td className="px-3 py-3">{q.company}</td>
-                                        <td className="px-3 py-3">{q.clientName}</td>
-                                        <td className="px-3 py-3">{q.project}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{q.creatorName}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{q.totalAmount?.toLocaleString()} {q.currency}</td>
-                                    </tr>
-                                ))}
+                                {quotations.map((q) => {
+                                    const convertedInvoice = convertedInvoicesMap.get(q.id);
+                                    return (
+                                        <tr
+                                            key={q.id}
+                                            className={`hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer ${convertedInvoice ? 'text-slate-400' : ''}`}
+                                            onClick={() => navigate(`/quotations/${q.id}/view`)}
+                                        >
+                                            <td className={`px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border ${
+                                                convertedInvoice
+                                                ? 'text-slate-400'
+                                                : !q.taxIncluded ? 'text-orange-600' : ''
+                                            }`}>{q.quotationNumber}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{q.createdAt ? new Date(q.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{q.date}</td>
+                                            <td className="px-3 py-3">{q.company}</td>
+                                            <td className="px-3 py-3">{q.clientName}</td>
+                                            <td className="px-3 py-3">{q.project}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{q.creatorName}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{q.totalAmount?.toLocaleString('en-US')} {q.currency}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">
+                                                {convertedInvoice ? (
+                                                    <a 
+                                                        href={`/sales-invoices/${convertedInvoice.id}/view`}
+                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/sales-invoices/${convertedInvoice.id}/view`); }}
+                                                        className="text-blue-600 hover:underline font-semibold"
+                                                    >
+                                                        {convertedInvoice.invoiceNumber}
+                                                    </a>
+                                                ) : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Mobile Card View */}
                     <div className="lg:hidden space-y-4">
-                        {quotations.map((q) => (
-                            <div 
-                                key={q.id} 
-                                className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50"
-                                onClick={() => navigate(`/quotations/${q.id}/view`)}
-                            >
-                                <div className="flex justify-between items-start mb-3">
-                                    <p className="font-bold text-lg text-primary">{q.quotationNumber}</p>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${!q.taxIncluded ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                                        {!q.taxIncluded ? 'غير شامل ضريبة' : 'شامل ضريبة'}
-                                    </span>
+                        {quotations.map((q) => {
+                            const convertedInvoice = convertedInvoicesMap.get(q.id);
+                            return (
+                                <div
+                                    key={q.id}
+                                    className={`bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50 ${convertedInvoice ? 'text-slate-400' : ''}`}
+                                    onClick={() => navigate(`/quotations/${q.id}/view`)}
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <p className={`font-bold text-lg ${convertedInvoice ? 'text-slate-400' : 'text-primary'}`}>{q.quotationNumber}</p>
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${!q.taxIncluded ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                                            {!q.taxIncluded ? 'غير شامل ضريبة' : 'شامل ضريبة'}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{q.company}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">المشروع:</span> <span className="font-medium text-right">{q.project}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{q.createdAt ? new Date(q.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{q.date}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{q.creatorName}</span></div>
+                                        <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{q.totalAmount?.toLocaleString('en-US')} {q.currency}</span></div>
+                                        {convertedInvoice && (
+                                            <div className="flex justify-between pt-2 border-t border-border mt-2">
+                                                <span className="text-text-secondary">الفاتورة:</span> 
+                                                <a
+                                                    href={`/sales-invoices/${convertedInvoice.id}/view`}
+                                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/sales-invoices/${convertedInvoice.id}/view`); }}
+                                                    className="text-blue-600 hover:underline font-bold"
+                                                >
+                                                    {convertedInvoice.invoiceNumber}
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{q.company}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">المشروع:</span> <span className="font-medium text-right">{q.project}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{q.createdAt ? new Date(q.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{q.date}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{q.creatorName}</span></div>
-                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{q.totalAmount?.toLocaleString()} {q.currency}</span></div>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <Pagination

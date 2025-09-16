@@ -53,13 +53,16 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }
             }
 
             const newInvoiceNumber = await generateDocumentNumber(supabase, 'sales_invoices', 'invoice_number', 'SINV');
+
+            // Append quotation number to the project name
+            const newProjectName = [quotation.project, `(عرض سعر #${quotation.quotationNumber})`].filter(Boolean).join(' ');
     
             // Create the invoice object
             const newInvoicePayload = {
                 invoice_number: newInvoiceNumber,
                 client_name: quotation.clientName,
                 company: quotation.company,
-                project: quotation.project,
+                project: newProjectName,
                 date: new Date().toISOString().split('T')[0],
                 currency: quotation.currency,
                 status: SalesInvoiceStatus.DRAFT,
@@ -100,7 +103,7 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }
                 invoiceNumber: newInvoiceNumber,
                 clientName: quotation.clientName,
                 company: quotation.company,
-                project: quotation.project,
+                project: newProjectName,
                 date: newInvoicePayload.date,
                 currency: quotation.currency,
                 status: SalesInvoiceStatus.DRAFT,

@@ -21,7 +21,7 @@ const PaymentVoucherComponent: React.FC<PaymentVoucherComponentProps> = ({ vouch
                     <p className="text-lg font-semibold">رقم السند: {voucher.id}</p>
                     <p className="text-sm text-gray-600">التاريخ: {new Date(voucher.date).toLocaleDateString('en-GB')}</p>
                     {voucher.createdAt && (
-                        <p className="text-sm text-gray-600">الوقت: {new Date(voucher.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-sm text-gray-600">الوقت: {new Date(voucher.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
                     )}
                 </div>
             </header>

@@ -9,7 +9,6 @@ import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import WhatsappIcon from '../components/icons/WhatsappIcon';
 import { generatePdfBlob } from '../utils/pdfUtils';
 import StatementComponent from '../components/StatementComponent';
-
 interface PartyStatementPageProps {
   partyType: 'Customer' | 'Supplier';
 }
@@ -43,7 +42,7 @@ const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) =>
             setLoading(true);
             setError(null);
             try {
-                const { data, error: entriesError } = await supabase.from('journal_entries').select('*').eq('account_id', partyId).order('date', { ascending: true }).order('id', { ascending: true });
+                const { data, error: entriesError } = await supabase.from('journal_entries').select('*').eq('account_id', partyId).order('date', { ascending: false }).order('id', { ascending: false });
                 if (entriesError) throw entriesError;
                 setEntries(data || []);
             } catch (e: any) {
@@ -56,29 +55,44 @@ const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) =>
         fetchStatement();
     }, [partyId, partyTypeLabel]);
 
-    const statementWithBalance = useMemo(() => {
-        let runningBalance = 0;
-        return entries.map(entry => {
-            runningBalance += (entry.debit || 0) - (entry.credit || 0);
-            return { ...entry, balance: runningBalance };
-        });
+    const finalBalance = useMemo(() => {
+        // بما أن القائمة الآن من الأحدث إلى الأقدم، يتم حساب الرصيد النهائي بجمع كل الحركات.
+        return entries.reduce((balance, entry) => balance + (entry.debit || 0) - (entry.credit || 0), 0);
     }, [entries]);
 
-    const finalBalance = statementWithBalance.length > 0 ? statementWithBalance[statementWithBalance.length - 1].balance : 0;
+    const statementWithBalance = useMemo(() => {
+        // مع ترتيب الإدخالات من الأحدث إلى الأقدم، نحسب الرصيد المتحرك بشكل عكسي بدءًا من الرصيد النهائي.
+        let runningBalance = finalBalance;
+        return entries.map(entry => {
+            const currentEntryBalance = runningBalance;
+            // للحصول على رصيد الإدخال التالي (الأقدم)، نعكس تأثير الحركة الحالية.
+            runningBalance -= ((entry.debit || 0) - (entry.credit || 0));
+            return { ...entry, balance: currentEntryBalance };
+        });
+    }, [entries, finalBalance]);
 
     const handleShare = async () => {
         if (!party) return;
         setIsProcessing(true);
-        const blob = await generatePdfBlob('statement-pdf');
-        setIsProcessing(false);
-        if (!blob) { alert("لا يمكن إنشاء ملف PDF للمشاركة."); return; }
-        const fileName = `كشف حساب - ${party.name}.pdf`;
-        const file = new File([blob], fileName, { type: 'application/pdf' });
-        const shareData = { files: [file], title: `كشف حساب ${partyTypeLabel} ${party.name}`, text: `مرفق كشف حساب لـ ${partyTypeLabel} ${party.name}.` };
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-            await navigator.share(shareData).catch(console.error);
-        } else {
-            window.open(`https://wa.me/?text=${encodeURIComponent(shareData.text)}`, '_blank');
+        try {
+            const blob = await generatePdfBlob('statement-pdf');
+            if (!blob) {
+                alert("فشل إنشاء ملف PDF للمشاركة.");
+                return;
+            }
+            const fileName = `كشف حساب - ${party.name}.pdf`;
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            const shareData = { files: [file], title: `كشف حساب ${partyTypeLabel} ${party.name}`, text: `مرفق كشف حساب لـ ${partyTypeLabel} ${party.name}.` };
+            if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                await navigator.share(shareData).catch(console.error);
+            } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(shareData.text)}`, '_blank');
+            }
+        } catch (e) {
+            console.error("Error during PDF generation or sharing:", e);
+            alert("حدث خطأ أثناء إنشاء ملف PDF. يرجى مراجعة الـ console لمزيد من التفاصيل.");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -101,7 +115,8 @@ const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) =>
             {statementWithBalance.length === 0 ? (
                 <EmptyState Icon={DocumentTextIcon} title="لا توجد حركات" message={`لا توجد أي قيود محاسبية مسجلة لهذا ${partyTypeLabel} حتى الآن.`} />
             ) : (
-                <StatementComponent party={party} partyTypeLabel={partyTypeLabel} entries={statementWithBalance} finalBalance={finalBalance} />
+                // The StatementComponent is still used for on-screen display
+                <StatementComponent party={party} entries={statementWithBalance} finalBalance={finalBalance} />
             )}
         </>
     );

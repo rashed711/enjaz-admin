@@ -17,7 +17,9 @@ const PrintView: React.FC<{
     taxInfo: { rate: number; label: string };
     tax: number;
     grandTotal: number;
-}> = ({ invoice, subTotal, taxInfo, tax, grandTotal }) => (
+    projectName: string;
+    quotationRefNumber: string | null;
+}> = ({ invoice, subTotal, taxInfo, tax, grandTotal, projectName, quotationRefNumber }) => (
     <div id="sales-invoice-pdf" dir="ltr" className="bg-white text-gray-800 p-12 w-[1024px]">
         {/* Header */}
         <header className="flex justify-between items-center pb-6 mb-8 border-b-2 border-primary">
@@ -26,7 +28,7 @@ const PrintView: React.FC<{
                 <p className="text-sm text-gray-500">www.EnjazTec.com</p>
             </div>
             <div className="text-left">
-                <h1 className="text-5xl font-extrabold text-primary tracking-tight">فاتورة</h1>
+                <h1 className="text-5xl font-extrabold text-primary">فاتورة</h1>
                 <p className="text-gray-500 mt-1 text-2xl">Sales Invoice</p>
             </div>
         </header>
@@ -37,14 +39,16 @@ const PrintView: React.FC<{
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">السادة شركة:</span> {invoice.company}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">السيد المهندس/ة:</span> {invoice.clientName}</p>
-                    <p><span className="font-semibold text-gray-700 w-32 inline-block">المشروع:</span> {invoice.project}</p>
+                    <p><span className="font-semibold text-gray-700 w-32 inline-block">المشروع:</span> {projectName}</p>
+                    {quotationRefNumber && (
+                        <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم عرض السعر:</span> {quotationRefNumber}</p>
+                    )}
                 </div>
             </div>
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم الفاتورة:</span> {invoice.invoiceNumber}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">التاريخ:</span> {invoice.date}</p>
-                    {invoice.createdAt && <p><span className="font-semibold text-gray-700 w-32 inline-block">الوقت:</span> {new Date(invoice.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>}
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">الحالة:</span> {invoice.status}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">تم اصدارها بواسطة:</span> {invoice.creatorName || 'غير معروف'}</p>
                 </div>
@@ -115,7 +119,9 @@ const OnScreenView: React.FC<{
     taxInfo: { rate: number; label: string };
     tax: number;
     grandTotal: number;
-}> = ({ invoice, subTotal, taxInfo, tax, grandTotal }) => (
+    projectName: string;
+    quotationRefNumber: string | null;
+}> = ({ invoice, subTotal, taxInfo, tax, grandTotal, projectName, quotationRefNumber }) => (
     <div dir="ltr" className="bg-white text-gray-800 p-4 sm:p-8 rounded-lg shadow-lg max-w-4xl mx-auto my-8 border border-gray-100">
         {/* Header */}
         <header className="flex justify-between items-center pb-6 mb-8 border-b-2 border-primary">
@@ -124,7 +130,7 @@ const OnScreenView: React.FC<{
                 <p className="text-sm text-gray-500">www.EnjazTec.com</p>
             </div>
             <div className="text-left">
-                <h1 className="text-4xl md:text-5xl font-extrabold text-primary tracking-tight">فاتورة</h1>
+                <h1 className="text-4xl md:text-5xl font-extrabold text-primary">فاتورة</h1>
                 <p className="text-gray-500 mt-1 text-xl md:text-2xl">Sales Invoice</p>
             </div>
         </header>
@@ -135,14 +141,16 @@ const OnScreenView: React.FC<{
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">السادة شركة:</span> {invoice.company}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">السيد المهندس/ة:</span> {invoice.clientName}</p>
-                    <p><span className="font-semibold text-gray-700 w-32 inline-block">المشروع:</span> {invoice.project}</p>
+                    <p><span className="font-semibold text-gray-700 w-32 inline-block">المشروع:</span> {projectName}</p>
+                    {quotationRefNumber && (
+                        <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم عرض السعر:</span> {quotationRefNumber}</p>
+                    )}
                 </div>
             </div>
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div className="space-y-2">
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">رقم الفاتورة:</span> {invoice.invoiceNumber}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">التاريخ:</span> {invoice.date}</p>
-                    {invoice.createdAt && <p><span className="font-semibold text-gray-700 w-32 inline-block">الوقت:</span> {new Date(invoice.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>}
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">الحالة:</span> {invoice.status}</p>
                     <p><span className="font-semibold text-gray-700 w-32 inline-block">تم اصدارها بواسطة:</span> {invoice.creatorName || 'غير معروف'}</p>
                 </div>
@@ -243,7 +251,20 @@ const SalesInvoice: React.FC<SalesInvoiceProps> = ({ invoice }) => {
     const tax = subTotal * taxInfo.rate;
     const grandTotal = subTotal + tax;
 
-    const viewProps = { invoice, subTotal, taxInfo, tax, grandTotal };
+    const { projectName, quotationRefNumber } = useMemo(() => {
+        const projectString = invoice.project || '';
+        // Extracts project name and quotation number from a string like "Project Name (عرض سعر #QUOT-123)"
+        const match = projectString.match(/(.*)\s\(عرض سعر #(.+)\)/);
+        if (match && match[1] && match[2]) {
+            return {
+                projectName: match[1].trim(),
+                quotationRefNumber: match[2].trim()
+            };
+        }
+        return { projectName: projectString, quotationRefNumber: null };
+    }, [invoice.project]);
+
+    const viewProps = { invoice, subTotal, taxInfo, tax, grandTotal, projectName, quotationRefNumber };
 
     return (
         <>

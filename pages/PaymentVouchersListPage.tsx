@@ -104,7 +104,7 @@ const PaymentVouchersListPage: React.FC = () => {
                             {vouchers.map((voucher) => (
                                 <tr key={voucher.id} className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer" onClick={() => navigate(`/accounts/payment-vouchers/${voucher.id}/view`)}>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono">{voucher.id}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{voucher.createdAt ? new Date(voucher.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{voucher.createdAt ? new Date(voucher.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{new Date(voucher.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                                     <td className="px-3 py-2 font-semibold">{voucher.account_name}</td>
                                     <td className="px-3 py-2">{voucher.cash_account_name}</td>

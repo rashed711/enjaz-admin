@@ -21,7 +21,7 @@ const ReceiptComponent: React.FC<ReceiptComponentProps> = ({ receipt }) => {
                     <p className="text-lg font-semibold">رقم السند: {receipt.id}</p>
                     <p className="text-sm text-gray-600">التاريخ: {new Date(receipt.date).toLocaleDateString('en-GB')}</p>
                     {receipt.createdAt && (
-                        <p className="text-sm text-gray-600">الوقت: {new Date(receipt.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <p className="text-sm text-gray-600">الوقت: {new Date(receipt.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
                     )}
                 </div>
             </header>

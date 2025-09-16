@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SalesInvoice, Currency, PermissionModule, PermissionAction } from '../types';
 import { usePermissions } from '../hooks/usePermissions';
@@ -11,6 +11,7 @@ import { getStatusChipClassName } from '../utils/uiHelpers';
 import Pagination from '../components/Pagination';
 import { usePaginatedList } from '../hooks/usePaginatedList';
 import { useDebounce } from '../hooks/useDebounce';
+import { supabase } from '../services/supabaseClient';
 
 const formatSalesInvoice = (i: any): SalesInvoice => ({
     id: i.id,
@@ -36,8 +37,8 @@ const SalesInvoicesListPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
+    const [quotationsMap, setQuotationsMap] = useState<Map<number, string>>(new Map());
 
-    const canCreate = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CREATE);
     const { items: invoices, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
         tableName: 'sales_invoices',
         permissionModule: PermissionModule.SALES_INVOICES,
@@ -46,6 +47,30 @@ const SalesInvoicesListPage: React.FC = () => {
         searchColumns: salesInvoiceSearchColumns,
     });
 
+    useEffect(() => {
+        const fetchQuotationNumbers = async () => {
+            const quotationIds = invoices.map(inv => inv.quotationId).filter((id): id is number => id != null);
+            if (quotationIds.length === 0) return;
+
+            const idsToFetch = quotationIds.filter(id => !quotationsMap.has(id));
+            if (idsToFetch.length === 0) return;
+
+            const { data, error } = await supabase.from('quotations').select('id, quotation_number').in('id', idsToFetch);
+
+            if (error) {
+                console.error('Error fetching quotation numbers:', error);
+                return;
+            }
+
+            if (data) {
+                const newMap = new Map(data.map(q => [q.id, q.quotation_number]));
+                setQuotationsMap(prevMap => new Map([...prevMap, ...newMap]));
+            }
+        };
+        if (invoices.length > 0) fetchQuotationNumbers();
+    }, [invoices, quotationsMap]);
+
+    const canCreate = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CREATE);
     return (
         <>
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
@@ -102,51 +127,69 @@ const SalesInvoicesListPage: React.FC = () => {
                                     <th className="px-3 py-3 font-bold text-text-secondary">الحالة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">أنشئ بواسطة</th>
                                     <th className="px-3 py-3 font-bold text-text-secondary">الإجمالي</th>
+                                    <th className="px-3 py-3 font-bold text-text-secondary">عرض السعر</th>
                                 </tr>
                             </thead>
                             <tbody className="text-text-primary divide-y divide-border">
-                                {invoices.map((i) => (
-                                    <tr 
-                                        key={i.id} 
-                                        className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer"
-                                        onClick={() => navigate(`/sales-invoices/${i.id}/view`)}
-                                    >
-                                        <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border">{i.invoiceNumber}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
-                                        <td className="px-3 py-3">{i.company}</td>
-                                        <td className="px-3 py-3">{i.clientName}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{i.creatorName}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString()} {i.currency}</td>
-                                    </tr>
-                                ))}
+                                {invoices.map((i) => {
+                                    const quotationNumber = i.quotationId ? quotationsMap.get(i.quotationId) : null;
+                                    return (
+                                        <tr 
+                                            key={i.id} 
+                                            className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer"
+                                            onClick={() => navigate(`/sales-invoices/${i.id}/view`)}
+                                        >
+                                            <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border">{i.invoiceNumber}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
+                                            <td className="px-3 py-3">{i.company}</td>
+                                            <td className="px-3 py-3">{i.clientName}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{i.creatorName}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString('en-US')} {i.currency}</td>
+                                            <td className="px-3 py-3 whitespace-nowrap">
+                                                {quotationNumber ? (
+                                                    <a href={`/quotations/${i.quotationId}/view`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/quotations/${i.quotationId}/view`); }} className="text-blue-600 hover:underline font-semibold">{quotationNumber}</a>
+                                                ) : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Mobile Card View */}
                     <div className="lg:hidden space-y-4">
-                        {invoices.map((i) => (
-                            <div 
-                                key={i.id} 
-                                className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50"
-                                onClick={() => navigate(`/sales-invoices/${i.id}/view`)}
-                            >
-                                <div className="flex justify-between items-start mb-3">
-                                    <p className="font-bold text-lg text-primary">{i.invoiceNumber}</p>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span>
+                        {invoices.map((i) => {
+                            const quotationNumber = i.quotationId ? quotationsMap.get(i.quotationId) : null;
+                            return (
+                                <div 
+                                    key={i.id} 
+                                    className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50"
+                                    onClick={() => navigate(`/sales-invoices/${i.id}/view`)}
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <p className="font-bold text-lg text-primary">{i.invoiceNumber}</p>
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{i.company}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">المسئول:</span> <span className="font-medium text-right">{i.clientName}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
+                                        <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{i.creatorName}</span></div>
+                                        <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString('en-US')} {i.currency}</span></div>
+                                        {quotationNumber && (
+                                            <div className="flex justify-between pt-2 border-t border-border mt-2">
+                                                <span className="text-text-secondary">عرض السعر:</span>
+                                                <a href={`/quotations/${i.quotationId}/view`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/quotations/${i.quotationId}/view`); }} className="text-blue-600 hover:underline font-bold">{quotationNumber}</a>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-text-secondary">الشركة:</span> <span className="font-medium text-right">{i.company}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">المسئول:</span> <span className="font-medium text-right">{i.clientName}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{i.creatorName}</span></div>
-                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <Pagination

@@ -151,7 +151,7 @@ const JournalEntriesListPage: React.FC = () => {
                             {entries.map((entry) => (
                                 <tr key={entry.id} className="hover:bg-slate-100 even:bg-slate-50/50">
                                     <td className="px-3 py-2 whitespace-nowrap font-mono">{entry.id}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap">{entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{new Date(entry.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                                     <td className="px-3 py-2 font-semibold">{entry.account_name} ({entry.account_code})</td>
                                     <td className="px-3 py-2">{entry.description}</td>

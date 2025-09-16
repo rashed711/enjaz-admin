@@ -111,12 +111,12 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                         onClick={() => navigate(`/purchase-invoices/${i.id}/view`)}
                                     >
                                         <td className="px-3 py-3 whitespace-nowrap font-semibold sticky right-0 bg-inherit border-l border-border">{i.invoiceNumber || '-'}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.date}</td>
                                         <td className="px-3 py-3">{i.supplierName}</td>
                                         <td className="px-3 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClassName(i.status)}`}>{i.status}</span></td>
                                         <td className="px-3 py-3 whitespace-nowrap">{i.creatorName}</td>
-                                        <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString()} {i.currency}</td>
+                                        <td className="px-3 py-3 whitespace-nowrap">{i.totalAmount?.toLocaleString('en-US')} {i.currency}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -137,10 +137,10 @@ const PurchaseInvoicesListPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between"><span className="text-text-secondary">المورد:</span> <span className="font-medium text-right">{i.supplierName}</span></div>
-                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">الوقت:</span> <span className="font-medium">{i.createdAt ? new Date(i.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium">{i.date}</span></div>
                                     <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{i.creatorName}</span></div>
-                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString()} {i.currency}</span></div>
+                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">الإجمالي:</span> <span className="font-bold text-lg">{i.totalAmount?.toLocaleString('en-US')} {i.currency}</span></div>
                                 </div>
                             </div>
                         ))}

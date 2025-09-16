@@ -3,7 +3,6 @@ import { JournalEntry, Account } from '../types';
 
 interface StatementComponentProps {
     party: Account;
-    partyTypeLabel: 'العميل' | 'المورد';
     entries: (JournalEntry & { balance: number })[];
     finalBalance: number;
 }
@@ -14,7 +13,7 @@ const formatCurrency = (amount: number) => {
     return amount < 0 ? `(${formatted})` : formatted;
 };
 
-const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTypeLabel, entries, finalBalance }) => {
+const StatementComponent: React.FC<StatementComponentProps> = ({ party, entries, finalBalance }) => {
     const totalDebit = entries.reduce((sum, e) => sum + (e.debit || 0), 0);
     const totalCredit = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
 
@@ -28,7 +27,7 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                     <p className="text-sm text-gray-500">www.EnjazTec.com</p>
                 </div>
                 <div className="text-left">
-                    <h1 className="text-4xl font-extrabold text-primary tracking-tight">كشف حساب</h1>
+                    <h1 className="text-4xl font-extrabold text-primary">كشف حساب</h1>
                     <p className="text-gray-500 mt-1 text-xl">Account Statement</p>
                 </div>
             </header>
@@ -37,7 +36,6 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
             <section className="grid grid-cols-2 gap-x-8 mb-10 text-sm">
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div className="space-y-2">
-                        <p><span className="font-semibold text-gray-700 w-24 inline-block">بيان لـ:</span> {partyTypeLabel}</p>
                         <p><span className="font-semibold text-gray-700 w-24 inline-block">الاسم:</span> {party.name}</p>
                         <p><span className="font-semibold text-gray-700 w-24 inline-block">الكود:</span> {party.code}</p>
                     </div>
@@ -71,7 +69,7 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                         <tbody className="text-text-primary divide-y divide-border">
                             {entries.map((entry) => (
                                 <tr key={entry.id} className="hover:bg-slate-100 even:bg-slate-50/50">
-                                    <td className="px-3 py-2 whitespace-nowrap">{entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
                                     <td className="px-3 py-2">{entry.description}</td>
                                     <td className="px-3 py-2 text-center text-red-700">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</td>
