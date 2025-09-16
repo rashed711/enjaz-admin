@@ -7,12 +7,201 @@ import { useAuth } from './useAuth';
 import { useProducts } from '../contexts/ProductContext';
 import { 
     Quotation, SalesInvoice, PurchaseInvoice, DocumentItem, DocumentItemState,
-    ProductType, Unit, Currency, PurchaseInvoiceStatus, SalesInvoiceStatus 
+    ProductType, Unit, Currency, PurchaseInvoiceStatus, SalesInvoiceStatus,
+    PartyType, AccountType
 } from '../types';
+import { generateDocumentNumber } from '../utils/numbering';
 
 type DocumentType = 'quotation' | 'purchase_invoice' | 'sales_invoice';
 type AnyDocument = Quotation | PurchaseInvoice | SalesInvoice;
 type AnyDocumentState = AnyDocument & { items: DocumentItemState[] };
+
+/**
+ * Handles the accounting posting for a paid purchase invoice.
+ * 1. Finds or creates a supplier account.
+ * 2. Links the account to the invoice.
+ * 3. Creates the corresponding journal entries (Debit Purchases, Credit Supplier).
+ */
+const postPurchaseInvoiceJournal = async (
+    invoice: PurchaseInvoice, 
+    invoiceId: number, 
+    currentUserId: string | null,
+    supabase: any // SupabaseClient
+) => {
+    const supplierName = invoice.supplierName.trim();
+    if (!supplierName) {
+        throw new Error("اسم المورد في الفاتورة لا يمكن أن يكون فارغاً.");
+    }
+
+    // --- New robust logic to find parent accounts ---
+    let suppliersParentAccount: { id: number; name: string; code: string | null } | undefined;
+
+    // 1. Try to find parent accounts by common names first, for performance.
+    const { data: mainAccounts, error: mainAccountsError } = await supabase
+        .from('accounts')
+        .select('id, name, code')
+        .in('name', ['الموردون', 'المشتريات', 'الموردين', 'الخصوم']); // Search for all possible names
+
+    if (mainAccountsError) throw new Error(`فشل البحث عن الحسابات الرئيسية: ${mainAccountsError.message}`);
+
+    suppliersParentAccount = mainAccounts.find((a: any) => a.name.trim() === 'الموردون' || a.name.trim() === 'الموردين');
+    let purchasesAccount = mainAccounts.find((a: any) => a.name.trim() === 'المشتريات');
+    const liabilitiesAccount = mainAccounts.find((a: any) => a.name.trim() === 'الخصوم');
+
+    // 2. If not found by name, try to infer it from the data structure of existing suppliers.
+    if (!suppliersParentAccount) {
+        console.log("Could not find suppliers parent by name, attempting to infer...");
+        const { data: supplierAccounts, error: supplierAccountsError } = await supabase
+            .from('accounts')
+            .select('parent_id')
+            .eq('party_type', PartyType.SUPPLIER)
+            .not('parent_id', 'is', null);
+
+        if (supplierAccountsError) throw new Error(`فشل البحث عن حسابات الموردين الفرعية: ${supplierAccountsError.message}`);
+
+        if (supplierAccounts && supplierAccounts.length > 0) {
+            const parentIds = [...new Set(supplierAccounts.map(a => a.parent_id))];
+            if (parentIds.length === 1) {
+                const parentId = parentIds[0];
+                console.log(`Inferred suppliers parent account ID: ${parentId}`);
+                const { data: parentData, error: parentError } = await supabase.from('accounts').select('id, name, code').eq('id', parentId).single();
+                if (parentError) throw new Error(`فشل جلب بيانات الحساب الأب للموردين: ${parentError.message}`);
+                suppliersParentAccount = parentData;
+            }
+        }
+    }
+
+    // 3. If still not found, create it under "الخصوم".
+    if (!suppliersParentAccount) {
+        console.log("Suppliers parent account not found or inferred. Creating a new one under 'الخصوم'.");
+
+        if (!liabilitiesAccount) {
+            throw new Error("لم يتم العثور على حساب 'الخصوم' الرئيسي لإنشاء حساب الموردين تحته. يرجى التأكد من وجوده في دليل الحسابات.");
+        }
+
+        // Generate a new code for "الموردون" based on the parent "الخصوم"
+        const parentCode = liabilitiesAccount.code || '2'; // Default to '2' for Liabilities
+        const { data: childAccounts, error: childrenError } = await supabase
+            .from('accounts')
+            .select('code')
+            .eq('parent_id', liabilitiesAccount.id);
+        if (childrenError) throw new Error(`فشل جلب الحسابات الفرعية للخصوم: ${childrenError.message}`);
+        
+        let maxNum = 0;
+        if (childAccounts) {
+            for (const child of childAccounts) {
+                if (child.code && child.code.startsWith(parentCode + '-')) {
+                    const numPart = parseInt(child.code.split('-').pop() || '0', 10);
+                    if (!isNaN(numPart) && numPart > maxNum) {
+                        maxNum = numPart;
+                    }
+                }
+            }
+        }
+        const newSuppliersCode = `${parentCode}-${maxNum + 1}`;
+
+        const { data: newParentAccount, error: createParentError } = await supabase
+            .from('accounts')
+            .insert({
+                name: 'الموردون',
+                code: newSuppliersCode,
+                account_type: AccountType.LIABILITY,
+                party_type: PartyType.NONE,
+                parent_id: liabilitiesAccount.id,
+            })
+            .select('id, name, code')
+            .single();
+        
+        if (createParentError) {
+            throw new Error(`فشل إنشاء حساب الموردين الرئيسي تلقائياً: ${createParentError.message}.`);
+        }
+        suppliersParentAccount = newParentAccount;
+    }
+
+    if (!suppliersParentAccount) throw new Error("فشل تحديد أو إنشاء حساب الموردين الرئيسي. يرجى مراجعة دليل الحسابات."); // Should be unreachable now
+
+    // --- New robust logic for Purchases account ---
+    // 1. If not found by name, try to find by a default code '501'.
+    if (!purchasesAccount) {
+        console.log("Purchases account not found by name, attempting to find by default code '501'...");
+        const { data: accountByCode, error: codeError } = await supabase.from('accounts').select('id, name, code').eq('code', '501').maybeSingle();
+        if (codeError) throw new Error(`فشل البحث عن حساب المشتريات الرئيسي بالكود: ${codeError.message}`);
+        if (accountByCode) {
+            console.log(`Found account '${accountByCode.name}' with code '501'. Using it as purchases account.`);
+            purchasesAccount = accountByCode;
+        }
+    }
+
+    // 2. If still not found, create it.
+    if (!purchasesAccount) {
+        console.log("Purchases account not found. Creating a new one.");
+        const { data: newPurchasesAccount, error: createPurchasesError } = await supabase
+            .from('accounts')
+            .insert({
+                name: 'المشتريات',
+                code: '501', // A sensible default code for Expenses > Purchases
+                account_type: AccountType.EXPENSE,
+                party_type: PartyType.NONE,
+                parent_id: null,
+            })
+            .select('id, name, code')
+            .single();
+        if (createPurchasesError) throw new Error(`فشل إنشاء حساب المشتريات الرئيسي تلقائياً: ${createPurchasesError.message}.`);
+        purchasesAccount = newPurchasesAccount;
+    }
+
+    if (!purchasesAccount) throw new Error("فشل تحديد أو إنشاء حساب 'المشتريات' الرئيسي. يرجى مراجعة دليل الحسابات.");
+
+    // 5. Find or create the specific supplier's account
+    const { data: existingSupplier, error: findError } = await supabase.from('accounts').select('id').eq('name', supplierName).eq('parent_id', suppliersParentAccount.id).maybeSingle();
+    if (findError) throw findError;
+
+    let supplierAccountId = existingSupplier?.id;
+
+    if (!supplierAccountId) {
+        // --- New robust logic for generating sub-account code ---
+        const { data: childAccounts, error: childrenError } = await supabase
+            .from('accounts')
+            .select('code')
+            .eq('parent_id', suppliersParentAccount.id);
+
+        if (childrenError) throw new Error(`فشل جلب الحسابات الفرعية للموردين: ${childrenError.message}`);
+        
+        const parentCode = suppliersParentAccount.code || '201';
+        let maxNum = 0;
+        if (childAccounts) {
+            for (const child of childAccounts) {
+                if (child.code && child.code.startsWith(parentCode + '-')) {
+                    const numPart = parseInt(child.code.split('-').pop() || '0', 10);
+                    if (!isNaN(numPart) && numPart > maxNum) {
+                        maxNum = numPart;
+                    }
+                }
+            }
+        }
+        
+        const newCode = `${parentCode}-${maxNum + 1}`;
+        const { data: newAccount, error: createError } = await supabase.from('accounts').insert({ name: supplierName, code: newCode, parent_id: suppliersParentAccount.id, account_type: AccountType.LIABILITY, party_type: PartyType.SUPPLIER }).select('id').single();
+        if (createError) throw createError;
+        supplierAccountId = newAccount.id;
+    }
+
+    // 6. Update the purchase invoice with the supplier_id
+    const { error: updateInvoiceError } = await supabase.from('purchase_invoices').update({ supplier_id: supplierAccountId }).eq('id', invoiceId);
+    if (updateInvoiceError) throw new Error(`فشل ربط المورد بالفاتورة: ${updateInvoiceError.message}`);
+
+    // 7. Delete old journal entries for this invoice to make the process idempotent
+    await supabase.from('journal_entries').delete().like('description', `فاتورة مشتريات رقم ${invoice.invoiceNumber}%`);
+
+    // 8. Create the new journal entries
+    const journalEntries = [
+        { date: invoice.date, description: `فاتورة مشتريات رقم ${invoice.invoiceNumber} من ${supplierName}`, debit: invoice.totalAmount, credit: 0, account_id: purchasesAccount.id, created_by: currentUserId },
+        { date: invoice.date, description: `فاتورة مشتريات رقم ${invoice.invoiceNumber}`, debit: 0, credit: invoice.totalAmount, account_id: supplierAccountId, created_by: currentUserId }
+    ];
+
+    const { error: journalError } = await supabase.from('journal_entries').insert(journalEntries);
+    if (journalError) throw new Error(`فشل إنشاء القيد المحاسبي: ${journalError.message}`);
+};
 
 interface UseDocumentProps {
     documentType: DocumentType;
@@ -60,12 +249,13 @@ const docConfig = {
         mainTable: 'purchase_invoices',
         itemsTable: 'purchase_invoice_items',
         foreignKey: 'invoice_id',
-        listPath: '/invoices',
-        viewPath: '/invoices/:id/view',
+        listPath: '/purchase-invoices',
+        viewPath: '/purchase-invoices/:id/view',
         dbFieldMap: {
             invoiceNumber: 'invoice_number',
             supplierName: 'supplier_name',
             status: 'status',
+            supplierId: 'supplier_id',
             clientName: null,
             company: null,
             project: null,
@@ -76,6 +266,7 @@ const docConfig = {
             invoice_number: 'invoiceNumber',
             supplier_name: 'supplierName',
             status: 'status',
+            supplier_id: 'supplierId',
         }
     },
     sales_invoice: {
@@ -255,12 +446,24 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             }
         };
 
+        // If data was passed via navigation state, we don't need to fetch.
+        if (preloadedData) {
+            setLoading(false);
+            return;
+        }
+
         if (isNew) {
             getNewDocumentDefault().then(setDocument).finally(() => setLoading(false));
         } else if (idParam && products.length > 0) {
-            fetchDocument(parseInt(idParam, 10));
+            const docId = parseInt(idParam, 10);
+            if (isNaN(docId)) {
+                console.error(`Invalid document ID in URL: "${idParam}" for type "${documentType}"`);
+                navigate('/404');
+            } else {
+                fetchDocument(docId);
+            }
         }
-    }, [idParam, navigate, currentUser, isNew, products, config, documentType, getNewDocumentDefault]);
+    }, [idParam, navigate, currentUser, isNew, products, config, documentType, getNewDocumentDefault, preloadedData]);
 
     const handleSave = async () => {
         if (!document) return;
@@ -307,16 +510,9 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             let savedDocId = id;
 
             if (isNew) {
-                // --- START: New logic for document numbering ---
+                let numberField = '';
                 if (documentType === 'quotation' || documentType === 'sales_invoice' || documentType === 'purchase_invoice') {
-                    const today = new Date();
-                    const day = String(today.getDate()).padStart(2, '0');
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
-                    const year = today.getFullYear();
-                    const dateString = `${day}-${month}-${year}`;
-
                     let prefix = '';
-                    let numberField = '';
 
                     if (documentType === 'quotation') {
                         const quote = document as Quotation;
@@ -329,27 +525,9 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                         prefix = 'PINV';
                         numberField = 'invoice_number';
                     }
-
-                    const numberPrefix = `${prefix}-${dateString}-`;
-
-                    const { data: lastDoc, error: lastDocError } = await supabase
-                        .from(config.mainTable)
-                        .select(numberField)
-                        .like(numberField, `${numberPrefix}%`)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .single();
-
-                    if (lastDocError && lastDocError.code !== 'PGRST116') throw lastDocError;
-
-                    let nextSeqNum = 1001;
-                    if (lastDoc) {
-                        const lastNum = parseInt(lastDoc[numberField].split('-').pop() || '1000', 10);
-                        if (!isNaN(lastNum)) nextSeqNum = lastNum + 1;
-                    }
-                    payload[numberField] = `${numberPrefix}${nextSeqNum}`;
+                    
+                    payload[numberField] = await generateDocumentNumber(supabase, config.mainTable, numberField, prefix);
                 }
-                // --- END: New logic for document numbering ---
                 payload.created_by = currentUser?.id ?? null;
                 const { data: newDoc, error } = await supabase.from(config.mainTable).insert(payload).select('id').single();
                 if (error || !newDoc) throw error || new Error('Failed to create document');
@@ -406,6 +584,17 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                 }
             }
 
+            // --- New: Trigger journal entry creation for PAID purchase invoices ---
+            if (documentType === 'purchase_invoice' && document.status === PurchaseInvoiceStatus.PAID) {
+                console.log(`Purchase invoice ${savedDocId} is PAID. Triggering journal entry creation...`);
+                try {
+                    await postPurchaseInvoiceJournal(document as PurchaseInvoice, savedDocId!, currentUser?.id ?? null, supabase);
+                    console.log('Successfully created journal entry for purchase invoice.');
+                } catch (e: any) {
+                    journalError = e;
+                }
+            }
+
             await fetchProducts();
 
             if (journalError) {
@@ -414,7 +603,18 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                 setSaveError(warningMessage);
                 // NOTE: We don't navigate away, so the user can see the error on the form.
             } else {
-                navigate(config.viewPath.replace(':id', savedDocId!.toString()), { replace: true });
+                // Construct the full object to pass to the view page, avoiding a refetch race condition.
+                const docNumberPropertyName = isNew && numberField ? (config.payloadMap as any)[numberField] : null;
+
+                const fullDocumentObject: any = {
+                    ...document,
+                    id: savedDocId,
+                    creatorName: document.creatorName || currentUser?.name || 'غير معروف',
+                };
+                if (docNumberPropertyName && numberField && payload[numberField]) {
+                    fullDocumentObject[docNumberPropertyName] = payload[numberField];
+                }
+                navigate(config.viewPath.replace(':id', savedDocId!.toString()), { state: { preloadedData: fullDocumentObject as AnyDocumentState }, replace: true });
             }
 
         } catch (error: any) {

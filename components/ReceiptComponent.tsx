@@ -11,7 +11,7 @@ const formatCurrency = (amount: number) => {
 
 const ReceiptComponent: React.FC<ReceiptComponentProps> = ({ receipt }) => {
     return (
-        <div id="receipt-pdf" className="bg-white p-8 rounded-lg shadow-lg max-w-2xl mx-auto border border-gray-200 font-sans">
+        <div id="receipt-pdf" className="bg-white p-8 rounded-lg shadow-lg max-w-2xl mx-auto border border-gray-200">
             <header className="flex justify-between items-center border-b pb-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">سند قبض</h1>
@@ -19,7 +19,7 @@ const ReceiptComponent: React.FC<ReceiptComponentProps> = ({ receipt }) => {
                 </div>
                 <div className="text-left">
                     <p className="text-lg font-semibold">رقم السند: {receipt.id}</p>
-                    <p className="text-sm text-gray-600">التاريخ: {new Date(receipt.date).toLocaleDateString('ar-SA')}</p>
+                    <p className="text-sm text-gray-600">التاريخ: {new Date(receipt.date).toLocaleDateString('en-GB')}</p>
                 </div>
             </header>
 
@@ -35,23 +35,14 @@ const ReceiptComponent: React.FC<ReceiptComponentProps> = ({ receipt }) => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 items-baseline">
-                    <div className="font-semibold text-gray-700 col-span-1">وذلك عن:</div>
-                    <div className="text-gray-800 col-span-2 border-b border-dotted pb-1">{receipt.description || 'دفعة من الحساب'}</div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 items-baseline">
                     <div className="font-semibold text-gray-700 col-span-1">طريقة الدفع:</div>
                     <div className="text-gray-800 col-span-2 border-b border-dotted pb-1">{receipt.payment_method}</div>
-                </div>
-                 <div className="grid grid-cols-3 gap-4 items-baseline">
-                    <div className="font-semibold text-gray-700 col-span-1">تم الإيداع في حساب:</div>
-                    <div className="text-gray-800 col-span-2 border-b border-dotted pb-1">{receipt.cash_account_name}</div>
                 </div>
             </main>
 
             <footer className="mt-20 pt-6 grid grid-cols-2 gap-8 text-center">
                 <div>
-                    <p className="mb-12">المستلم</p>
+                    <p className="mb-12">المحرر</p>
                     <p className="border-t border-gray-400 pt-2 text-gray-600">{receipt.creatorName}</p>
                 </div>
                 <div>

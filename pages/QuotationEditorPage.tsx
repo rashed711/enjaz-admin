@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Quotation, DocumentItemState, Currency } from '../types';
 import { useDocument } from '../hooks/useDocument';
 import QuotationViewer from '../components/QuotationViewer';
@@ -11,6 +11,9 @@ export type QuotationState = Omit<Quotation, 'items'> & { items: DocumentItemSta
 const QuotationEditorPage: React.FC = () => {
     const { id: idParam, mode } = useParams<{ id: string; mode?: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const preloadedData = location.state?.preloadedData as QuotationState | undefined;
 
     const {
         document: quotation,
@@ -22,6 +25,7 @@ const QuotationEditorPage: React.FC = () => {
     } = useDocument<QuotationState>({
         documentType: 'quotation',
         id: idParam,
+        preloadedData,
     });
     
     const isNew = idParam === 'new';

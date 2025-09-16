@@ -33,6 +33,12 @@ const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ invoice }
         setDeleteError(null);
     
         try {
+            // New: Delete associated journal entries first
+            const { error: journalError } = await supabase.from('journal_entries').delete().like('description', `فاتورة مشتريات رقم ${invoiceToDelete.invoiceNumber}%`);
+            if (journalError) {
+                throw new Error(`فشل حذف القيود المحاسبية المرتبطة: ${journalError.message}`);
+            }
+
             await supabase.from('purchase_invoice_items').delete().eq('invoice_id', invoiceToDelete.id);
             await supabase.from('purchase_invoices').delete().eq('id', invoiceToDelete.id);
             await fetchProducts();
@@ -69,7 +75,7 @@ const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ invoice }
                 onClose={() => { setInvoiceToDelete(null); setDeleteError(null); }}
                 onConfirm={handleConfirmDelete}
                 title="تأكيد الحذف"
-                message={<>هل أنت متأكد أنك تريد حذف الفاتورة من المورد <span className="font-bold text-text-primary">{invoiceToDelete?.supplierName}</span>؟</>}
+                message={<>هل أنت متأكد أنك تريد حذف الفاتورة رقم <span className="font-bold text-text-primary">{invoiceToDelete?.invoiceNumber}</span>؟ سيتم حذف القيود المحاسبية المرتبطة بها.</>}
                 isProcessing={isDeleting}
                 error={deleteError}
             />

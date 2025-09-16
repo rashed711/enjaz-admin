@@ -1,31 +1,31 @@
 import React from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useReceipt } from '../hooks/useReceipt';
+import { usePaymentVoucher } from '../hooks/usePaymentVoucher';
 import Spinner from '../components/Spinner';
 import { useAccounts } from '../contexts/AccountContext';
 import AccountSelect from '../components/AccountSelect';
-import { Receipt, PartyType } from '../types';
-import ReceiptViewer from '../components/ReceiptViewer';
+import { PaymentVoucher, PartyType, AccountType } from '../types';
+import PaymentVoucherViewer from '../components/PaymentVoucherViewer';
 
-interface ReceiptEditorFormProps {
-  receipt: Receipt;
-  setReceipt: React.Dispatch<React.SetStateAction<Receipt | null>>;
+interface PaymentVoucherEditorFormProps {
+  voucher: PaymentVoucher;
+  setVoucher: React.Dispatch<React.SetStateAction<PaymentVoucher | null>>;
   onSave: () => Promise<void>;
   isSaving: boolean;
   onCancel: () => void;
   saveError: string | null;
 }
 
-const ReceiptEditorForm: React.FC<ReceiptEditorFormProps> = ({ receipt, setReceipt, onSave, isSaving, onCancel, saveError }) => {
+const PaymentVoucherEditorForm: React.FC<PaymentVoucherEditorFormProps> = ({ voucher, setVoucher, onSave, isSaving, onCancel, saveError }) => {
   const { accountsFlat, loading: accountsLoading } = useAccounts();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const isNumber = ['amount', 'account_id', 'cash_account_id'].includes(name);
-    setReceipt((prev) => (prev ? { ...prev, [name]: isNumber ? parseFloat(value) || 0 : value } : null));
+    setVoucher((prev) => (prev ? { ...prev, [name]: isNumber ? parseFloat(value) || 0 : value } : null));
   };
 
-  if (accountsLoading || !receipt) {
+  if (accountsLoading || !voucher) {
     return <div className="flex justify-center items-center p-10"><Spinner /></div>;
   }
 
@@ -35,45 +35,45 @@ const ReceiptEditorForm: React.FC<ReceiptEditorFormProps> = ({ receipt, setRecei
   return (
     <div className="bg-card p-6 rounded-lg shadow-sm border border-border max-w-4xl mx-auto">
       <h2 className="text-xl font-bold mb-6 border-b border-border pb-3 text-text-primary">
-        {receipt.id === -1 ? 'إضافة سند قبض جديد' : 'تعديل سند قبض'}
+        {voucher.id === -1 ? 'إضافة سند صرف جديد' : 'تعديل سند صرف'}
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <AccountSelect
-            label="من حساب العميل (دائن)"
+            label="إلى حساب المورد/المصروف (مدين)"
             name="account_id"
             accounts={accountsFlat}
-            value={receipt.account_id}
+            value={voucher.account_id}
             onChange={handleInputChange}
             className={inputClasses}
-            filter={(acc) => acc.party_type === PartyType.CUSTOMER || acc.party_type === PartyType.CUSTOMER_AND_SUPPLIER}
+            filter={(acc) => acc.party_type === PartyType.SUPPLIER || acc.account_type === AccountType.EXPENSE} // Suppliers and Expenses
           />
           <AccountSelect
-            label="إلى حساب الصندوق/البنك (مدين)"
+            label="من حساب الصندوق/البنك (دائن)"
             name="cash_account_id"
             accounts={accountsFlat}
-            value={receipt.cash_account_id}
+            value={voucher.cash_account_id}
             onChange={handleInputChange}
             className={inputClasses}
             filter={(acc) => acc.code?.startsWith('102-')} // Show only cash/bank sub-accounts
           />
           <div>
             <label htmlFor="payment_method" className="block text-sm font-medium mb-1 text-text-secondary">طريقة الدفع</label>
-            <input type="text" name="payment_method" id="payment_method" value={receipt.payment_method} onChange={handleInputChange} className={inputClasses} />
+            <input type="text" name="payment_method" id="payment_method" value={voucher.payment_method} onChange={handleInputChange} className={inputClasses} />
           </div>
         </div>
         <div className="space-y-4">
           <div>
             <label htmlFor="date" className="block text-sm font-medium mb-1 text-text-secondary">التاريخ</label>
-            <input type="date" name="date" id="date" value={receipt.date} onChange={handleInputChange} className={inputClasses} />
+            <input type="date" name="date" id="date" value={voucher.date} onChange={handleInputChange} className={inputClasses} />
           </div>
           <div>
             <label htmlFor="amount" className="block text-sm font-medium mb-1 text-text-secondary">المبلغ</label>
-            <input type="number" name="amount" id="amount" value={receipt.amount || ''} onChange={handleInputChange} className={inputClasses} placeholder="0.00" />
+            <input type="number" name="amount" id="amount" value={voucher.amount || ''} onChange={handleInputChange} className={inputClasses} placeholder="0.00" />
           </div>
           <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-1 text-text-secondary">الوصف</label>
-            <textarea name="description" id="description" value={receipt.description || ''} onChange={handleInputChange} className={inputClasses} rows={3}></textarea>
+            <label htmlFor="description" className="block text-sm font-medium mb-1 text-text-secondary">البيان</label>
+            <textarea name="description" id="description" value={voucher.description || ''} onChange={handleInputChange} className={inputClasses} rows={3}></textarea>
           </div>
         </div>
       </div>
@@ -96,36 +96,36 @@ const ReceiptEditorForm: React.FC<ReceiptEditorFormProps> = ({ receipt, setRecei
   );
 };
 
-const ReceiptEditorPage: React.FC = () => {
+const PaymentVoucherEditorPage: React.FC = () => {
     const { id: idParam, mode } = useParams<{ id: string, mode?: 'view' | 'edit' }>();
     const navigate = useNavigate();
     const location = useLocation();
 
-    const preloadedData = location.state?.preloadedData as Receipt | undefined;
+    const preloadedData = location.state?.preloadedData as PaymentVoucher | undefined;
 
-    const { receipt, setReceipt, loading, isSaving, saveError, handleSave } = useReceipt({ id: idParam, preloadedData });
+    const { voucher, setVoucher, loading, isSaving, saveError, handleSave } = usePaymentVoucher({ id: idParam, preloadedData });
     
     const isNew = idParam === 'new';
     const isViewMode = mode === 'view' && !isNew;
 
-    if (loading || !receipt) {
+    if (loading || !voucher) {
         return <div className="flex justify-center items-center h-full"><Spinner /></div>;
     }
 
     if (isViewMode) {
-        return <ReceiptViewer receipt={receipt} />;
+        return <PaymentVoucherViewer voucher={voucher} />;
     }
     
     return (
-        <ReceiptEditorForm 
-            receipt={receipt}
-            setReceipt={setReceipt}
+        <PaymentVoucherEditorForm 
+            voucher={voucher}
+            setVoucher={setVoucher}
             onSave={handleSave}
             isSaving={isSaving}
-            onCancel={() => navigate('/accounts/receipts')}
+            onCancel={() => navigate('/accounts/payment-vouchers')}
             saveError={saveError}
         />
     );
 };
 
-export default ReceiptEditorPage;
+export default PaymentVoucherEditorPage;

@@ -1,61 +1,46 @@
-import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 /**
- * Generates a PDF from an HTML element with a specific ID and returns it as a Blob.
- * @param {string} elementId The ID of the HTML element to convert to PDF.
- * @returns {Promise<Blob | null>} A promise that resolves with the PDF Blob, or null if an error occurs.
+ * Generates a PDF blob from an HTML element with improved quality and compression.
+ * @param elementId The ID of the HTML element to convert to PDF.
+ * @returns A Promise that resolves to a Blob, or null if an error occurs.
  */
 export const generatePdfBlob = async (elementId: string): Promise<Blob | null> => {
-    const input = document.getElementById(elementId);
-    if (!input) {
-        console.error(`PDF generation failed: Element with ID '${elementId}' not found.`);
-        return null;
-    }
+  const element = document.getElementById(elementId);
+  if (!element) {
+    console.error(`PDF Generation Error: Element with id "${elementId}" not found.`);
+    return null;
+  }
 
-    // Temporarily set a fixed width to ensure consistent PDF output
-    const originalWidth = input.style.width;
-    input.style.width = '1024px';
+  try {
+    // ننتظر حتى يتم تحميل جميع الخطوط في الصفحة بالكامل قبل البدء في عملية التحويل
+    await document.fonts.ready;
 
-    try {
-        const canvas = await html2canvas(input, { scale: 1.5, useCORS: true });
-        
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const ratio = canvasWidth / pdfWidth;
-        
-        let canvasPosition = 0;
-        // Paginate the canvas image into the PDF
-        while (canvasPosition < canvasHeight) {
-            const pageHeightInCanvas = Math.min(pdfHeight * ratio, canvasHeight - canvasPosition);
-            const pageCanvas = document.createElement('canvas');
-            pageCanvas.width = canvasWidth;
-            pageCanvas.height = pageHeightInCanvas;
-            
-            const ctx = pageCanvas.getContext('2d');
-            if (ctx) {
-                // Draw the relevant part of the main canvas onto the page canvas
-                ctx.drawImage(canvas, 0, canvasPosition, canvasWidth, pageHeightInCanvas, 0, 0, canvasWidth, pageHeightInCanvas);
-                const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
-                const pageHeightInPDF = pageHeightInCanvas / ratio;
-                if (canvasPosition > 0) pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pageHeightInPDF);
-                canvasPosition += pageHeightInCanvas;
-            } else {
-                 console.error("Could not get canvas context for PDF page generation.");
-                return null;
-            }
-        }
-        return pdf.output('blob');
-    } catch (error: any) {
-        console.error("Error generating PDF:", error.message);
-        return null;
-    } finally {
-        // Restore original width
-        input.style.width = originalWidth;
-    }
+    // 1. Increase scale for higher resolution canvas. A scale of 3 provides much better quality.
+    const canvas = await html2canvas(element, { scale: 3, useCORS: true });
+    
+    // 2. Use JPEG format for better compression. The quality is set to 0.95 (out of 1.0).
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    
+    // 3. Initialize jsPDF with compression enabled.
+    const pdf = new jsPDF({
+        orientation: 'p', // portrait
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const imgWidth = canvas.width;
+    const imgHeight = canvas.height;
+    const ratio = pdfWidth / imgWidth;
+
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth * ratio, imgHeight * ratio);
+    return pdf.output('blob');
+
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    return null;
+  }
 };

@@ -26,6 +26,7 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const { currentUser, loading: isAuthLoading } = useAuth();
+    const permissions = usePermissions();
 
     const fetchData = useCallback(async () => {
         if (isAuthLoading) return;
@@ -38,15 +39,24 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
 
         setLoading(true);
         try {
-            // RLS policies in the database are the single source of truth for what data can be fetched.
-            // We no longer need a client-side pre-check. If the user lacks permissions,
-            // the query will simply return an empty array, which is the correct behavior.
+            const canViewAll = permissions.can(permissionModule, PermissionAction.VIEW_ALL);
+            const canViewOwn = permissions.can(permissionModule, PermissionAction.VIEW_OWN);
+
+            if (!canViewAll && !canViewOwn) {
+                setItems([]);
+                setTotalCount(0);
+                setLoading(false);
+                return;
+            }
 
             const from = (currentPage - 1) * itemsPerPage;
             const to = from + itemsPerPage - 1;
 
-            // RLS handles the filtering, so we don't need to add `.eq('created_by', ...)` here.
             let query = supabase.from(tableName).select('*', { count: 'exact' });
+
+            if (!canViewAll && canViewOwn) {
+                query = query.eq('created_by', currentUser.id);
+            }
 
             if (searchQuery && searchColumns.length > 0) {
                 const orFilter = searchColumns.map(column => `${column}.ilike.%${searchQuery}%`).join(',');
@@ -92,7 +102,7 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
         } finally {
             setLoading(false);
         }
-    }, [ currentUser, isAuthLoading, currentPage, itemsPerPage, tableName, formatter, searchQuery, searchColumns ]);
+    }, [ currentUser, isAuthLoading, currentPage, itemsPerPage, tableName, formatter, searchQuery, searchColumns, permissions, permissionModule ]);
 
     useEffect(() => {
         fetchData();

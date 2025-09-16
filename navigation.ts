@@ -33,7 +33,7 @@ export const navigationConfig: NavItem[] = [
         Icon: HomeIcon,
         title: 'لوحة التحكم الرئيسية',
         inSidebar: true,
-        roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+        roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
     },
     {
         label: 'المحاسبة',
@@ -41,7 +41,7 @@ export const navigationConfig: NavItem[] = [
         Icon: BanknotesIcon,
         title: 'إدارة المحاسبة والمالية',
         inSidebar: true,
-        roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+        roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
         children: [
             {
                 label: 'دليل الحسابات',
@@ -57,7 +57,7 @@ export const navigationConfig: NavItem[] = [
                 inSubMenu: true,
                 Icon: DocumentTextIcon,
                 title: 'عرض وإدارة القيود اليومية',
-                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
             },
             {
                 label: 'سندات القبض',
@@ -65,7 +65,15 @@ export const navigationConfig: NavItem[] = [
                 inSubMenu: true,
                 Icon: ArchiveBoxIcon,
                 title: 'إدارة سندات القبض',
-                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+            },
+            {
+                label: 'سندات الصرف',
+                path: '/accounts/payment-vouchers',
+                inSubMenu: true,
+                Icon: ArchiveBoxIcon,
+                title: 'إدارة سندات الصرف',
+                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
             },
             {
                 label: 'قائمة العملاء',
@@ -73,7 +81,7 @@ export const navigationConfig: NavItem[] = [
                 inSubMenu: true,
                 Icon: UsersIcon,
                 title: 'عرض وإدارة العملاء',
-                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT, Role.SALES_MANAGER, Role.SALES_EMPLOYEE],
+                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE, Role.SALES_MANAGER, Role.SALES_EMPLOYEE],
             },
             {
                 label: 'قائمة الموردين',
@@ -81,7 +89,7 @@ export const navigationConfig: NavItem[] = [
                 inSubMenu: true,
                 Icon: UsersIcon,
                 title: 'عرض وإدارة الموردين',
-                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
             },
         ],
     },
@@ -99,7 +107,7 @@ export const navigationConfig: NavItem[] = [
         Icon: BriefcaseIcon,
         title: 'إدارة الفواتير',
         inSidebar: true,
-        roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+        roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
         children: [
             {
                 label: 'فواتير المبيعات',
@@ -107,7 +115,7 @@ export const navigationConfig: NavItem[] = [
                 inSubMenu: true,
                 Icon: DocumentTextIcon,
                 title: 'عرض وإدارة فواتير المبيعات',
-                roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+                roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
             },
             {
                 label: 'فواتير المشتريات',
@@ -115,7 +123,7 @@ export const navigationConfig: NavItem[] = [
                 inSubMenu: true,
                 Icon: DocumentTextIcon,
                 title: 'عرض وإدارة فواتير المشتريات',
-                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT],
+                roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
             },
         ]
     },
@@ -138,6 +146,6 @@ export const navigationConfig: NavItem[] = [
         Icon: UserCircleIcon,
         title: 'الملف الشخصي',
         inSidebar: false,
-        roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTANT, Role.CLIENT],
+        roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE, Role.CLIENT],
     },
 ];

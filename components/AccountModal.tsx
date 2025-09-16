@@ -1,21 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Account, AccountType } from '../types';
+import { Account, AccountType, PartyType, partyTypeLabels } from '../types';
 import Spinner from './Spinner';
 import Modal from './Modal';
-
-export enum PartyType {
-    NONE = 'None',
-    CUSTOMER = 'Customer',
-    SUPPLIER = 'Supplier',
-    CUSTOMER_AND_SUPPLIER = 'CustomerAndSupplier',
-}
-
-export const partyTypeLabels: Record<PartyType, string> = {
-    [PartyType.NONE]: 'لا شيء',
-    [PartyType.CUSTOMER]: 'عميل',
-    [PartyType.SUPPLIER]: 'مورد',
-    [PartyType.CUSTOMER_AND_SUPPLIER]: 'عميل ومورد',
-};
 
 export type AccountFormData = {
   id?: number;

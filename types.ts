@@ -92,6 +92,7 @@ export interface PurchaseInvoice {
   id?: number;
   invoiceNumber: string;
   supplierName: string;
+  supplierId?: number | null;
   date: string;
   currency: Currency;
   status: PurchaseInvoiceStatus;
@@ -127,6 +128,20 @@ export interface SalesInvoice {
 }
 
 // --- New Interfaces for Accounting Module ---
+export enum PartyType {
+  NONE = 'None',
+  CUSTOMER = 'Customer',
+  SUPPLIER = 'Supplier',
+  CUSTOMER_AND_SUPPLIER = 'CustomerAndSupplier',
+}
+
+export const partyTypeLabels: Record<PartyType, string> = {
+  [PartyType.NONE]: 'لا شيء',
+  [PartyType.CUSTOMER]: 'عميل',
+  [PartyType.SUPPLIER]: 'مورد',
+  [PartyType.CUSTOMER_AND_SUPPLIER]: 'عميل ومورد',
+};
+
 export enum AccountType {
   ASSET = 'Asset',
   LIABILITY = 'Liability',
@@ -141,6 +156,7 @@ export interface Account {
   code?: string;
   account_type: AccountType;
   parent_id?: number | null;
+  party_type: PartyType;
   children?: Account[]; // For building the tree structure
 }
 
@@ -171,6 +187,20 @@ export interface Receipt {
     cash_account_name?: string;
 }
 
+export interface PaymentVoucher {
+    id: number;
+    date: string;
+    amount: number;
+    payment_method: string;
+    description?: string;
+    account_id: number; // Debit account (e.g., supplier/expense)
+    cash_account_id: number; // Credit account (e.g., bank/cash)
+    createdBy: string | null;
+    creatorName?: string;
+    account_name?: string;
+    cash_account_name?: string;
+}
+
 
 // --- New Types for Permissions System ---
 export enum PermissionModule {
@@ -183,6 +213,7 @@ export enum PermissionModule {
   ACCOUNTS = 'الحسابات',
   JOURNAL_ENTRIES = 'القيود اليومية',
   RECEIPTS = 'سندات القبض',
+  PAYMENT_VOUCHERS = 'سندات الصرف',
 }
 
 export enum PermissionAction {

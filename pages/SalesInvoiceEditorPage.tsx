@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { SalesInvoice, DocumentItemState, Currency } from '../types';
 import { useDocument } from '../hooks/useDocument';
 import SalesInvoiceViewer from '../components/SalesInvoiceViewer';
@@ -11,6 +11,9 @@ export type SalesInvoiceState = Omit<SalesInvoice, 'items'> & { items: DocumentI
 const SalesInvoiceEditorPage: React.FC = () => {
     const { id: idParam, mode } = useParams<{ id: string; mode?: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const preloadedData = location.state?.preloadedData as SalesInvoiceState | undefined;
 
     const {
         document: invoice,
@@ -22,6 +25,7 @@ const SalesInvoiceEditorPage: React.FC = () => {
     } = useDocument<SalesInvoiceState>({
         documentType: 'sales_invoice',
         id: idParam,
+        preloadedData,
     });
 
     const isNew = idParam === 'new';

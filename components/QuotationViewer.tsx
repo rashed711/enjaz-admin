@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Quotation, SalesInvoiceStatus, PermissionModule, PermissionAction } from '../types';
+import { Quotation, SalesInvoiceStatus, PermissionModule, PermissionAction, SalesInvoice, DocumentItemState } from '../types';
 import QuotationComponent from './Quotation';
 import DocumentViewerLayout from './DocumentViewerLayout';
 import { useAuth } from '../hooks/useAuth';
@@ -13,6 +13,7 @@ import ArrowRightCircleIcon from './icons/ArrowRightCircleIcon';
 import PencilIcon from './icons/PencilIcon';
 import TrashIcon from './icons/TrashIcon';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
+import { generateDocumentNumber } from '../utils/numbering';
 
 interface QuotationViewerProps {
     quotation: Quotation;
@@ -51,12 +52,7 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
                 return;
             }
 
-            // Generate new invoice number
-            const { count, error: countError } = await supabase
-                .from('sales_invoices')
-                .select('*', { count: 'exact', head: true });
-            if (countError) throw countError;
-            const newInvoiceNumber = `SALE-INV-2024-${(count ?? 0) + 1}`;
+            const newInvoiceNumber = await generateDocumentNumber(supabase, 'sales_invoices', 'invoice_number', 'SINV');
     
             // Create the invoice object
             const newInvoicePayload = {
@@ -89,9 +85,6 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
                 unit_price: item.unitPrice,
                 total: item.total,
                 unit: item.unit,
-                length: item.length,
-                width: item.width,
-                height: item.height,
             }));
 
             if (newInvoiceItems.length > 0) {
@@ -101,7 +94,23 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ quotation }) => {
                 if (itemsError) throw itemsError;
             }
     
-            navigate(`/sales-invoices/${newInvoice.id}/view`);
+            // Construct the full object to pass to the view page, avoiding a refetch race condition.
+            const fullInvoiceObject: SalesInvoice & { items: DocumentItemState[] } = {
+                id: newInvoice.id,
+                invoiceNumber: newInvoiceNumber,
+                clientName: quotation.clientName,
+                company: quotation.company,
+                project: quotation.project,
+                date: newInvoicePayload.date,
+                currency: quotation.currency,
+                status: SalesInvoiceStatus.DRAFT,
+                items: quotation.items.map(item => ({...item})), // Deep copy items
+                totalAmount: quotation.totalAmount,
+                createdBy: currentUser.id,
+                quotationId: quotation.id,
+                creatorName: currentUser.name,
+            };
+            navigate(`/sales-invoices/${newInvoice.id}/view`, { state: { preloadedData: fullInvoiceObject }, replace: true });
     
         } catch (error: any) {
             console.error("Error converting to invoice:", error.message);

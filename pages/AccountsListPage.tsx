@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Account, PermissionModule, PermissionAction } from '../types';
+import { Account, PermissionModule, PermissionAction, PartyType, partyTypeLabels } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { useAccounts } from '../contexts/AccountContext';
 import Spinner from '../components/Spinner';
@@ -8,8 +8,9 @@ import BanknotesIcon from '../components/icons/BanknotesIcon';
 import { usePermissions } from '../hooks/usePermissions';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
+import ChevronLeftIcon from '../components/icons/ChevronLeftIcon';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
-import AccountModal, { AccountFormData, PartyType, partyTypeLabels } from '../components/AccountModal';
+import AccountModal, { AccountFormData } from '../components/AccountModal';
 
 interface AccountNodeProps {
     account: Account;
@@ -17,27 +18,70 @@ interface AccountNodeProps {
     canManage: boolean;
     onEdit: (account: Account) => void;
     onDelete: (account: Account) => void;
+    isExpanded: boolean;
+    onToggle: (nodeId: number) => void;
+    expandedNodes: Set<number>;
 }
 
-const AccountNode: React.FC<AccountNodeProps> = ({ account, level, canManage, onEdit, onDelete }) => {
+const AccountNode: React.FC<AccountNodeProps> = ({ account, level, canManage, onEdit, onDelete, isExpanded, onToggle, expandedNodes }) => {
     const hasChildren = account.children && account.children.length > 0;
-    const paddingRight = `${level * 1.5}rem`; // 24px per level
+    const paddingRight = `${level * 1.5 + 0.75}rem`;
+
+    // --- Visual Cues for Hierarchy ---
+    // 1. Background color gets slightly darker for the first few levels.
+    const levelColors = [
+        'bg-card',       // level 0 (white)
+        'bg-gray-50',    // level 1
+        'bg-gray-100',   // level 2
+    ];
+    const bgColor = levelColors[Math.min(level, levelColors.length - 1)];
+
+    // 2. A right-side border color that intensifies with depth for a clear visual cue.
+    const borderColors = [
+        'border-r-transparent', // level 0
+        'border-r-indigo-200',  // level 1
+        'border-r-indigo-300',  // level 2+
+    ];
+    const borderClass = level > 0 ? borderColors[Math.min(level, borderColors.length - 1)] : borderColors[0];
+
+    // 3. Text color for the account name to distinguish levels.
+    const textLevelColors = [
+        'text-text-primary',   // level 0
+        'text-indigo-700',     // level 1
+        'text-sky-700',        // level 2
+        'text-gray-600',       // level 3+
+    ];
+    const textColor = textLevelColors[Math.min(level, textLevelColors.length - 1)];
+
+    const handleRowClick = () => {
+        if (hasChildren) {
+            onToggle(account.id);
+        }
+    };
 
     return (
         <>
-            <tr className="hover:bg-slate-100 even:bg-slate-50/50">
-                <td className="px-3 py-2 font-semibold sticky right-0 bg-inherit border-l border-border" style={{ paddingRight }}>
+            <tr 
+                className={`${bgColor} hover:bg-indigo-50/70 transition-colors duration-150`}
+                onClick={handleRowClick}
+                style={{ cursor: hasChildren ? 'pointer' : 'default' }}
+            >
+                <td className={`px-3 py-2 font-semibold sticky right-0 bg-inherit border-l border-border border-r-4 ${borderClass}`} style={{ paddingRight }}>
                     <div className="flex items-center gap-2">
-                        {hasChildren && <span className="text-text-secondary font-mono text-lg">›</span>}
-                        <span>{account.name}</span>
+                        {hasChildren ? (
+                            <ChevronLeftIcon className={`w-4 h-4 text-text-secondary transition-transform duration-200 ${isExpanded ? '-rotate-90' : 'rotate-0'}`} />
+                        ) : (
+                            <div className="w-4 h-4" /> // Placeholder for alignment
+                        )}
+                        <span className={textColor}>{account.name}</span>
                     </div>
                 </td>
                 <td className="px-3 py-2 text-text-secondary font-mono">{account.code}</td>
                 <td className="px-3 py-2">{account.account_type}</td>
-                <td className="px-3 py-2 text-text-secondary">{partyTypeLabels[account.party_type as PartyType] || '-'}</td>
+                <td className="px-3 py-2 text-text-secondary">{partyTypeLabels[account.party_type] || '-'}</td>
                 <td className="px-3 py-2 text-left">
                     {canManage && (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => onEdit(account)} title="تعديل" className="p-2 bg-indigo-100 text-indigo-700 rounded-full hover:bg-indigo-200">
                                 <PencilIcon className="w-4 h-4" />
                             </button>
@@ -48,8 +92,8 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, level, canManage, on
                     )}
                 </td>
             </tr>
-            {hasChildren && account.children!.map(child => (
-                <AccountNode key={child.id} account={child} level={level + 1} canManage={canManage} onEdit={onEdit} onDelete={onDelete} />
+            {hasChildren && isExpanded && account.children!.map(child => (
+                <AccountNode key={child.id} account={child} level={level + 1} canManage={canManage} onEdit={onEdit} onDelete={onDelete} isExpanded={expandedNodes.has(child.id)} onToggle={onToggle} expandedNodes={expandedNodes} />
             ))}
         </>
     );
@@ -63,6 +107,7 @@ const AccountsListPage: React.FC = () => {
     const permissions = usePermissions();
     const canManage = permissions.can(PermissionModule.ACCOUNTS, PermissionAction.MANAGE);
 
+    const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
     // State for Modals
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState<Partial<AccountFormData> | null>(null);
@@ -73,6 +118,18 @@ const AccountsListPage: React.FC = () => {
     const [deleteError, setDeleteError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+
+    const handleToggleNode = (nodeId: number) => {
+        setExpandedNodes(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(nodeId)) {
+                newSet.delete(nodeId);
+            } else {
+                newSet.add(nodeId);
+            }
+            return newSet;
+        });
+    };
 
     const handleAddClick = () => {
         setEditingAccount(null); // Clear previous editing data
@@ -91,7 +148,7 @@ const AccountsListPage: React.FC = () => {
             code: account.code,
             account_type: account.account_type,
             parent_id: account.parent_id,
-            party_type: account.party_type as PartyType,
+            party_type: account.party_type,
         });
         setIsModalOpen(true);
         setSaveError(null);
@@ -227,7 +284,7 @@ const AccountsListPage: React.FC = () => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {accountsTree.map(account => (
-                                <AccountNode key={account.id} account={account} level={0} canManage={canManage} onEdit={handleEditClick} onDelete={handleDeleteClick} />
+                                <AccountNode key={account.id} account={account} level={0} canManage={canManage} onEdit={handleEditClick} onDelete={handleDeleteClick} isExpanded={expandedNodes.has(account.id)} onToggle={handleToggleNode} expandedNodes={expandedNodes} />
                             ))}
                         </tbody>
                     </table>

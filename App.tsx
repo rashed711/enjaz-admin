@@ -30,10 +30,8 @@ const AccountsListPage = lazy(() => import('./pages/AccountsListPage'));
 const JournalEntriesListPage = lazy(() => import('./pages/JournalEntriesListPage'));
 const ReceiptsListPage = lazy(() => import('./pages/ReceiptsListPage'));
 const ReceiptEditorPage = lazy(() => import('./pages/ReceiptEditorPage'));
-const CustomersListPage = lazy(() => import('./pages/CustomersListPage'));
-const CustomerStatementPage = lazy(() => import('./pages/CustomerStatementPage'));
-const SuppliersListPage = lazy(() => import('./pages/SuppliersListPage'));
-const SupplierStatementPage = lazy(() => import('./pages/SupplierStatementPage'));
+const PartyListPage = lazy(() => import('./pages/PartyListPage'));
+const PartyStatementPage = lazy(() => import('./pages/PartyStatementPage'));
 
 const componentMap: { [key: string]: React.ComponentType<any> } = {
     '/': DashboardPage,
@@ -41,11 +39,10 @@ const componentMap: { [key: string]: React.ComponentType<any> } = {
     '/accounts/chart-of-accounts': AccountsListPage,
     '/accounts/journal-entries': JournalEntriesListPage,
     '/accounts/receipts': ReceiptsListPage,
-    '/accounts/receipts/:id/:mode?': ReceiptEditorPage,
-    '/accounts/customers': CustomersListPage,
-    '/accounts/customers/:id/statement': CustomerStatementPage,
-    '/accounts/suppliers': SuppliersListPage,
-    '/accounts/suppliers/:id/statement': SupplierStatementPage,
+    '/accounts/customers': (props: any) => <PartyListPage {...props} partyType="Customer" />,
+    '/accounts/suppliers': (props: any) => <PartyListPage {...props} partyType="Supplier" />,
+    '/accounts/customers/:id/statement': (props: any) => <PartyStatementPage {...props} partyType="Customer" />,
+    '/accounts/suppliers/:id/statement': (props: any) => <PartyStatementPage {...props} partyType="Supplier" />,
     '/quotations': QuotationsListPage,
     '/quotations/:id/:mode?': QuotationEditorPage,
     '/invoices-hub': ManagementPage,

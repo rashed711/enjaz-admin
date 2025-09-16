@@ -34,6 +34,13 @@ const SalesInvoiceViewer: React.FC<SalesInvoiceViewerProps> = ({ invoice }) => {
         setDeleteError(null);
     
         try {
+            // New: Delete associated journal entries first
+            const { error: journalError } = await supabase.from('journal_entries').delete().like('description', `فاتورة مبيعات رقم ${invoiceToDelete.invoiceNumber}%`);
+            if (journalError) {
+                // Log a warning but don't block deletion, as not all invoices have entries.
+                console.warn(`Could not delete journal entries for invoice ${invoiceToDelete.invoiceNumber}:`, journalError.message);
+            }
+
             await supabase.from('sales_invoice_items').delete().eq('invoice_id', invoiceToDelete.id);
             await supabase.from('sales_invoices').delete().eq('id', invoiceToDelete.id);
             await fetchProducts();
@@ -70,7 +77,7 @@ const SalesInvoiceViewer: React.FC<SalesInvoiceViewerProps> = ({ invoice }) => {
                 onClose={() => { setInvoiceToDelete(null); setDeleteError(null); }}
                 onConfirm={handleConfirmDelete}
                 title="تأكيد الحذف"
-                message={<>هل أنت متأكد أنك تريد حذف الفاتورة رقم <span className="font-bold text-text-primary">{invoiceToDelete?.invoiceNumber}</span>؟</>}
+                message={<>هل أنت متأكد أنك تريد حذف الفاتورة رقم <span className="font-bold text-text-primary">{invoiceToDelete?.invoiceNumber}</span>؟ سيتم حذف القيود المحاسبية المرتبطة بها.</>}
                 isProcessing={isDeleting}
                 error={deleteError}
             />

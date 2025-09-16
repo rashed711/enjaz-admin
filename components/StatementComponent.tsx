@@ -19,7 +19,8 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
     const totalCredit = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
 
     return (
-        <div id="statement-pdf" dir="rtl" className="bg-white p-8 rounded-lg shadow-lg max-w-4xl mx-auto border border-gray-200 font-sans">
+        /* ملاحظة: تم توحيد الخط ليعتمد على الخط الأساسي في النظام (Cairo) */
+        <div id="statement-pdf" dir="rtl" className="bg-white p-8 rounded-lg shadow-lg max-w-4xl mx-auto border border-gray-200">
             {/* Header */}
             <header className="flex justify-between items-center pb-6 mb-8 border-b-2 border-primary">
                 <div>
@@ -47,7 +48,7 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                         <div className="border-t border-slate-200 pt-2 mt-2">
                             <p className="flex justify-between items-center">
                                 <span className="font-semibold text-gray-700">الرصيد الحالي:</span>
-                                <span className={`text-lg font-bold ${finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(finalBalance)}</span>
+                                <span className={`text-lg font-bold ${finalBalance >= 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(finalBalance)}</span>
                             </p>
                         </div>
                     </div>
@@ -69,20 +70,20 @@ const StatementComponent: React.FC<StatementComponentProps> = ({ party, partyTyp
                         <tbody className="text-text-primary divide-y divide-border">
                             {entries.map((entry) => (
                                 <tr key={entry.id} className="hover:bg-slate-100 even:bg-slate-50/50">
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap">{new Date(entry.date).toLocaleDateString('en-GB')}</td>
                                     <td className="px-3 py-2">{entry.description}</td>
-                                    <td className="px-3 py-2 text-center font-mono text-green-700">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</td>
-                                    <td className="px-3 py-2 text-center font-mono text-red-700">{entry.credit > 0 ? formatCurrency(entry.credit) : '-'}</td>
-                                    <td className={`px-3 py-2 text-center font-mono font-semibold ${entry.balance < 0 ? 'text-red-700' : ''}`}>{formatCurrency(entry.balance)}</td>
+                                    <td className="px-3 py-2 text-center text-red-700">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</td>
+                                    <td className="px-3 py-2 text-center text-green-700">{entry.credit > 0 ? formatCurrency(entry.credit) : '-'}</td>
+                                    <td className={`px-3 py-2 text-center font-semibold ${entry.balance >= 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(entry.balance)}</td>
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot className="bg-[#10B981] text-white font-bold">
                             <tr>
                                 <td colSpan={2} className="px-3 py-3 text-left">الإجمالي</td>
-                                <td className="px-3 py-3 text-center font-mono">{formatCurrency(totalDebit)}</td>
-                                <td className="px-3 py-3 text-center font-mono">{formatCurrency(totalCredit)}</td>
-                                <td className="px-3 py-3 text-center font-mono">{formatCurrency(finalBalance)}</td>
+                                <td className="px-3 py-3 text-center">{formatCurrency(totalDebit)}</td>
+                                <td className="px-3 py-3 text-center">{formatCurrency(totalCredit)}</td>
+                                <td className="px-3 py-3 text-center">{formatCurrency(finalBalance)}</td>
                             </tr>
                         </tfoot>
                     </table>
