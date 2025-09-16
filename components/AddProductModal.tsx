@@ -77,13 +77,15 @@ const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose, onSa
     const inputClasses = "border border-border bg-white text-text-primary py-2 px-3 rounded-lg w-full text-right focus:outline-none focus:ring-2 focus:ring-primary transition-colors";
     
     const footer = (
-        <>
-            <button onClick={onClose} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-500 font-semibold" disabled={isSaving}>إلغاء</button>
-            <button onClick={handleSaveClick} className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-green-600 flex items-center justify-center gap-2 w-32 shadow-md hover:shadow-lg" disabled={isSaving}>
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end sm:space-x-4 sm:space-x-reverse">
+            <button onClick={onClose} className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-gray-500 font-semibold w-full sm:w-auto" disabled={isSaving}>
+                إلغاء
+            </button>
+            <button onClick={handleSaveClick} className="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-green-600 flex items-center justify-center gap-2 w-full sm:w-32 shadow-md hover:shadow-lg disabled:opacity-50" disabled={isSaving}>
                 {isSaving && <Spinner />}
                 {isSaving ? 'جاري الحفظ...' : 'حفظ'}
             </button>
-        </>
+        </div>
     );
 
     return (

@@ -2,12 +2,12 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Quotation, PurchaseInvoice, SalesInvoice } from '../types';
+import { Quotation, PurchaseInvoice, SalesInvoice, Receipt } from '../types';
 import Spinner from './Spinner';
 import { generatePdfBlob } from '../utils/pdfUtils';
 import WhatsappIcon from './icons/WhatsappIcon';
 
-type AnyDocument = Quotation | PurchaseInvoice | SalesInvoice;
+type AnyDocument = Quotation | PurchaseInvoice | SalesInvoice | Receipt;
 
 interface DocumentViewerLayoutProps {
     children: React.ReactNode;
@@ -21,8 +21,19 @@ interface DocumentViewerLayoutProps {
 
 const DocumentViewerLayout: React.FC<DocumentViewerLayoutProps> = ({ children, backPath, document, pdfElementId, isProcessing, setIsProcessing, customActions, }) => {
     const navigate = useNavigate();
-    const documentNumber = 'quotationNumber' in document ? document.quotationNumber : document.invoiceNumber;
-    const documentTypeLabel = 'quotationNumber' in document ? 'عرض سعر' : ('supplierName' in document ? 'فاتورة مشتريات' : 'فاتورة مبيعات');
+
+    const getDocumentInfo = (doc: AnyDocument): { number: string | number; label: string } => {
+        if ('quotationNumber' in doc) {
+            return { number: doc.quotationNumber, label: 'عرض سعر' };
+        }
+        if ('invoiceNumber' in doc) {
+            return { number: doc.invoiceNumber, label: 'supplierName' in doc ? 'فاتورة مشتريات' : 'فاتورة مبيعات' };
+        }
+        // Handle Receipt
+        return { number: doc.id, label: 'سند قبض' };
+    };
+
+    const { number: documentNumber, label: documentTypeLabel } = getDocumentInfo(document);
     const handleShare = async () => {
         setIsProcessing(true);
         const blob = await generatePdfBlob(pdfElementId);

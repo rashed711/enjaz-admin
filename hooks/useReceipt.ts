@@ -70,43 +70,61 @@ export const useReceipt = ({ id: idParam }: UseReceiptProps) => {
     setSaveError(null);
 
     try {
-      const { id, creatorName, account_name, cash_account_name, ...receiptData } = receipt;
+      const { id, creatorName, account_name, cash_account_name, createdBy, ...receiptDataToSave } = receipt;
 
-      const { data: savedReceipt, error: receiptError } = await supabase
-        .from('receipts')
-        .insert({ ...receiptData, created_by: currentUser?.id })
-        .select()
-        .single();
+      let savedReceiptId: number;
 
-      if (receiptError) throw receiptError;
+      if (isNew) {
+        // Create new receipt
+        const { data: newReceipt, error: receiptError } = await supabase
+          .from('receipts')
+          .insert({ ...receiptDataToSave, created_by: currentUser?.id })
+          .select('id')
+          .single();
+        if (receiptError) throw receiptError;
+        savedReceiptId = newReceipt.id;
+      } else {
+        // Update existing receipt
+        savedReceiptId = id;
+        // 1. Delete old journal entries for this receipt
+        const { error: deleteError } = await supabase
+          .from('journal_entries')
+          .delete()
+          .like('description', `سند قبض رقم ${savedReceiptId}:%`);
+        if (deleteError) throw new Error(`فشل تحديث القيود القديمة: ${deleteError.message}`);
+        
+        // 2. Update the receipt itself
+        const { error: updateError } = await supabase
+          .from('receipts')
+          .update(receiptDataToSave)
+          .eq('id', savedReceiptId);
+        if (updateError) throw updateError;
+      }
 
+      // Create new journal entries for the receipt (for both create and update)
       const journalEntries = [
         {
-          date: receiptData.date,
-          description: `سند قبض رقم ${savedReceipt.id}: ${receiptData.description || ''}`,
-          debit: receiptData.amount,
+          date: receiptDataToSave.date,
+          description: `سند قبض رقم ${savedReceiptId}: (${receiptDataToSave.payment_method})`,
+          debit: receiptDataToSave.amount,
           credit: 0,
-          account_id: receiptData.cash_account_id,
+          account_id: receiptDataToSave.cash_account_id,
           created_by: currentUser?.id,
         },
         {
-          date: receiptData.date,
-          description: `سند قبض رقم ${savedReceipt.id}: ${receiptData.description || ''}`,
+          date: receiptDataToSave.date,
+          description: `سند قبض رقم ${savedReceiptId}: (${receiptDataToSave.payment_method})`,
           debit: 0,
-          credit: receiptData.amount,
-          account_id: receiptData.account_id,
+          credit: receiptDataToSave.amount,
+          account_id: receiptDataToSave.account_id,
           created_by: currentUser?.id,
         },
       ];
 
       const { error: journalError } = await supabase.from('journal_entries').insert(journalEntries);
+      if (journalError) throw new Error(`فشل إنشاء القيود الجديدة: ${journalError.message}`);
 
-      if (journalError) {
-        await supabase.from('receipts').delete().eq('id', savedReceipt.id);
-        throw journalError;
-      }
-
-      navigate(`/accounts/receipts`);
+      navigate(`/accounts/receipts/${savedReceiptId}/view`);
     } catch (error: any) {
       console.error('Failed to save receipt:', error.message);
       setSaveError(`حدث خطأ أثناء حفظ السند: ${error.message}`);

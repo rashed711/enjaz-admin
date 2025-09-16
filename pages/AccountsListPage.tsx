@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Account, PermissionModule, PermissionAction } from '../types';
+import { supabase } from '../services/supabaseClient';
 import { useAccounts } from '../contexts/AccountContext';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
@@ -8,6 +9,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import PencilIcon from '../components/icons/PencilIcon';
 import TrashIcon from '../components/icons/TrashIcon';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
+import AccountModal, { AccountFormData, PartyType, partyTypeLabels } from '../components/AccountModal';
 
 interface AccountNodeProps {
     account: Account;
@@ -32,6 +34,7 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, level, canManage, on
                 </td>
                 <td className="px-3 py-2 text-text-secondary font-mono">{account.code}</td>
                 <td className="px-3 py-2">{account.account_type}</td>
+                <td className="px-3 py-2 text-text-secondary">{partyTypeLabels[account.party_type as PartyType] || '-'}</td>
                 <td className="px-3 py-2 text-left">
                     {canManage && (
                         <div className="flex items-center justify-end gap-2">
@@ -53,21 +56,51 @@ const AccountNode: React.FC<AccountNodeProps> = ({ account, level, canManage, on
 };
 
 const AccountsListPage: React.FC = () => {
-    const { accountsTree, loading, deleteAccount } = useAccounts();
+    // The `addAccount` and `updateAccount` functions were removed from here as they were causing an error.
+    // We now handle the logic in this component and assume the hook provides a `refetch` function to reload data.
+    // If the refetch function has a different name, please change it below (e.g., `refetch: refetchAccounts`).
+    const { accountsTree, accountsFlat, loading, deleteAccount, refetch: refetchAccounts } = useAccounts();
     const permissions = usePermissions();
     const canManage = permissions.can(PermissionModule.ACCOUNTS, PermissionAction.MANAGE);
 
+    // State for Modals
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingAccount, setEditingAccount] = useState<Partial<AccountFormData> | null>(null);
     const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+
+    // State for async operations
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    const handleAddClick = () => {
+        setEditingAccount(null); // Clear previous editing data
+        setIsModalOpen(true);
+        setSaveError(null);
+    };
 
     const handleDeleteClick = (account: Account) => {
         setAccountToDelete(account);
     };
 
     const handleEditClick = (account: Account) => {
-        // TODO: Implement edit modal/page
-        alert(`سيتم تنفيذ شاشة تعديل الحساب "${account.name}" لاحقًا.`);
+        setEditingAccount({
+            id: account.id,
+            name: account.name,
+            code: account.code,
+            account_type: account.account_type,
+            parent_id: account.parent_id,
+            party_type: account.party_type as PartyType,
+        });
+        setIsModalOpen(true);
+        setSaveError(null);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingAccount(null);
+        setSaveError(null);
     };
 
     const handleConfirmDelete = async () => {
@@ -84,6 +117,55 @@ const AccountsListPage: React.FC = () => {
             setDeleteError(error || "فشل حذف الحساب.");
         }
         setIsDeleting(false);
+    };
+
+    const handleSaveAccount = async (formData: AccountFormData) => {
+        setIsSaving(true);
+        setSaveError(null);
+        try {
+            let result: { success: boolean; error?: string };
+
+            if (formData.id) {
+                // Update existing account
+                const { error } = await supabase
+                    .from('accounts')
+                    .update({
+                        name: formData.name,
+                        code: formData.code,
+                        account_type: formData.account_type,
+                        parent_id: formData.parent_id,
+                        party_type: formData.party_type,
+                    })
+                    .eq('id', formData.id);
+                
+                result = { success: !error, error: error?.message };
+            } else {
+                // Create new account
+                const { error } = await supabase
+                    .from('accounts')
+                    .insert({
+                        name: formData.name,
+                        code: formData.code,
+                        account_type: formData.account_type,
+                        parent_id: formData.parent_id,
+                        party_type: formData.party_type,
+                    });
+                
+                result = { success: !error, error: error?.message };
+            }
+
+            if (result.success) {
+                if (refetchAccounts) await refetchAccounts(); // Reload accounts after saving
+                handleCloseModal();
+            } else {
+                setSaveError(result.error || "فشل حفظ الحساب.");
+            }
+        } catch (e: any) {
+            console.error("Failed to save account:", e);
+            setSaveError(e.message || "حدث خطأ غير متوقع أثناء حفظ الحساب.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -103,9 +185,21 @@ const AccountsListPage: React.FC = () => {
                 isProcessing={isDeleting}
                 error={deleteError}
             />
+            {canManage && (
+                <AccountModal
+                    isOpen={isModalOpen}
+                    onClose={handleCloseModal}
+                    onSave={handleSaveAccount}
+                    initialData={editingAccount}
+                    isSaving={isSaving}
+                    error={saveError}
+                    accounts={accountsTree}
+                    accountsFlat={accountsFlat || []}
+                />
+            )}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-text-primary">دليل الحسابات</h2>
-                <button className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg">
+                <button onClick={handleAddClick} disabled={!canManage} className="w-full sm:w-auto bg-green-600 text-white font-semibold px-5 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-green-600 shadow-md hover:shadow-lg disabled:opacity-50">
                     + إضافة حساب جديد
                 </button>
             </div>
@@ -117,7 +211,7 @@ const AccountsListPage: React.FC = () => {
                     Icon={BanknotesIcon}
                     title="لا توجد حسابات"
                     message="ابدأ ببناء دليل الحسابات الخاص بك عن طريق إضافة حساب جديد."
-                    action={{ label: '+ إضافة حساب جديد', onClick: () => { /* TODO */ } }}
+                    action={canManage ? { label: '+ إضافة حساب جديد', onClick: handleAddClick } : undefined}
                 />
             ) : (
                 <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
@@ -127,6 +221,7 @@ const AccountsListPage: React.FC = () => {
                                 <th className="px-3 py-3 font-bold text-text-secondary sticky right-0 bg-slate-50 border-l border-border">اسم الحساب</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">الكود</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary">النوع</th>
+                                <th className="px-3 py-3 font-bold text-text-secondary">التصنيف</th>
                                 <th className="px-3 py-3 font-bold text-text-secondary text-left">إجراءات</th>
                             </tr>
                         </thead>

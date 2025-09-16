@@ -4,7 +4,8 @@ import { useReceipt } from '../hooks/useReceipt';
 import Spinner from '../components/Spinner';
 import { useAccounts } from '../contexts/AccountContext';
 import AccountSelect from '../components/AccountSelect';
-import { AccountType, Receipt } from '../types';
+import { Receipt } from '../types';
+import ReceiptViewer from '../components/ReceiptViewer';
 
 interface ReceiptEditorFormProps {
   receipt: Receipt;
@@ -96,15 +97,20 @@ const ReceiptEditorForm: React.FC<ReceiptEditorFormProps> = ({ receipt, setRecei
 };
 
 const ReceiptEditorPage: React.FC = () => {
-    const { id: idParam } = useParams<{ id: string }>();
+    const { id: idParam, mode } = useParams<{ id: string, mode?: 'view' | 'edit' }>();
     const navigate = useNavigate();
 
     const { receipt, setReceipt, loading, isSaving, saveError, handleSave } = useReceipt({ id: idParam });
     
     const isNew = idParam === 'new';
+    const isViewMode = mode === 'view' && !isNew;
 
     if (loading || !receipt) {
         return <div className="flex justify-center items-center h-full"><Spinner /></div>;
+    }
+
+    if (isViewMode) {
+        return <ReceiptViewer receipt={receipt} />;
     }
     
     return (

@@ -30,6 +30,10 @@ const AccountsListPage = lazy(() => import('./pages/AccountsListPage'));
 const JournalEntriesListPage = lazy(() => import('./pages/JournalEntriesListPage'));
 const ReceiptsListPage = lazy(() => import('./pages/ReceiptsListPage'));
 const ReceiptEditorPage = lazy(() => import('./pages/ReceiptEditorPage'));
+const CustomersListPage = lazy(() => import('./pages/CustomersListPage'));
+const CustomerStatementPage = lazy(() => import('./pages/CustomerStatementPage'));
+const SuppliersListPage = lazy(() => import('./pages/SuppliersListPage'));
+const SupplierStatementPage = lazy(() => import('./pages/SupplierStatementPage'));
 
 const componentMap: { [key: string]: React.ComponentType<any> } = {
     '/': DashboardPage,
@@ -38,6 +42,10 @@ const componentMap: { [key: string]: React.ComponentType<any> } = {
     '/accounts/journal-entries': JournalEntriesListPage,
     '/accounts/receipts': ReceiptsListPage,
     '/accounts/receipts/:id/:mode?': ReceiptEditorPage,
+    '/accounts/customers': CustomersListPage,
+    '/accounts/customers/:id/statement': CustomerStatementPage,
+    '/accounts/suppliers': SuppliersListPage,
+    '/accounts/suppliers/:id/statement': SupplierStatementPage,
     '/quotations': QuotationsListPage,
     '/quotations/:id/:mode?': QuotationEditorPage,
     '/invoices-hub': ManagementPage,
@@ -62,6 +70,21 @@ const AppRoutes: React.FC = () => {
     );
   }
   
+  // Create a set of all paths defined in the navigation config for quick lookup.
+  const navConfigPaths = new Set<string>();
+  navigationConfig.forEach(item => {
+    navConfigPaths.add(item.path);
+    if (item.children) {
+      item.children.forEach(child => navConfigPaths.add(child.path));
+    }
+  });
+
+  // Filter out routes that are already handled by the navigation config logic.
+  // This is to add routes for editor/viewer pages that don't have a direct sidebar link.
+  const detailPagePaths = Object.keys(componentMap).filter(path => !navConfigPaths.has(path));
+
+  // This logic creates routes for main pages and sub-pages defined in navigationConfig.
+  // It respects the permissions defined in the config.
   const allRoutes = navigationConfig.flatMap((navItem) => {
       const { path, title, children } = navItem;
       const Component = componentMap[path];
@@ -110,13 +133,36 @@ const AppRoutes: React.FC = () => {
       return [...parentRoute, ...childRoutes];
   });
 
+  // This logic creates routes for the remaining pages (like editors, viewers, etc.).
+  // It assumes they are protected and uses a generic title or derives it if possible.
+  const otherRoutes = detailPagePaths.map(path => {
+    const Component = componentMap[path];
+    // A simple way to get a title: use the title of the parent section.
+    const parentNavItem = navigationConfig.find(item => path.startsWith(item.path + '/') && item.path !== '/');
+    const title = parentNavItem ? parentNavItem.title : "تفاصيل";
+
+    return (
+      <Route
+        key={path}
+        path={path}
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex h-full w-full items-center justify-center"><Spinner /></div>}>
+              <Layout title={title}>
+                {Component ? <Component /> : <NotFoundPage />}
+              </Layout>
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+    );
+  });
 
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      
       {allRoutes}
-
+      {otherRoutes}
       <Route path="/404" element={<NotFoundPage />} />
       <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} />} />
     </Routes>
