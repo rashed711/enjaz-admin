@@ -6,6 +6,7 @@ import { AccountProvider } from './contexts/AccountContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
+import SessionManager from './components/SessionManager'; // إضافة جديدة
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Spinner from './components/Spinner';
@@ -15,6 +16,7 @@ import { usePermissions } from './hooks/usePermissions';
 import { PermissionModule, PermissionAction, Role } from './types';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ActiveSessionsPage = lazy(() => import('./pages/ActiveSessionsPage')); // إضافة جديدة
 const QuotationsListPage = lazy(() => import('./pages/QuotationsListPage'));
 const QuotationEditorPage = lazy(() => import('./pages/QuotationEditorPage'));
 const ProductsListPage = lazy(() => import('./pages/ProductsListPage'));
@@ -59,6 +61,7 @@ const componentMap: { [key: string]: React.ComponentType<any> } = {
     '/products': ProductsListPage,
     '/users': UserManagementPage,
     '/permissions': PermissionsPage,
+    '/sessions': ActiveSessionsPage, // إضافة جديدة
     '/profile': ProfilePage,
 };
 
@@ -179,7 +182,9 @@ const App: React.FC = () => {
         <ProductProvider>
           <AccountProvider>
             <HashRouter>
-              <AppRoutes />
+              <SessionManager>
+                <AppRoutes />
+              </SessionManager>
             </HashRouter>
           </AccountProvider>
         </ProductProvider>

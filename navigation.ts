@@ -1,4 +1,4 @@
-import { Role } from './types';
+import { Role, NavLink, PermissionModule } from './types';
 import DocumentTextIcon from './components/icons/DocumentTextIcon';
 import UsersIcon from './components/icons/UsersIcon';
 import CubeIcon from './components/icons/CubeIcon';
@@ -15,18 +15,7 @@ const KeyIcon = DocumentDuplicateIcon;
 const UserCircleIcon = UsersIcon;
 // --- نهاية الأيقونات البديلة ---
 
-export interface NavItem {
-    label: string;
-    path: string;
-    Icon: React.FC<any>;
-    title: string;
-    inSidebar: boolean;
-    roles?: Role[];
-    inSubMenu?: boolean;
-    children?: NavItem[];
-}
-
-export const navigationConfig: NavItem[] = [
+export const navigationConfig: NavLink[] = [
     {
         label: 'لوحة التحكم',
         path: '/',
@@ -34,6 +23,8 @@ export const navigationConfig: NavItem[] = [
         title: 'لوحة التحكم الرئيسية',
         inSidebar: true,
         roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+        inBottomNav: true,
+        bottomNavLabel: 'الرئيسية',
     },
     {
         label: 'المحاسبة',
@@ -42,6 +33,8 @@ export const navigationConfig: NavItem[] = [
         title: 'إدارة المحاسبة والمالية',
         inSidebar: true,
         roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+        inBottomNav: false,
+        bottomNavLabel: 'المحاسبة',
         children: [
             {
                 label: 'دليل الحسابات',
@@ -50,6 +43,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: DocumentDuplicateIcon,
                 title: 'عرض وتعديل شجرة الحسابات',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER],
+                permission: [PermissionModule.ACCOUNTS, 'VIEW_ANY'],
             },
             {
                 label: 'القيود اليومية',
@@ -58,6 +52,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: DocumentTextIcon,
                 title: 'عرض وإدارة القيود اليومية',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+                permission: [PermissionModule.JOURNAL_ENTRIES, 'VIEW_ANY'],
             },
             {
                 label: 'سندات القبض',
@@ -66,6 +61,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: ArchiveBoxIcon,
                 title: 'إدارة سندات القبض',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+                permission: [PermissionModule.RECEIPTS, 'VIEW_ANY'],
             },
             {
                 label: 'سندات الصرف',
@@ -74,6 +70,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: ArchiveBoxIcon,
                 title: 'إدارة سندات الصرف',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+                permission: [PermissionModule.PAYMENT_VOUCHERS, 'VIEW_ANY'],
             },
             {
                 label: 'قائمة العملاء',
@@ -82,6 +79,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: UsersIcon,
                 title: 'عرض وإدارة العملاء',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE, Role.SALES_MANAGER, Role.SALES_EMPLOYEE],
+                permission: [PermissionModule.CUSTOMERS, 'VIEW_ANY'],
             },
             {
                 label: 'قائمة الموردين',
@@ -90,6 +88,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: UsersIcon,
                 title: 'عرض وإدارة الموردين',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+                permission: [PermissionModule.SUPPLIERS, 'VIEW_ANY'],
             },
         ],
     },
@@ -100,6 +99,9 @@ export const navigationConfig: NavItem[] = [
         title: 'عروض الأسعار',
         inSidebar: true,
         roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE],
+        inBottomNav: true,
+        bottomNavLabel: 'العروض',
+        permission: [PermissionModule.QUOTATIONS, 'VIEW_ANY'],
     },
     {
         label: 'الفواتير',
@@ -108,6 +110,8 @@ export const navigationConfig: NavItem[] = [
         title: 'إدارة الفواتير',
         inSidebar: true,
         roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+        inBottomNav: false,
+        bottomNavLabel: 'الفواتير',
         children: [
             {
                 label: 'فواتير المبيعات',
@@ -116,6 +120,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: DocumentTextIcon,
                 title: 'عرض وإدارة فواتير المبيعات',
                 roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+                permission: [PermissionModule.SALES_INVOICES, 'VIEW_ANY'],
             },
             {
                 label: 'فواتير المشتريات',
@@ -124,6 +129,7 @@ export const navigationConfig: NavItem[] = [
                 Icon: DocumentTextIcon,
                 title: 'عرض وإدارة فواتير المشتريات',
                 roles: [Role.CEO, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE],
+                permission: [PermissionModule.PURCHASE_INVOICES, 'VIEW_ANY'],
             },
         ]
     },
@@ -134,10 +140,36 @@ export const navigationConfig: NavItem[] = [
         title: 'إدارة النظام',
         inSidebar: true,
         roles: [Role.CEO],
+        inBottomNav: true,
+        bottomNavLabel: 'الإدارة',
         children: [
-            { label: 'المنتجات والخدمات', path: '/products', inSubMenu: true, Icon: CubeIcon, title: 'إدارة المنتجات والخدمات', roles: [Role.CEO, Role.SALES_MANAGER] },
-            { label: 'المستخدمين', path: '/users', inSubMenu: true, Icon: UsersIcon, title: 'إدارة المستخدمين', roles: [Role.CEO] },
-            { label: 'الصلاحيات', path: '/permissions', inSubMenu: true, Icon: KeyIcon, title: 'إدارة صلاحيات الأدوار', roles: [Role.CEO] },
+            { 
+                label: 'المنتجات والخدمات', 
+                path: '/products', 
+                inSubMenu: true, 
+                Icon: CubeIcon, 
+                title: 'إدارة المنتجات والخدمات', 
+                roles: [Role.CEO, Role.SALES_MANAGER],
+                permission: [PermissionModule.PRODUCTS, 'VIEW_ANY'],
+            },
+            { 
+                label: 'المستخدمين', 
+                path: '/users', 
+                inSubMenu: true, 
+                Icon: UsersIcon, 
+                title: 'إدارة المستخدمين', 
+                roles: [Role.CEO],
+                permission: [PermissionModule.USERS, 'MANAGE'],
+            },
+            { 
+                label: 'الجلسات النشطة', 
+                path: '/sessions', 
+                inSubMenu: true, 
+                Icon: KeyIcon, 
+                title: 'مراقبة الجلسات النشطة', 
+                roles: [Role.CEO] 
+            }, // No specific permission module for this, CEO role is enough
+            { label: 'الصلاحيات', path: '/permissions', inSubMenu: true, Icon: KeyIcon, title: 'إدارة صلاحيات الأدوار', roles: [Role.CEO], permission: [PermissionModule.PERMISSIONS, 'MANAGE'] },
         ]
     },
     {
@@ -147,5 +179,7 @@ export const navigationConfig: NavItem[] = [
         title: 'الملف الشخصي',
         inSidebar: false,
         roles: [Role.CEO, Role.SALES_MANAGER, Role.SALES_EMPLOYEE, Role.ACCOUNTING_MANAGER, Role.ACCOUNTING_EMPLOYEE, Role.CLIENT],
+        inBottomNav: true,
+        bottomNavLabel: 'حسابي',
     },
 ];

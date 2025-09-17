@@ -216,7 +216,9 @@ export enum PermissionModule {
   PRODUCTS = 'المنتجات',
   USERS = 'المستخدمين',
   PERMISSIONS = 'الصلاحيات',
-  ACCOUNTS = 'الحسابات',
+  ACCOUNTS = 'دليل الحسابات',
+  CUSTOMERS = 'العملاء',
+  SUPPLIERS = 'الموردين',
   JOURNAL_ENTRIES = 'القيود اليومية',
   RECEIPTS = 'سندات القبض',
   PAYMENT_VOUCHERS = 'سندات الصرف',
@@ -254,7 +256,7 @@ export interface NavLink {
     bottomNavLabel?: string;
     title: string;
     children?: NavLinkChild[];
-    permission?: [PermissionModule, PermissionAction];
+    permission?: [PermissionModule, PermissionAction | 'VIEW_ANY'];
 }
 
 export interface NavLinkChild {
@@ -264,5 +266,5 @@ export interface NavLinkChild {
     roles: Role[];
     title: string;
     inSubMenu?: boolean;
-    permission?: [PermissionModule, PermissionAction];
+    permission?: [PermissionModule, PermissionAction | 'VIEW_ANY'];
 }

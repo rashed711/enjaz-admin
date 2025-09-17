@@ -24,8 +24,6 @@ const PartyListPage: React.FC<PartyListPageProps> = ({ partyType }) => {
     const { accountsFlat, loading: accountsLoading } = useAccounts();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 300);
-    const [balances, setBalances] = useState<Record<number, number>>({});
-    const [loadingBalances, setLoadingBalances] = useState(true);
 
     const config = useMemo(() => ({
         Customer: {
@@ -54,43 +52,6 @@ const PartyListPage: React.FC<PartyListPageProps> = ({ partyType }) => {
         return accountsFlat.filter(acc => currentConfig.partyTypes.includes(acc.party_type));
     }, [accountsFlat, currentConfig]);
 
-    useEffect(() => {
-        if (accountsLoading || parties.length === 0) {
-            if (!accountsLoading) setLoadingBalances(false);
-            return;
-        }
-
-        const partyIds = parties.map(p => p.id);
-
-        const fetchBalances = async () => {
-            setLoadingBalances(true);
-            try {
-                const { data, error } = await supabase
-                    .from('journal_entries')
-                    .select('account_id, debit, credit')
-                    .in('account_id', partyIds);
-    
-                if (error) throw error;
-    
-                if (data) {
-                    const balanceMap = data.reduce((acc, entry) => {
-                        const balanceChange = (entry.debit || 0) - (entry.credit || 0);
-                        acc[entry.account_id!] = (acc[entry.account_id!] || 0) + balanceChange;
-                        return acc;
-                    }, {} as Record<number, number>);
-                    setBalances(balanceMap);
-                }
-            } catch (error) {
-                console.error("Error fetching balances:", error);
-                setBalances({}); // Clear balances on error
-            } finally {
-                setLoadingBalances(false);
-            }
-        };
-
-        fetchBalances();
-    }, [accountsLoading, parties]);
-
     const filteredParties = useMemo(() => {
         if (!debouncedSearchQuery) return parties;
         return parties.filter(party =>
@@ -115,7 +76,7 @@ const PartyListPage: React.FC<PartyListPageProps> = ({ partyType }) => {
                 </div>
             </div>
 
-            {accountsLoading || loadingBalances ? (
+            {accountsLoading ? (
                 <div className="flex justify-center items-center p-10"><Spinner /></div>
             ) : filteredParties.length === 0 ? (
                 <EmptyState Icon={UsersIcon} title={searchQuery ? 'لا توجد نتائج' : currentConfig.emptyTitle} message={searchQuery ? currentConfig.searchEmptyMessage : currentConfig.emptyMessage} />
@@ -132,7 +93,7 @@ const PartyListPage: React.FC<PartyListPageProps> = ({ partyType }) => {
                         </thead>
                         <tbody className="text-text-primary divide-y divide-border">
                             {filteredParties.map((party) => {
-                                const balance = balances[party.id] || 0;
+                                const balance = party.balance || 0;
                                 return (
                                     <tr key={party.id} className="hover:bg-slate-100 even:bg-slate-50/50 cursor-pointer" onClick={() => handlePartyClick(party.id)}>
                                         <td className="px-3 py-2 font-semibold">{party.name}</td>

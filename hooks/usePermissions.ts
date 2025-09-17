@@ -8,41 +8,50 @@ export const usePermissions = () => {
   const { currentUser } = useAuth();
   const { config: permissionsConfig } = usePermissionsConfig();
 
-  const can = useCallback((module: PermissionModule, action: PermissionAction, resourceOwnerId?: string): boolean => {
-    if (!currentUser) return false;
+  const can = useCallback(
+    (
+      module: PermissionModule,
+      action: PermissionAction,
+      resourceOwnerId?: string,
+    ): boolean => {
+      if (!currentUser) return false;
 
-    const role = currentUser.role as Role;
-    const permissions = permissionsConfig[role]?.[module] || [];
+      const role = currentUser.role as Role;
+      const permissions = permissionsConfig[role]?.[module] || [];
 
-    if (permissions.includes(PermissionAction.MANAGE)) {
-      return true;
-    }
-    
-    // Direct action check
-    if (permissions.includes(action)) {
+      // Highest permission, always true
+      if (permissions.includes(PermissionAction.MANAGE)) {
         return true;
-    }
+      }
 
-    // Ownership-based checks
-    const isOwner = resourceOwnerId !== undefined && resourceOwnerId === currentUser.id;
+      // Check for blanket "ALL" permissions which grant "_OWN" variants too
+      if (
+        (action.startsWith('view') && permissions.includes(PermissionAction.VIEW_ALL)) ||
+        (action.startsWith('edit') && permissions.includes(PermissionAction.EDIT_ALL)) ||
+        (action.startsWith('delete') && permissions.includes(PermissionAction.DELETE_ALL))
+      ) {
+        return true;
+      }
 
-    if (action === PermissionAction.VIEW_ALL || action === PermissionAction.VIEW_OWN) {
-        if (permissions.includes(PermissionAction.VIEW_ALL)) return true;
-        return permissions.includes(PermissionAction.VIEW_OWN) && (resourceOwnerId === undefined || isOwner);
-    }
-    
-    if (action === PermissionAction.EDIT_ALL || action === PermissionAction.EDIT_OWN) {
-        if (permissions.includes(PermissionAction.EDIT_ALL)) return true;
-        return permissions.includes(PermissionAction.EDIT_OWN) && (resourceOwnerId === undefined || isOwner);
-    }
+      // If we are checking for an "ALL" action and didn't pass above, it's a failure.
+      if (action.endsWith('_all')) {
+        return false;
+      }
 
-    if (action === PermissionAction.DELETE_ALL || action === PermissionAction.DELETE_OWN) {
-        if (permissions.includes(PermissionAction.DELETE_ALL)) return true;
-        return permissions.includes(PermissionAction.DELETE_OWN) && (resourceOwnerId === undefined || isOwner);
-    }
+      // Now we are only checking for _OWN, CREATE, or CHANGE_STATUS actions.
+      // Check if the role has the required permission.
+      if (!permissions.includes(action)) {
+        return false;
+      }
 
-    return false;
-  }, [currentUser, permissionsConfig]);
+      // If we are just checking for capability (no specific resource), it's true.
+      if (resourceOwnerId === undefined) return true;
+
+      // If we are checking a specific resource, verify ownership.
+      return resourceOwnerId === currentUser.id;
+    },
+    [currentUser, permissionsConfig],
+  );
 
   /**
    * Checks if the current user can access a given navigation route.
@@ -57,7 +66,7 @@ export const usePermissions = () => {
         if (action === 'VIEW_ANY') {
             return can(module, PermissionAction.VIEW_ALL) || can(module, PermissionAction.VIEW_OWN);
         }
-        return can(module, action);
+        return can(module, action as PermissionAction);
     }
 
     // 2. Fallback to role-based check if no permission is specified

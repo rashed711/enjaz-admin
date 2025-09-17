@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import Spinner from '../components/Spinner';
+import { supabase } from '../services/supabaseClient'; // إضافة جديدة
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,17 +15,36 @@ const LoginPage: React.FC = () => {
 
   const from = (location.state as any)?.from?.pathname || '/';
 
+  useEffect(() => {
+    if (location.state?.message) {
+      setMessage({ text: location.state.message, isError: location.state.isError ?? false });
+    }
+  }, [location.state]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setMessage(null);
     setLoading(true);
 
-    const { success, error: authError } = await login(email, password);
+    // تم تعديل هذا السطر ليحصل على بيانات المستخدم أيضاً
+    const { user, success, error: authError } = await login(email, password);
     
-    if (success) {
+    if (success && user) {
+      // --- إضافة جديدة: تسجيل الجلسة فوراً عند تسجيل الدخول ---
+      try {
+        await supabase.from('user_sessions').upsert({
+          user_id: user.id,
+          last_seen_at: new Date().toISOString(),
+          // سيتم تحديث user_agent بواسطة أول heartbeat
+        }, { onConflict: 'user_id' });
+      } catch (sessionError) {
+        // لا توقف عملية تسجيل الدخول بسبب هذا الخطأ، فقط قم بتسجيله
+        console.error('Failed to create user session on login:', sessionError);
+      }
+      // --------------------------------------------------------
       navigate(from, { replace: true });
     } else {
-      setError(authError || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+      setMessage({ text: authError || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', isError: true });
       setLoading(false);
     }
   };
@@ -67,7 +87,11 @@ const LoginPage: React.FC = () => {
               autoComplete="current-password"
             />
           </div>
-          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+          {message && (
+            <p className={`text-sm mb-4 text-center ${message.isError ? 'text-red-500' : 'text-blue-500'}`}>
+              {message.text}
+            </p>
+          )}
           <div className="flex items-center justify-between">
             <button
               type="submit"

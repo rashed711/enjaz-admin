@@ -1,131 +1,102 @@
-import React, { createContext, useEffect, useState, useCallback, useMemo, useContext } from 'react';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { User as SupabaseUser } from '@supabase/supabase-js';
-import { User, Role } from '../types';
+import { User } from '@supabase/supabase-js';
+import { Profile } from '../types';
 
-interface AuthContextType {
-    currentUser: User | null;
-    loading: boolean;
-    login: (email: string, password: string) => Promise<{ success: boolean; error: string | null; }>;
-    logout: () => Promise<void>;
+export interface AuthContextType {
+  currentUser: Profile | null;
+  login: (email: string, password: string) => Promise<{ user: User | null; success: boolean; error: string | null; }>;
+  logout: () => Promise<void>;
+  loading: boolean;
 }
 
-const defaultAuthContext: AuthContextType = {
-    currentUser: null,
-    loading: true,
-    login: async () => ({ success: false, error: 'Auth provider not ready' }),
-    logout: async () => {},
-};
+export const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthContext = createContext<AuthContextType>(defaultAuthContext);
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-const getAppUser = (supabaseUser: SupabaseUser): User => {
-    let name = supabaseUser.user_metadata?.name;
-    let role = supabaseUser.app_metadata?.role as Role;
-    const email = supabaseUser.email || '';
-
-    if (!name || !role) {
-        const missingData = [];
-        if (!name) missingData.push("الاسم");
-        if (!role) missingData.push("الدور");
-        
-        console.warn(
-            `%c[AUTH WARNING]`, 
-            'color: orange; font-weight: bold;', 
-            `User object is missing metadata. Missing: ${missingData.join(', ')}. Applying fallbacks.`, 
-            { user: supabaseUser }
-        );
-
-        if (!name) {
-            name = email;
-        }
-
-        if (!role) {
-            role = email === 'Rashed1711@gmail.com' ? Role.CEO : Role.CLIENT;
-            console.log(`Assigning fallback role: ${role} for ${email}`);
-        }
+  const fetchUserProfile = async (user: User | null): Promise<Profile | null> => {
+    if (!user) return null;
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
     }
+    return profile;
+  };
 
-    return {
-        id: supabaseUser.id,
-        email: email,
-        name: name,
-        role: role,
+  useEffect(() => {
+    // This flag is used to prevent setting state on an unmounted component
+    let isMounted = true;
+
+    // Check initial session state once on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (isMounted) {
+        const user = session?.user ?? null;
+        const profile = await fetchUserProfile(user);
+        setCurrentUser(profile);
+        setLoading(false);
+      }
+    });
+
+    // Listen for auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (isMounted) {
+        const user = session?.user ?? null;
+        const profile = await fetchUserProfile(user);
+        setCurrentUser(profile);
+        // setLoading is only for the initial load, not for subsequent changes
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
     };
-};
+  }, []);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    useEffect(() => {
-        // First, check for an active session when the provider mounts.
-        // This gives us the initial state faster than waiting for onAuthStateChange.
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                try {
-                    setCurrentUser(getAppUser(session.user));
-                } catch (e) {
-                    console.error("Auth: Error processing user from initial session", e);
-                    setCurrentUser(null);
-                }
-            }
-            setLoading(false); // Finished initial check
-        });
-
-        // Then, listen for subsequent changes.
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                if (session?.user) {
-                    try {
-                        setCurrentUser(getAppUser(session.user));
-                    } catch (e) {
-                        console.error("Auth: Error processing user from auth state change", e);
-                        setCurrentUser(null);
-                    }
-                } else {
-                    setCurrentUser(null);
-                }
-            }
-        );
-
-        return () => {
-            subscription?.unsubscribe();
-        };
-    }, []);
-
-    const login = useCallback(async (email: string, password: string) => {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) {
-            return { success: false, error: signInError.message };
-        }
-        if (data.user) {
-            try {
-                const appUser = getAppUser(data.user);
-                setCurrentUser(appUser); // Manually set user for immediate feedback before navigation.
-                return { success: true, error: null };
-            } catch (e: any) {
-                await supabase.auth.signOut();
-                return { success: false, error: e.message };
-            }
-        }
-        return { success: false, error: 'An unknown error occurred during login.' };
-    }, []);
-
-    const logout = useCallback(async () => {
-        await supabase.auth.signOut();
-        // The onAuthStateChange listener will set currentUser to null.
-    }, []);
-
-    const value = useMemo(() => ({ currentUser, loading, login, logout }), [currentUser, loading, login, logout]);
-
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
+    if (error) {
+      return { user: null, success: false, error: error.message };
     }
-    return context;
+
+    if (data.user) {
+      const profile = await fetchUserProfile(data.user);
+      if (!profile) {
+        await supabase.auth.signOut();
+        return { user: null, success: false, error: 'User profile not found.' };
+      }
+      setCurrentUser(profile);
+      return { user: data.user, success: true, error: null };
+    }
+
+    return { user: null, success: false, error: 'An unknown error occurred during login.' };
+  };
+
+  const logout = async () => {
+    const { id: userId } = currentUser || {};
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    if (userId) {
+      // Best effort to remove the session, don't block logout if it fails
+      supabase.from('user_sessions').delete().eq('user_id', userId).then();
+    }
+  };
+
+  const value = { currentUser, login, logout, loading };
+
+  // Always render the provider, but conditionally render children based on loading state.
+  // This ensures the context is available even during the initial load.
+  // Child components like AppRoutes are responsible for showing a spinner.
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 };

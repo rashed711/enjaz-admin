@@ -12,41 +12,20 @@ const defaultPermissions: PermissionsConfig = {
         [PermissionModule.PRODUCTS]: [PermissionAction.MANAGE],
         [PermissionModule.USERS]: [PermissionAction.MANAGE],
         [PermissionModule.PERMISSIONS]: [PermissionAction.MANAGE],
-        [PermissionModule.ACCOUNTS]: [PermissionAction.MANAGE],
+        [PermissionModule.ACCOUNTS]: [PermissionAction.MANAGE], // Chart of Accounts
+        [PermissionModule.CUSTOMERS]: [PermissionAction.MANAGE],
+        [PermissionModule.SUPPLIERS]: [PermissionAction.MANAGE],
         [PermissionModule.JOURNAL_ENTRIES]: [PermissionAction.MANAGE],
         [PermissionModule.RECEIPTS]: [PermissionAction.MANAGE],
         [PermissionModule.PAYMENT_VOUCHERS]: [PermissionAction.MANAGE],
     },
-    [Role.ACCOUNTING_MANAGER]: {
-        [PermissionModule.SALES_INVOICES]: [PermissionAction.VIEW_ALL, PermissionAction.CHANGE_STATUS],
-        [PermissionModule.PURCHASE_INVOICES]: [PermissionAction.MANAGE],
-        [PermissionModule.ACCOUNTS]: [PermissionAction.MANAGE],
-        [PermissionModule.JOURNAL_ENTRIES]: [PermissionAction.MANAGE],
-        [PermissionModule.RECEIPTS]: [PermissionAction.MANAGE],
-        [PermissionModule.PAYMENT_VOUCHERS]: [PermissionAction.MANAGE],
-    },
-    [Role.ACCOUNTING_EMPLOYEE]: {
-        [PermissionModule.SALES_INVOICES]: [PermissionAction.VIEW_ALL],
-        [PermissionModule.PURCHASE_INVOICES]: [PermissionAction.CREATE, PermissionAction.VIEW_ALL, PermissionAction.EDIT_OWN, PermissionAction.DELETE_OWN],
-        [PermissionModule.ACCOUNTS]: [PermissionAction.VIEW_ALL],
-        [PermissionModule.JOURNAL_ENTRIES]: [PermissionAction.CREATE, PermissionAction.VIEW_ALL],
-        [PermissionModule.RECEIPTS]: [PermissionAction.CREATE, PermissionAction.VIEW_ALL, PermissionAction.EDIT_OWN, PermissionAction.DELETE_OWN],
-        [PermissionModule.PAYMENT_VOUCHERS]: [
-            PermissionAction.CREATE,
-            PermissionAction.VIEW_ALL,
-            PermissionAction.EDIT_OWN,
-            PermissionAction.DELETE_OWN,
-        ],
-    },
-    [Role.SALES_MANAGER]: {
-        [PermissionModule.QUOTATIONS]: [PermissionAction.MANAGE],
-        [PermissionModule.SALES_INVOICES]: [PermissionAction.MANAGE],
-        [PermissionModule.PRODUCTS]: [PermissionAction.MANAGE],
-    },
-    [Role.SALES_EMPLOYEE]: {
-        [PermissionModule.QUOTATIONS]: [PermissionAction.CREATE, PermissionAction.VIEW_OWN, PermissionAction.EDIT_OWN, PermissionAction.DELETE_OWN],
-        [PermissionModule.SALES_INVOICES]: [PermissionAction.CREATE, PermissionAction.VIEW_OWN, PermissionAction.EDIT_OWN, PermissionAction.DELETE_OWN],
-    },
+    // All other roles start with no permissions by default.
+    // The CEO must grant them explicitly from the Permissions page.
+    // This enforces a "secure-by-default" policy.
+    [Role.ACCOUNTING_MANAGER]: {},
+    [Role.ACCOUNTING_EMPLOYEE]: {},
+    [Role.SALES_MANAGER]: {},
+    [Role.SALES_EMPLOYEE]: {},
     [Role.CLIENT]: {},
 };
 
@@ -68,19 +47,25 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         if (data?.value) {
             const dbConfig = data.value as PermissionsConfig;
-            // Create a deep copy of the default permissions to start with.
-            const finalConfig = JSON.parse(JSON.stringify(defaultPermissions));
+            const finalConfig: PermissionsConfig = {};
 
-            // Iterate over default roles and modules to fill in any missing ones from the DB
-            // This makes the system resilient to outdated DB configs.
-            for (const role in defaultPermissions) {
-                if (!dbConfig[role]) {
-                    // If the entire role is missing from DB, we keep the default.
-                    continue;
+            // Build a complete configuration by iterating through all defined roles and modules.
+            // This ensures that new roles/modules added in the code are always present.
+            for (const roleKey in Role) {
+                const role = Role[roleKey as keyof typeof Role];
+                finalConfig[role] = {};
+
+                for (const moduleKey in PermissionModule) {
+                    const module = PermissionModule[moduleKey as keyof typeof PermissionModule];
+
+                    // Prioritize DB config, then fallback to default config, then to an empty array.
+                    const dbPermissions = dbConfig[role]?.[module];
+                    const defaultPerms = defaultPermissions[role]?.[module];
+
+                    finalConfig[role]![module] = dbPermissions ?? defaultPerms ?? [];
                 }
-                // Overwrite the default module permissions with the ones from the DB.
-                Object.assign(finalConfig[role], dbConfig[role]);
             }
+
             setConfig(finalConfig);
         } else {
             setConfig(defaultPermissions);

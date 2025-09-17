@@ -13,13 +13,18 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ReactElement<{ className?: string }>;
+  loading?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon }) => (
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, loading }) => (
   <div className="bg-card p-4 rounded-lg shadow-sm flex items-center gap-4 border border-border">
     {React.cloneElement(icon, { className: "h-8 w-8 text-primary" })}
     <div className="text-right">
-      <p className="text-2xl font-bold text-text-primary">{value}</p>
+      {loading ? (
+        <div className="h-7 w-12 bg-gray-200 rounded-md animate-pulse"></div>
+      ) : (
+        <p className="text-2xl font-bold text-text-primary">{value}</p>
+      )}
       <p className="text-sm text-text-secondary font-semibold mt-1">{title}</p>
     </div>
   </div>
@@ -35,6 +40,8 @@ const DashboardPage: React.FC = () => {
     purchaseInvoices: 0,
     companies: 0, // Added companies count
   });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const canViewUsers = permissions.can(PermissionModule.USERS, PermissionAction.MANAGE);
   const canViewPurchaseInvoices = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_ALL) || permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.VIEW_OWN);
@@ -42,110 +49,58 @@ const DashboardPage: React.FC = () => {
   const canViewAnyQuotations = canViewAllQuotations || permissions.can(PermissionModule.QUOTATIONS, PermissionAction.VIEW_OWN);
   const canViewSalesInvoices = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_ALL) || permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_OWN);
 
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-        if (!currentUser || isAuthLoading) return;
+    useEffect(() => {
+        const fetchDashboardStats = async () => {
+            if (!currentUser || isAuthLoading) return;
 
-        try {
-            // Helper to get count and handle errors gracefully
-            const getCount = (res: { count: number | null, error: any } | undefined, tableName: string) => {
-                if (!res) return 0;
-                if (res.error) {
-                    if (res.error.message.includes('does not exist') || res.error.message.includes('in the schema cache')) {
-                        console.warn(`Dashboard: Table '${tableName}' not found. Defaulting count to 0.`);
-                        return 0;
-                    }
-                    console.error(`Error fetching count for ${tableName}:`, res.error);
-                    return 0;
+            setStatsLoading(true);
+            setStatsError(null);
+
+            try {
+                // Call the RPC function to get all stats in one go.
+                const { data, error } = await supabase.rpc('get_dashboard_stats');
+
+                if (error) throw error;
+
+                if (!data) {
+                    throw new Error("لم يتم إرجاع أي بيانات من الدالة get_dashboard_stats.");
                 }
-                return res.count ?? 0;
-            };
-            
-            // Helper to get unique companies count
-            const getCompanyCount = (res: { data: { company: string }[] | null, error: any } | undefined, tableName: string) => {
-                if (!res) return 0;
-                if (res.error) {
-                    if (res.error.message.includes('does not exist') || res.error.message.includes('in the schema cache')) {
-                        console.warn(`Dashboard: Table '${tableName}' for company count not found. Defaulting to 0.`);
-                        return 0;
-                    }
-                    console.error(`Error fetching companies from ${tableName}:`, res.error);
-                    return 0;
-                }
-                if (!res.data) return 0;
-                const uniqueCompanies = new Set(res.data.map(q => q.company).filter(Boolean)); // Filter out null/empty company names
-                return uniqueCompanies.size;
-            };
 
-            // --- Define queries based on permissions ---
+                // Set stats based on permissions. Default to 0 if a stat is not returned or user lacks permission.
+                setStats({
+                    quotations: canViewAnyQuotations ? (data.quotations || 0) : 0,
+                    salesInvoices: canViewSalesInvoices ? (data.salesInvoices || 0) : 0,
+                    users: canViewUsers ? (data.users || 0) : 0,
+                    purchaseInvoices: canViewPurchaseInvoices ? (data.purchaseInvoices || 0) : 0,
+                    companies: canViewAllQuotations ? (data.companies || 0) : 0,
+                });
 
-            // Quotations
-            const quotationsQuery = canViewAnyQuotations
-                ? supabase.from('quotations').select('*', { count: 'exact', head: true })
-                : Promise.resolve(undefined);
-
-            // Sales Invoices
-            const salesInvoicesQuery = canViewSalesInvoices
-                ? supabase.from('sales_invoices').select('*', { count: 'exact', head: true })
-                : Promise.resolve(undefined);
-
-            // Users
-            const usersQuery = canViewUsers 
-                ? supabase.from('profiles').select('*', { count: 'exact', head: true }) 
-                : Promise.resolve(undefined);
-
-            // Purchase Invoices
-            const purchaseInvoicesQuery = canViewPurchaseInvoices
-                ? supabase.from('purchase_invoices').select('*', { count: 'exact', head: true })
-                : Promise.resolve(undefined);
-
-            // Companies
-            const companiesQuery = canViewAllQuotations 
-                ? supabase.from('quotations').select('company') 
-                : Promise.resolve(undefined);
-
-            // Fetch all stats concurrently
-            const [
-                quotationsRes,
-                salesInvoicesRes,
-                usersRes,
-                purchaseInvoicesRes,
-                companiesRes
-            ] = await Promise.all([
-                quotationsQuery,
-                salesInvoicesQuery,
-                usersQuery,
-                purchaseInvoicesQuery,
-                companiesQuery
-            ]);
-
-            setStats({
-                quotations: getCount(quotationsRes, 'quotations'),
-                salesInvoices: getCount(salesInvoicesRes, 'sales_invoices'),
-                users: getCount(usersRes, 'profiles'),
-                purchaseInvoices: getCount(purchaseInvoicesRes, 'purchase_invoices'),
-                companies: getCompanyCount(companiesRes, 'quotations'),
-            });
-
-        } catch (e) {
-            console.error("An unexpected error occurred while fetching dashboard stats:", e);
-        }
-    };
-
-    if (currentUser) {
+            } catch (e) {
+                console.error("An unexpected error occurred while fetching dashboard stats:", e);
+                setStatsError(`فشل تحميل الإحصائيات. الخطأ: ${e.message}`);
+            } finally {
+                setStatsLoading(false);
+            }
+        };
         fetchDashboardStats();
-    }
-  }, [currentUser, isAuthLoading, canViewUsers, canViewPurchaseInvoices, canViewAllQuotations, canViewAnyQuotations, canViewSalesInvoices]);
+    }, [currentUser, isAuthLoading, canViewUsers, canViewPurchaseInvoices, canViewAllQuotations, canViewAnyQuotations, canViewSalesInvoices]);
 
   return (
     <div className="space-y-8">
+      {statsError && (
+        <div className="p-4 text-sm text-red-800 rounded-lg bg-red-50 text-right" role="alert">
+          <p className="font-bold">خطأ في تحميل لوحة التحكم:</p>
+          <p className="font-mono text-left mt-2">{statsError}</p>
+          <p className="mt-2">تأكد من أنك قمت بتنفيذ كود SQL الخاص بدالة `get_dashboard_stats` في قاعدة البيانات.</p>
+        </div>
+      )}
       {/* Top Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard title="عروض الأسعار" value={stats.quotations} icon={<DocumentTextIcon />} />
-        <StatCard title="فواتير المبيعات" value={stats.salesInvoices} icon={<DocumentTextIcon />} />
-        {canViewUsers && <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} />}
-        {canViewPurchaseInvoices && <StatCard title="فواتير المشتريات" value={stats.purchaseInvoices} icon={<ReceiptIcon />} />}
-        {canViewAllQuotations && <StatCard title="الشركات" value={stats.companies} icon={<BuildingOfficeIcon />} />}
+        <StatCard title="عروض الأسعار" value={stats.quotations} icon={<DocumentTextIcon />} loading={statsLoading} />
+        <StatCard title="فواتير المبيعات" value={stats.salesInvoices} icon={<DocumentTextIcon />} loading={statsLoading} />
+        {canViewUsers && <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} loading={statsLoading} />}
+        {canViewPurchaseInvoices && <StatCard title="فواتير المشتريات" value={stats.purchaseInvoices} icon={<ReceiptIcon />} loading={statsLoading} />}
+        {canViewAllQuotations && <StatCard title="الشركات" value={stats.companies} icon={<BuildingOfficeIcon />} loading={statsLoading} />}
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ const formatSalesInvoice = (i: any): SalesInvoice => ({
     totalAmount: i.total_amount,
     createdBy: i.created_by || null,
     quotationId: i.quotation_id,
+    quotationNumber: i.quotation_number, // Field from the new view
     creatorName: i.creator_name || 'غير معروف',
     createdAt: i.created_at,
 });
@@ -37,38 +38,15 @@ const SalesInvoicesListPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
-    const [quotationsMap, setQuotationsMap] = useState<Map<number, string>>(new Map());
 
     const { items: invoices, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
-        tableName: 'sales_invoices',
+        // Use the new, optimized view
+        tableName: 'sales_invoices_with_details',
         permissionModule: PermissionModule.SALES_INVOICES,
         formatter: formatSalesInvoice,
         searchQuery: debouncedSearchQuery,
         searchColumns: salesInvoiceSearchColumns,
     });
-
-    useEffect(() => {
-        const fetchQuotationNumbers = async () => {
-            const quotationIds = invoices.map(inv => inv.quotationId).filter((id): id is number => id != null);
-            if (quotationIds.length === 0) return;
-
-            const idsToFetch = quotationIds.filter(id => !quotationsMap.has(id));
-            if (idsToFetch.length === 0) return;
-
-            const { data, error } = await supabase.from('quotations').select('id, quotation_number').in('id', idsToFetch);
-
-            if (error) {
-                console.error('Error fetching quotation numbers:', error);
-                return;
-            }
-
-            if (data) {
-                const newMap = new Map(data.map(q => [q.id, q.quotation_number]));
-                setQuotationsMap(prevMap => new Map([...prevMap, ...newMap]));
-            }
-        };
-        if (invoices.length > 0) fetchQuotationNumbers();
-    }, [invoices, quotationsMap]);
 
     const canCreate = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CREATE);
     return (
@@ -132,7 +110,7 @@ const SalesInvoicesListPage: React.FC = () => {
                             </thead>
                             <tbody className="text-text-primary divide-y divide-border">
                                 {invoices.map((i) => {
-                                    const quotationNumber = i.quotationId ? quotationsMap.get(i.quotationId) : null;
+                                    const quotationNumber = i.quotationNumber;
                                     return (
                                         <tr 
                                             key={i.id} 
@@ -162,7 +140,7 @@ const SalesInvoicesListPage: React.FC = () => {
                     {/* Mobile Card View */}
                     <div className="lg:hidden space-y-4">
                         {invoices.map((i) => {
-                            const quotationNumber = i.quotationId ? quotationsMap.get(i.quotationId) : null;
+                            const quotationNumber = i.quotationNumber;
                             return (
                                 <div 
                                     key={i.id} 

@@ -37,83 +37,24 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }
         setIsProcessing(true);
     
         try {
-            // Check if an invoice for this quotation already exists
-            const { data: existingInvoice, error: checkError } = await supabase
-                .from('sales_invoices')
-                .select('id, invoice_number')
-                .eq('quotation_id', quotation.id)
-                .maybeSingle();
-
-            if (checkError) throw checkError;
-
-            if (existingInvoice) {
-                alert(`هذا العرض تم تحويله بالفعل إلى الفاتورة رقم ${existingInvoice.invoice_number}.`);
-                navigate(`/sales-invoices/${existingInvoice.id}/view`);
+            const { data, error } = await supabase.rpc('convert_quotation_to_invoice', {
+                quotation_id_to_convert: quotation.id,
+                user_id: currentUser.id
+            });
+    
+            if (error) throw error;
+    
+            if (data.success) {
+                // Navigate to the newly created invoice
+                navigate(`/sales-invoices/${data.invoice_id}/view`);
+            } else {
+                // Handle cases where the invoice already exists or other server-side errors
+                alert(data.message);
+                if (data.invoice_id) {
+                    navigate(`/sales-invoices/${data.invoice_id}/view`);
+                }
                 return;
             }
-
-            const newInvoiceNumber = await generateDocumentNumber(supabase, 'sales_invoices', 'invoice_number', 'SINV');
-
-            // Append quotation number to the project name
-            const newProjectName = [quotation.project, `(عرض سعر #${quotation.quotationNumber})`].filter(Boolean).join(' ');
-    
-            // Create the invoice object
-            const newInvoicePayload = {
-                invoice_number: newInvoiceNumber,
-                client_name: quotation.clientName,
-                company: quotation.company,
-                project: newProjectName,
-                date: new Date().toISOString().split('T')[0],
-                currency: quotation.currency,
-                status: SalesInvoiceStatus.DRAFT,
-                total_amount: quotation.totalAmount,
-                created_by: currentUser.id,
-                quotation_id: quotation.id,
-            };
-    
-            // Insert the new invoice and get its ID
-            const { data: newInvoice, error: invoiceError } = await supabase
-                .from('sales_invoices')
-                .insert(newInvoicePayload)
-                .select('id')
-                .single();
-            if (invoiceError || !newInvoice) throw invoiceError || new Error("Failed to create invoice.");
-    
-            // Prepare and insert invoice items
-            const newInvoiceItems = quotation.items.map(item => ({
-                invoice_id: newInvoice.id,
-                product_id: item.productId || null,
-                description: item.description,
-                quantity: item.quantity,
-                unit_price: item.unitPrice,
-                total: item.total,
-                unit: item.unit,
-            }));
-
-            if (newInvoiceItems.length > 0) {
-                const { error: itemsError } = await supabase
-                    .from('sales_invoice_items')
-                    .insert(newInvoiceItems);
-                if (itemsError) throw itemsError;
-            }
-    
-            // Construct the full object to pass to the view page, avoiding a refetch race condition.
-            const fullInvoiceObject: SalesInvoice & { items: DocumentItemState[] } = {
-                id: newInvoice.id,
-                invoiceNumber: newInvoiceNumber,
-                clientName: quotation.clientName,
-                company: quotation.company,
-                project: newProjectName,
-                date: newInvoicePayload.date,
-                currency: quotation.currency,
-                status: SalesInvoiceStatus.DRAFT,
-                items: quotation.items.map(item => ({...item})), // Deep copy items
-                totalAmount: quotation.totalAmount,
-                createdBy: currentUser.id,
-                quotationId: quotation.id,
-                creatorName: currentUser.name,
-            };
-            navigate(`/sales-invoices/${newInvoice.id}/view`, { state: { preloadedData: fullInvoiceObject }, replace: true });
     
         } catch (error: any) {
             console.error("Error converting to invoice:", error.message);

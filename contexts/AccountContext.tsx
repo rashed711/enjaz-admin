@@ -7,6 +7,7 @@ interface AccountContextType {
   accountsTree: Account[];
   accountsFlat: Account[];
   loading: boolean;
+  refetch: () => Promise<void>;
   fetchAccounts: () => Promise<void>;
   deleteAccount: (accountId: number) => Promise<{ success: boolean; error: string | null }>;
 }
@@ -42,7 +43,11 @@ export const AccountProvider: React.FC<{ children: ReactNode }> = ({ children })
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('accounts').select('*').order('code');
+      // Fetch from the new view that includes pre-calculated balances
+      const { data, error } = await supabase
+        .from('accounts_with_balance') // Use the new view
+        .select('*')
+        .order('code');
       if (error) throw error;
       
       setAccountsFlat(data || []);
@@ -91,7 +96,7 @@ export const AccountProvider: React.FC<{ children: ReactNode }> = ({ children })
     return { success: true, error: null };
   }, [fetchAccounts]);
 
-  const value = useMemo(() => ({ accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount }), [accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount]);
+  const value = useMemo(() => ({ accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount, refetch: fetchAccounts }), [accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount]);
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 };
