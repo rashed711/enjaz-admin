@@ -2,9 +2,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import Spinner from '../components/Spinner';
 
 const ProfilePage: React.FC = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, loading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -12,10 +13,9 @@ const ProfilePage: React.FC = () => {
     navigate('/login');
   };
 
-  if (!currentUser) {
-    return <p>Loading user data...</p>;
-  }
-
+  // The top-level AuthGuard in App.tsx now handles all loading and authentication checks.
+  // We can safely assume `currentUser` exists and is complete here.
+  // If for some reason it's not, the app would have already redirected to /login.
   return (
     <div className="max-w-5xl mx-auto">
         <div className="bg-card p-6 sm:p-8 rounded-lg shadow-sm text-center border border-border">
@@ -28,15 +28,15 @@ const ProfilePage: React.FC = () => {
             
             <div className="space-y-4 text-right border-t border-border pt-6">
                  <div className="flex justify-between items-center bg-slate-100 p-3 rounded-md">
-                    <span className="font-bold text-text-primary">{currentUser.name}</span>
+                    <span className="font-bold text-text-primary">{currentUser?.name}</span>
                     <span className="text-text-secondary">الاسم الكامل</span>
                 </div>
                  <div className="flex justify-between items-center bg-slate-100 p-3 rounded-md">
-                    <span className="font-bold text-text-primary">{currentUser.email}</span>
+                    <span className="font-bold text-text-primary">{currentUser?.email}</span>
                      <span className="text-text-secondary">البريد الإلكتروني</span>
                 </div>
                  <div className="flex justify-between items-center bg-slate-100 p-3 rounded-md">
-                    <span className="font-bold text-text-primary">{currentUser.role}</span>
+                    <span className="font-bold text-text-primary">{currentUser?.role}</span>
                      <span className="text-text-secondary">الدور</span>
                 </div>
             </div>

@@ -15,6 +15,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // This is a stable function that won't change on re-renders,
+  // making it safe to use in the useEffect dependency array.
   const fetchUserProfile = useCallback(async (user: User | null): Promise<Profile | null> => {
     if (!user) return null;
     try {
@@ -25,14 +27,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
       
       if (error) {
-        console.error('Error fetching user profile, signing out:', error);
-        await supabase.auth.signOut();
+        // If the error is because the user doesn't exist in profiles, that's a valid state (e.g., just signed up).
+        // For other errors, log them. We shouldn't sign the user out here as it might be a temporary network issue.
+        console.error('Error fetching user profile:', error);
         return null;
       }
       return profile;
     } catch (e: any) {
-      console.error('Exception in fetchUserProfile, signing out:', e);
-      await supabase.auth.signOut();
+      // This might happen if the network is down.
+      console.error('Exception in fetchUserProfile:', e);
       return null;
     }
   }, []);
@@ -43,22 +46,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // This is the most robust pattern and is resilient to Strict Mode.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       try {
-        const profile = await fetchUserProfile(session?.user ?? null);
-        setCurrentUser(profile);
+      const profile = await fetchUserProfile(session?.user ?? null);
+        // The user is only considered "loaded" and "current" if they have a session AND a profile with a role.
+        // Otherwise, they are treated as logged out.
+        setCurrentUser(profile && profile.role ? profile : null);
       } catch (e) {
         console.error("Error in onAuthStateChange handler:", e);
         setCurrentUser(null);
       } finally {
         // This is the key. It guarantees the loading state is always resolved
         // after the first check, preventing the app from getting stuck.
-        setLoading(false);
+        if (loading) {
+            setLoading(false);
+        }
       }
     });
 
     return () => {
       subscription?.unsubscribe();
     };
-  }, [fetchUserProfile]);
+    // The dependency array ensures this effect runs only when fetchUserProfile changes,
+    // which it shouldn't because of useCallback.
+    // We add `loading` to ensure we can set it to false.
+  }, [fetchUserProfile, loading]);
 
   const login = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });

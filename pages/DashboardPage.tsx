@@ -8,6 +8,8 @@ import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import ReceiptIcon from '../components/icons/ReceiptIcon';
 import BuildingOfficeIcon from '../components/icons/BuildingOfficeIcon';
 import DocumentDuplicateIcon from '../components/icons/DocumentDuplicateIcon';
+import Spinner from '../components/Spinner';
+import { useNavigate } from 'react-router-dom';
 
 interface StatCardProps {
   title: string;
@@ -30,8 +32,8 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, loading }) => (
   </div>
 );
 
-const DashboardPage: React.FC = () => {
-  const { currentUser, loading: isAuthLoading } = useAuth();
+const DashboardContent: React.FC = () => {
+  const { currentUser, loading: isAuthLoading } = useAuth(); // isAuthLoading will be false here, but let's keep it for the effect dependency
   const permissions = usePermissions();
   const [stats, setStats] = useState({
     quotations: 0,
@@ -120,6 +122,14 @@ const DashboardPage: React.FC = () => {
       </div>
     </div>
   );
+};
+
+const DashboardPage: React.FC = () => {
+  const { currentUser, loading: isAuthLoading } = useAuth();
+  // The top-level AuthGuard in App.tsx now handles all loading and authentication checks.
+  // We can safely assume that if this component renders, the user is fully authenticated.
+  // This makes the page component much cleaner and removes redundant checks.
+  return <DashboardContent />;
 };
 
 export default DashboardPage;

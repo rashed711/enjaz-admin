@@ -11,15 +11,28 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  // نحصل على المستخدم الحالي وحالة التحميل من useAuth
+  const { login, currentUser, loading: authLoading } = useAuth();
 
   const from = (location.state as any)?.from?.pathname || '/';
+
+  useEffect(() => {
+    // إذا انتهى التحقق من المصادقة ووجدنا مستخدمًا، أعد توجيهه
+    if (!authLoading && currentUser) {
+      navigate(from, { replace: true });
+    }
+  }, [currentUser, authLoading, navigate, from]);
 
   useEffect(() => {
     if (location.state?.message) {
       setMessage({ text: location.state.message, isError: location.state.isError ?? false });
     }
   }, [location.state]);
+
+  // أثناء التحقق من وجود جلسة، نعرض شاشة تحميل لمنع ظهور وميض لصفحة تسجيل الدخول
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-background"><Spinner /></div>;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

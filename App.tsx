@@ -1,22 +1,51 @@
 import React, { Suspense, lazy } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProductProvider } from './contexts/ProductContext';
 import { AccountProvider } from './contexts/AccountContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
-import SessionManager from './components/SessionManager'; // إضافة جديدة
+import SessionManager from './components/SessionManager';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Spinner from './components/Spinner';
 import { useAuth } from './hooks/useAuth';
 import { navigationConfig } from './navigation';
 import { usePermissions } from './hooks/usePermissions';
-import { PermissionModule, PermissionAction, Role } from './types';
+
+// The new AuthGuard component will centralize all authentication checks.
+const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, loading } = useAuth();
+
+  console.log('[AuthGuard] State update:', { loading, currentUser });
+
+  // 1. While AuthProvider is resolving the session and profile, show a global spinner.
+  if (loading) {
+    console.log('[AuthGuard] Decision: Waiting for auth. Showing global spinner.');
+    return <div className="flex h-screen w-full items-center justify-center bg-background"><Spinner /></div>;
+  }
+
+  // 2. If loading is done, but there's no user or the profile is incomplete (no role),
+  // then we render a very simple router that ONLY shows the login page.
+  if (!currentUser || !currentUser.role) {
+    console.log('[AuthGuard] Decision: No user or incomplete profile. Rendering Login page.');
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        {/* Any other path redirects to login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  // 3. If we reach here, the user is fully authenticated. Render the main app.
+  console.log('[AuthGuard] Decision: User is fully authenticated. Rendering main application.');
+  return <>{children}</>;
+};
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const ActiveSessionsPage = lazy(() => import('./pages/ActiveSessionsPage')); // إضافة جديدة
+const ActiveSessionsPage = lazy(() => import('./pages/ActiveSessionsPage'));
 const QuotationsListPage = lazy(() => import('./pages/QuotationsListPage'));
 const QuotationEditorPage = lazy(() => import('./pages/QuotationEditorPage'));
 const ProductsListPage = lazy(() => import('./pages/ProductsListPage'));
@@ -61,20 +90,13 @@ const componentMap: { [key: string]: React.ComponentType<any> } = {
     '/products': ProductsListPage,
     '/users': UserManagementPage,
     '/permissions': PermissionsPage,
-    '/sessions': ActiveSessionsPage, // إضافة جديدة
+    '/sessions': ActiveSessionsPage,
     '/profile': ProfilePage,
 };
 
-const AppRoutes: React.FC = () => {
-  const { currentUser, loading: authLoading } = useAuth();
+const MainAppRoutes: React.FC = () => {
   const { canAccessRoute } = usePermissions();
-
-  if (authLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center"><Spinner /></div>
-    );
-  }
-  
+  const { currentUser } = useAuth(); // We can safely use this now.
   // Create a set of all paths defined in the navigation config for quick lookup.
   const navConfigPaths = new Set<string>();
   navigationConfig.forEach(item => {
@@ -165,31 +187,41 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      {/* Redirect away from login if already authenticated */}
+      <Route path="/login" element={<Navigate to="/" replace />} />
       {allRoutes}
       {otherRoutes}
       <Route path="/404" element={<NotFoundPage />} />
-      <Route path="*" element={<Navigate to={currentUser ? "/" : "/login"} />} />
+      {/* Catch-all for authenticated users, redirects to dashboard */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
-}
-
+};
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <PermissionsProvider>
-        <ProductProvider>
-          <AccountProvider>
-            <HashRouter>
-              <SessionManager>
-                <AppRoutes />
-              </SessionManager>
-            </HashRouter>
-          </AccountProvider>
-        </ProductProvider>
-      </PermissionsProvider>
-    </AuthProvider>
+    <HashRouter>
+      <AuthProvider>
+        <SessionManager>
+          {/*
+            AuthGuard is the key to solving the reload problem.
+            It waits for AuthProvider to finish loading the user and their profile.
+            Only when the user is fully authenticated does it render its children.
+            This prevents any other provider or component (like PermissionsProvider)
+            from running with incomplete user data and crashing the app.
+          */}
+          <AuthGuard>
+            <PermissionsProvider>
+              <ProductProvider>
+                <AccountProvider>
+                  <MainAppRoutes />
+                </AccountProvider>
+              </ProductProvider>
+            </PermissionsProvider>
+          </AuthGuard>
+        </SessionManager>
+      </AuthProvider>
+    </HashRouter>
   );
 };
 
