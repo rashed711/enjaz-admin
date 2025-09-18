@@ -30,7 +30,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [totalProducts, setTotalProducts] = useState(0);
 
   // Internal fetch function that takes page and size
-  const _fetchProducts = useCallback(async (page: number, size: number) => {
+  const _fetchProducts = useCallback(async (page: number, size: number, signal: AbortSignal) => {
     setLoading(true);
     try {
       const from = (page - 1) * size;
@@ -40,7 +40,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         .from('products_with_stats') // Query the new view
         .select('*', { count: 'exact' }) // Request total count
         .order('name', { ascending: true })
-        .range(from, to); // Apply pagination - The semicolon was removed here
+        .range(from, to)
+        .abortSignal(signal);
 
       if (error) throw error;
 
@@ -54,30 +55,42 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         averagePurchasePrice: p.average_purchase_price, // This comes pre-calculated from the view
         averageSellingPrice: p.average_selling_price, // This also comes from the view
       }));
+      if (signal.aborted) return;
+
       setProducts(formattedProducts);
       setTotalProducts(count || 0); // Update total count
     } catch (error: any) {
+      if (error.name !== 'AbortError') {
         console.error('Critical error in fetchProducts. Error:', error.message);
+        setProducts(formattedProducts);
+        setTotalProducts(count || 0); // Update total count
         setProducts([]);
         setTotalProducts(0);
+      }
     } finally {
+      if (!signal.aborted) {
         setLoading(false);
+      }
     }
   }, []);
 
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     if (authLoading) {
       return; // Wait for authentication to be resolved
     }
     if (currentUser) { // Now currentUser is either a user or null
-        _fetchProducts(currentPage, pageSize); // Call with current state
+      _fetchProducts(currentPage, pageSize, abortController.signal); // Call with current state
     } else {
         // When user logs out, clear the products list
         setProducts([]);
         setTotalProducts(0); // Reset total count on logout
         setLoading(false);
     }
+
+    return () => abortController.abort();
   }, [currentUser, authLoading, currentPage, pageSize, _fetchProducts]);
 
   const addProduct = useCallback(async (newProductData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>): Promise<{ product: Product | null; error: string | null }> => {
@@ -110,11 +123,11 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             averagePurchasePrice: 0,
             averageSellingPrice: 0,
         };
-        _fetchProducts(currentPage, pageSize); // Re-fetch current page to update list and total count
+        _fetchProducts(1, pageSize, new AbortController().signal); // Go to first page to see the new product
         return { product: addedProduct, error: null };
     }
     return { product: null, error: 'Failed to add product for an unknown reason.' };
-  }, [_fetchProducts, currentPage, pageSize]);
+  }, [_fetchProducts, pageSize]);
 
   const updateProduct = useCallback(async (updatedProductData: Product): Promise<{ product: Product | null; error: string | null }> => {
     const { data, error } = await supabase
@@ -136,7 +149,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     
     if(data) {
-        _fetchProducts(currentPage, pageSize); // Re-fetch current page to update list
+        _fetchProducts(currentPage, pageSize, new AbortController().signal); // Re-fetch current page to update list
         // The returned product can be constructed from the updated data for immediate use if needed,
         // but re-fetching is safer for consistency.
         return { product: data as Product, error: null };
@@ -155,12 +168,12 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         return false;
     }
 
-    _fetchProducts(currentPage, pageSize); // Re-fetch current page to update list and total count
+    _fetchProducts(currentPage, pageSize, new AbortController().signal); // Re-fetch current page to update list and total count
     return true;
   }, [_fetchProducts, currentPage, pageSize]);
 
-  const value = useMemo(() => ({ products, loading, addProduct, updateProduct, deleteProduct, fetchProducts: () => _fetchProducts(currentPage, pageSize), currentPage, pageSize, totalProducts, setPage: setCurrentPage, setPageSize }),
-    [products, loading, addProduct, updateProduct, deleteProduct, _fetchProducts, currentPage, pageSize, totalProducts, setPageSize]);
+  const value = useMemo(() => ({ products, loading, addProduct, updateProduct, deleteProduct, fetchProducts: () => _fetchProducts(currentPage, pageSize, new AbortController().signal), currentPage, pageSize, totalProducts, setPage: setCurrentPage, setPageSize }),
+    [products, loading, addProduct, updateProduct, deleteProduct, _fetchProducts, currentPage, pageSize, totalProducts]);
 
   return (
     <ProductContext.Provider value={value}>

@@ -41,40 +41,52 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [config, setConfig] = useState<PermissionsConfig>(defaultPermissions);
     const [loading, setLoading] = useState(true);
 
-    const fetchConfig = useCallback(async () => {
+    useEffect(() => {
+        const abortController = new AbortController();
+        const { signal } = abortController;
+
         setLoading(true);
-        const { data, error } = await supabase.from('settings').select('value').eq('key', 'permissions_config').single();
+        const doFetch = async () => {
+            try {
+                const { data, error } = await supabase.from('settings').select('value').eq('key', 'permissions_config').abortSignal(signal).single();
 
-        if (data?.value) {
-            const dbConfig = data.value as PermissionsConfig;
-            const finalConfig: PermissionsConfig = {};
+                if (signal.aborted) return;
 
-            // Build a complete configuration by iterating through all defined roles and modules.
-            // This ensures that new roles/modules added in the code are always present.
-            for (const roleKey in Role) {
-                const role = Role[roleKey as keyof typeof Role];
-                finalConfig[role] = {};
+                if (data?.value) {
+                    const dbConfig = data.value as PermissionsConfig;
+                    const finalConfig: PermissionsConfig = {};
 
-                for (const moduleKey in PermissionModule) {
-                    const module = PermissionModule[moduleKey as keyof typeof PermissionModule];
-
-                    // Prioritize DB config, then fallback to default config, then to an empty array.
-                    const dbPermissions = dbConfig[role]?.[module];
-                    const defaultPerms = defaultPermissions[role]?.[module];
-
-                    finalConfig[role]![module] = dbPermissions ?? defaultPerms ?? [];
+                    for (const roleKey in Role) {
+                        const role = Role[roleKey as keyof typeof Role];
+                        finalConfig[role] = {};
+                        for (const moduleKey in PermissionModule) {
+                            const module = PermissionModule[moduleKey as keyof typeof PermissionModule];
+                            const dbPermissions = dbConfig[role]?.[module];
+                            const defaultPerms = defaultPermissions[role]?.[module];
+                            finalConfig[role]![module] = dbPermissions ?? defaultPerms ?? [];
+                        }
+                    }
+                    setConfig(finalConfig);
+                } else {
+                    setConfig(defaultPermissions);
+                    if (error && error.code !== 'PGRST116') console.error("Error fetching permissions config:", error);
+                }
+            } catch (e: any) {
+                if (e.name !== 'AbortError') {
+                    console.error("Error fetching permissions config:", e);
+                    setConfig(defaultPermissions);
+                }
+            } finally {
+                if (!signal.aborted) {
+                    setLoading(false);
                 }
             }
+        };
 
-            setConfig(finalConfig);
-        } else {
-            setConfig(defaultPermissions);
-            if (error && error.code !== 'PGRST116') console.error("Error fetching permissions config:", error);
-        }
-        setLoading(false);
+        doFetch();
+
+        return () => abortController.abort();
     }, []);
-
-    useEffect(() => { fetchConfig(); }, [fetchConfig]);
 
     const updateConfig = async (newConfig: PermissionsConfig) => {
         const { error } = await supabase.from('settings').upsert({ key: 'permissions_config', value: newConfig }, { onConflict: 'key' });

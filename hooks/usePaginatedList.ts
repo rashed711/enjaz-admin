@@ -28,14 +28,8 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
     const { currentUser, loading: isAuthLoading } = useAuth();
     const permissions = usePermissions();
 
-    const fetchData = useCallback(async () => {
-        if (isAuthLoading) return;
-        if (!currentUser) {
-            setLoading(false);
-            setItems([]);
-            setTotalCount(0);
-            return;
-        }
+    const fetchData = useCallback(async (signal: AbortSignal) => {
+        if (isAuthLoading || !currentUser) return;
 
         setLoading(true);
         try {
@@ -62,15 +56,19 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
                 const orFilter = searchColumns.map(column => `${column}.ilike.%${searchQuery}%`).join(',');
                 query = query.or(orFilter);
             }
-
+            
             const { data, error, count } = await query
                 // Sort by date first, then by ID for consistent ordering.
                 // This is more robust than sorting by 'created_at' which might be missing from some views.
                 .order('date', { ascending: false })
                 .order('id', { ascending: false })
-                .range(from, to);
+                .range(from, to)
+                .abortSignal(signal);
+
+            if (signal.aborted) return;
 
             if (error) {
+                if (error.name === 'AbortError') return;
                 console.error(`Error fetching ${tableName}:`, error.message);
                 setItems([]);
             } else if (data) {
@@ -83,7 +81,7 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
                         .select('id, name')
                         .in('id', creatorIds);
                     
-                    if (profilesError) {
+                    if (profilesError && profilesError.name !== 'AbortError') {
                         console.warn(`Could not fetch creator names for ${tableName}:`, profilesError.message);
                         setItems(formattedItems);
                     } else {
@@ -100,16 +98,31 @@ export const usePaginatedList = <T extends { createdBy?: string | null; creatorN
                 setTotalCount(count ?? 0);
             }
         } catch (e: any) {
-            console.error(`An unexpected error occurred while fetching ${tableName}:`, e.message);
-            setItems([]);
+            if (e.name !== 'AbortError') {
+                console.error(`An unexpected error occurred while fetching ${tableName}:`, e.message);
+                setItems([]);
+            }
         } finally {
-            setLoading(false);
+            if (!signal.aborted) {
+                setLoading(false);
+            }
         }
     }, [ currentUser, isAuthLoading, currentPage, itemsPerPage, tableName, formatter, searchQuery, searchColumns, permissions, permissionModule ]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const [refetchCount, setRefetchCount] = useState(0);
+    const refetch = useCallback(() => setRefetchCount(c => c + 1), []);
 
-    return { items, loading, totalCount, currentPage, setCurrentPage, itemsPerPage, refetch: fetchData };
+    useEffect(() => {
+        const controller = new AbortController();
+        if (!isAuthLoading && currentUser) {
+            fetchData(controller.signal);
+        } else if (!isAuthLoading && !currentUser) {
+            setLoading(false);
+            setItems([]);
+            setTotalCount(0);
+        }
+        return () => controller.abort();
+    }, [fetchData, refetchCount, isAuthLoading, currentUser]);
+
+    return { items, loading, totalCount, currentPage, setCurrentPage, itemsPerPage, refetch };
 };

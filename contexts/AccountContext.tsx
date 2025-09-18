@@ -40,41 +40,54 @@ export const AccountProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [loading, setLoading] = useState(true);
   const { currentUser, loading: authLoading } = useAuth(); // Get auth loading state
   
-  const fetchAccounts = useCallback(async () => {
+  const fetchAccounts = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
     try {
       // Fetch from the new view that includes pre-calculated balances
       const { data, error } = await supabase
         .from('accounts_with_balance') // Use the new view
         .select('*')
-        .order('code');
+        .order('code')
+        .abortSignal(signal);
+
       if (error) throw error;
       
-      setAccountsFlat(data || []);
-      setAccountsTree(buildTree(data || []));
+      if (!signal.aborted) {
+        setAccountsFlat(data || []);
+        setAccountsTree(buildTree(data || []));
+      }
 
     } catch (error: any) {
-      console.error('Failed to fetch accounts:', error.message);
-      setAccountsFlat([]);
-      setAccountsTree([]);
+      if (error.name !== 'AbortError') {
+        console.error('Failed to fetch accounts:', error.message);
+        setAccountsFlat([]);
+        setAccountsTree([]);
+      }
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
+    const abortController = new AbortController();
     // Don't do anything until the authentication state is resolved.
     if (authLoading) {
       return;
     }
 
     if (currentUser) { // Now we know for sure if there's a user or not.
-        fetchAccounts();
+        fetchAccounts(abortController.signal);
     } else {
       setAccountsFlat([]);
       setAccountsTree([]);
       setLoading(false);
     }
+
+    return () => {
+      abortController.abort();
+    };
   }, [currentUser, authLoading, fetchAccounts]);
 
   const deleteAccount = useCallback(async (accountId: number): Promise<{ success: boolean; error: string | null }> => {
@@ -92,11 +105,15 @@ export const AccountProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     // On success, refetch the accounts to update the tree
-    await fetchAccounts();
+    // The context will refetch automatically if you want to keep this behavior,
+    // but it's better to manage refetching from the component that calls delete.
+    // For now, we'll just update the state locally.
+    setAccountsFlat(prev => prev.filter(acc => acc.id !== accountId));
+    setAccountsTree(prev => buildTree(accountsFlat.filter(acc => acc.id !== accountId)));
     return { success: true, error: null };
-  }, [fetchAccounts]);
+  }, [accountsFlat]);
 
-  const value = useMemo(() => ({ accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount, refetch: fetchAccounts }), [accountsTree, accountsFlat, loading, fetchAccounts, deleteAccount]);
+  const value = useMemo(() => ({ accountsTree, accountsFlat, loading, fetchAccounts: () => {}, deleteAccount, refetch: () => {} }), [accountsTree, accountsFlat, loading, deleteAccount]);
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 };

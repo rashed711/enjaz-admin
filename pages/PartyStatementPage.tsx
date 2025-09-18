@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../hooks/useAuth';
 import { useAccounts } from '../contexts/AccountContext';
 import { JournalEntry } from '../types';
 import Spinner from '../components/Spinner';
@@ -9,6 +10,8 @@ import DocumentTextIcon from '../components/icons/DocumentTextIcon';
 import WhatsappIcon from '../components/icons/WhatsappIcon';
 import { generatePdfBlob } from '../utils/pdfUtils';
 import StatementComponent from '../components/StatementComponent';
+import { format } from 'date-fns';
+
 interface PartyStatementPageProps {
   partyType: 'Customer' | 'Supplier';
 }
@@ -16,10 +19,11 @@ interface PartyStatementPageProps {
 const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { loading: isAuthLoading } = useAuth();
     const { accountsFlat, loading: accountsLoading } = useAccounts();
     
     const [entries, setEntries] = useState<JournalEntry[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [entriesLoading, setEntriesLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -32,28 +36,41 @@ const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) =>
     }, [accountsFlat, accountsLoading, partyId]);
 
     useEffect(() => {
+        if (isAuthLoading || accountsLoading) return; // WAIT for auth and accounts to be ready
+
         if (!partyId) {
             setError(`لم يتم تحديد ${partyTypeLabel}.`);
-            setLoading(false);
+            setEntriesLoading(false);
             return;
         }
 
-        const fetchStatement = async () => {
-            setLoading(true);
+        const controller = new AbortController();
+        const { signal } = controller;
+
+        const fetchStatement = async (signal: AbortSignal) => {
+            setEntriesLoading(true);
             setError(null);
             try {
-                const { data, error: entriesError } = await supabase.from('journal_entries').select('*').eq('account_id', partyId).order('date', { ascending: false }).order('id', { ascending: false });
+                const { data, error: entriesError } = await supabase.from('journal_entries').select('*').eq('account_id', partyId).order('date', { ascending: false }).order('id', { ascending: false }).abortSignal(signal);
+                
+                if (signal.aborted) return;
+
                 if (entriesError) throw entriesError;
                 setEntries(data || []);
             } catch (e: any) {
-                setError("فشل تحميل كشف الحساب. يرجى المحاولة مرة أخرى.");
+                if (e.name !== 'AbortError') {
+                    setError("فشل تحميل كشف الحساب. يرجى المحاولة مرة أخرى.");
+                }
             } finally {
-                setLoading(false);
+                if (!signal.aborted) {
+                    setEntriesLoading(false);
+                }
             }
         };
 
-        fetchStatement();
-    }, [partyId, partyTypeLabel]);
+        fetchStatement(signal);
+        return () => controller.abort();
+    }, [partyId, partyTypeLabel, isAuthLoading, accountsLoading]);
 
     const finalBalance = useMemo(() => {
         // بما أن القائمة الآن من الأحدث إلى الأقدم، يتم حساب الرصيد النهائي بجمع كل الحركات.
@@ -96,7 +113,7 @@ const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) =>
         }
     };
 
-    if (accountsLoading || loading) return <div className="flex justify-center items-center p-10"><Spinner /></div>;
+    if (isAuthLoading || accountsLoading || entriesLoading) return <div className="flex justify-center items-center p-10"><Spinner /></div>;
     if (error) return <div className="p-4 text-center text-red-500">{error}</div>;
     if (!party) return <div className="p-4 text-center text-red-500">لم يتم العثور على {partyTypeLabel}.</div>;
 
@@ -115,8 +132,38 @@ const PartyStatementPage: React.FC<PartyStatementPageProps> = ({ partyType }) =>
             {statementWithBalance.length === 0 ? (
                 <EmptyState Icon={DocumentTextIcon} title="لا توجد حركات" message={`لا توجد أي قيود محاسبية مسجلة لهذا ${partyTypeLabel} حتى الآن.`} />
             ) : (
-                // The StatementComponent is still used for on-screen display
-                <StatementComponent party={party} entries={statementWithBalance} finalBalance={finalBalance} />
+                <>
+                    {/* Desktop View: The original component, likely a table */}
+                    <div className="hidden md:block">
+                        <StatementComponent party={party} entries={statementWithBalance} finalBalance={finalBalance} />
+                    </div>
+
+                    {/* Mobile View: A list of cards */}
+                    <div className="md:hidden space-y-3" dir="rtl">
+                        {statementWithBalance.map((entry) => (
+                            <div key={entry.id} className="bg-card border border-border rounded-lg p-4 shadow-sm">
+                                <div className="flex justify-between items-baseline mb-2">
+                                    <p className="font-bold text-text-primary truncate pr-2">{entry.description}</p>
+                                    <p className="text-sm text-text-secondary whitespace-nowrap">{format(new Date(entry.date), 'yyyy/MM/dd')}</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-center border-t border-border pt-3 mt-3">
+                                    <div>
+                                        <p className="text-xs text-text-secondary">مدين</p>
+                                        <p className="font-mono font-semibold text-green-600">{entry.debit?.toLocaleString() || '0.00'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-text-secondary">دائن</p>
+                                        <p className="font-mono font-semibold text-red-600">{entry.credit?.toLocaleString() || '0.00'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-text-secondary">الرصيد</p>
+                                        <p className={`font-mono font-bold ${entry.balance >= 0 ? 'text-text-primary' : 'text-red-600'}`}>{Math.abs(entry.balance).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
         </>
     );

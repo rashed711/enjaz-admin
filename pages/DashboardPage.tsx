@@ -50,7 +50,10 @@ const DashboardPage: React.FC = () => {
   const canViewSalesInvoices = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_ALL) || permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.VIEW_OWN);
 
     useEffect(() => {
-        const fetchDashboardStats = async () => {
+        const controller = new AbortController();
+        const { signal } = controller;
+
+        const fetchDashboardStats = async (signal: AbortSignal) => {
             if (!currentUser || isAuthLoading) return;
 
             setStatsLoading(true);
@@ -58,13 +61,15 @@ const DashboardPage: React.FC = () => {
 
             try {
                 // Call the RPC function to get all stats in one go.
-                const { data, error } = await supabase.rpc('get_dashboard_stats');
+                const { data, error } = await supabase.rpc('get_dashboard_stats').abortSignal(signal);
 
                 if (error) throw error;
 
                 if (!data) {
                     throw new Error("لم يتم إرجاع أي بيانات من الدالة get_dashboard_stats.");
                 }
+
+                if (signal.aborted) return;
 
                 // Set stats based on permissions. Default to 0 if a stat is not returned or user lacks permission.
                 setStats({
@@ -75,14 +80,25 @@ const DashboardPage: React.FC = () => {
                     companies: canViewAllQuotations ? (data.companies || 0) : 0,
                 });
 
-            } catch (e) {
-                console.error("An unexpected error occurred while fetching dashboard stats:", e);
-                setStatsError(`فشل تحميل الإحصائيات. الخطأ: ${e.message}`);
+            } catch (e: any) {
+                // An abort error is expected when the component unmounts and the
+                // previous fetch request is cancelled. We should ignore it.
+                const isAbortError = e.name === 'AbortError' || 
+                                     (typeof e.message === 'string' && e.message.includes('aborted'));
+
+                if (!isAbortError) {
+                    console.error("An unexpected error occurred while fetching dashboard stats:", e);
+                    setStatsError(`فشل تحميل الإحصائيات. الخطأ: ${e.message}`);
+                }
             } finally {
-                setStatsLoading(false);
+                if (!signal.aborted) {
+                    setStatsLoading(false);
+                }
             }
         };
-        fetchDashboardStats();
+        fetchDashboardStats(signal);
+
+        return () => controller.abort();
     }, [currentUser, isAuthLoading, canViewUsers, canViewPurchaseInvoices, canViewAllQuotations, canViewAnyQuotations, canViewSalesInvoices]);
 
   return (
@@ -95,7 +111,7 @@ const DashboardPage: React.FC = () => {
         </div>
       )}
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard title="عروض الأسعار" value={stats.quotations} icon={<DocumentTextIcon />} loading={statsLoading} />
         <StatCard title="فواتير المبيعات" value={stats.salesInvoices} icon={<DocumentTextIcon />} loading={statsLoading} />
         {canViewUsers && <StatCard title="المستخدمين" value={stats.users} icon={<UsersIcon />} loading={statsLoading} />}

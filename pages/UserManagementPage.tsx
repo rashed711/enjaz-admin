@@ -27,14 +27,17 @@ const UserManagementPage: React.FC = () => {
     const [isSendingResetLink, setIsSendingResetLink] = useState(false);
 
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (signal: AbortSignal) => {
         setLoading(true);
         setPageError(null);
 
         try {
             const { data, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, name, role, email');
+                .select('id, name, role, email')
+                .abortSignal(signal);
+
+            if (signal.aborted) return;
 
             if (profilesError) {
                 throw profilesError;
@@ -45,17 +48,23 @@ const UserManagementPage: React.FC = () => {
             }
 
         } catch (err: any) {
-            console.error("Failed to load user list:", err.message);
-            setPageError(`فشل تحميل قائمة المستخدمين. قد تكون هناك مشكلة في صلاحيات الوصول (RLS) على جدول 'profiles'.\n\nالخطأ الفني: ${err.message}`);
-            setUsers([]);
+            if (err.name !== 'AbortError') {
+                console.error("Failed to load user list:", err.message);
+                setPageError(`فشل تحميل قائمة المستخدمين. قد تكون هناك مشكلة في صلاحيات الوصول (RLS) على جدول 'profiles'.\n\nالخطأ الفني: ${err.message}`);
+                setUsers([]);
+            }
         } finally {
-            setLoading(false);
+            if (!signal.aborted) {
+                setLoading(false);
+            }
         }
     };
 
 
     useEffect(() => {
         // Don't fetch until the auth state is confirmed
+        const controller = new AbortController();
+
         if (isAuthLoading) {
             return;
         }
@@ -65,7 +74,9 @@ const UserManagementPage: React.FC = () => {
             setUsers([]);
             return;
         }
-        fetchUsers();
+        fetchUsers(controller.signal);
+
+        return () => controller.abort();
     }, [currentUser, isAuthLoading]);
 
     const showNotification = (message: string, isError = false) => {
@@ -122,7 +133,7 @@ const UserManagementPage: React.FC = () => {
             throw new Error(`فشل إنشاء المستخدم: ${functionError.message}`);
         }
 
-        await fetchUsers();
+        await fetchUsers(new AbortController().signal);
     };
 
     const updateUser = async (userData: UserFormData) => {
@@ -153,7 +164,7 @@ const UserManagementPage: React.FC = () => {
             throw new Error(`فشل تحديث المستخدم: ${functionError.message}`);
         }
 
-        await fetchUsers();
+        await fetchUsers(new AbortController().signal);
     };
 
     const handleSave = async (userData: UserFormData) => {
