@@ -87,14 +87,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const logout = useCallback(async () => {
-    // Just sign out. The onAuthStateChange listener will detect the session change
-    // and update the currentUser to null, which is a more robust pattern.
+    // Attempt to sign out from the server.
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-        console.error("Error signing out:", error.message);
+        console.error("Error signing out from server:", error.message);
+        // If signing out from the server fails (e.g., due to a network error),
+        // we can't rely on onAuthStateChange to fire.
+        // We must manually set the user to null to log them out of the UI,
+        // allowing them to return to the login screen. This is the key to un-sticking the user.
+        setCurrentUser(null);
     }
-  }, []);
+    // If signOut() is successful, the onAuthStateChange listener will automatically
+    // detect the session change and update the currentUser to null.
+  }, [setCurrentUser]);
+
+  // This effect adds resilience for network interruptions.
+  // When the browser comes back online, it proactively checks if the session is still valid.
+  useEffect(() => {
+    const handleOnline = async () => {
+        console.log("Browser is back online. Checking session status.");
+        // Attempt to refresh the session to ensure it's still valid.
+        const { error } = await supabase.auth.refreshSession();
+        if (error) {
+            console.error("Failed to refresh session after coming back online. Forcing logout.", error);
+            // The onAuthStateChange listener should handle the sign-out,
+            // but we call logout() as a fallback to ensure the UI is updated and the user isn't stuck.
+            logout();
+        }
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+    };
+  }, [logout]);
 
   const value = useMemo(() => ({
     currentUser,

@@ -1,16 +1,13 @@
-
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { Product, ProductType, Unit, Currency, SalesInvoiceStatus, DocumentItemState, PermissionModule, PermissionAction } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Currency, DocumentItemState, Product } from '../types';
 import { useProducts } from '../contexts/ProductContext';
-import { useAuth } from '../hooks/useAuth';
-import { usePermissions } from '../hooks/usePermissions';
-import AddProductModal from './AddProductModal';
 import { SalesInvoiceState } from '../pages/SalesInvoiceEditorPage';
-import Spinner from './Spinner';
-import DocumentItemRow from './QuotationItemRow';
+import DocumentItemRow from './QuotationItemRow'; // Re-using this component
 import { getTaxInfo } from '../hooks/useDocument';
 import { useDocumentItems } from '../hooks/useDocumentItems';
+import AddProductModal from './AddProductModal';
+import { useAuth } from '../hooks/useAuth';
+import Spinner from './Spinner';
 
 interface SalesInvoiceEditorFormProps {
     document: SalesInvoiceState;
@@ -35,13 +32,17 @@ const TotalsDisplay: React.FC<{
                     <span>المجموع الفرعي</span>
                     <span>{format(subTotal)}</span>
                 </div>
-                <div className="flex justify-between font-medium text-text-secondary">
-                    <span>{taxLabel}</span>
-                    <span>{format(tax)}</span>
-                </div>
-                <div className="border-t border-dashed border-border pt-3 mt-3 flex justify-between font-bold text-lg text-text-primary">
-                    <span>الإجمالي النهائي</span>
-                    <span>{format(grandTotal)}</span>
+                {tax > 0 && (
+                    <div className="flex justify-between font-medium text-text-secondary">
+                        <span>{taxLabel}</span>
+                        <span>{format(tax)}</span>
+                    </div>
+                )}
+                <div className="border-t border-dashed border-border pt-3 mt-3">
+                    <div className="flex justify-between font-bold text-lg text-text-primary">
+                        <span>الإجمالي النهائي</span>
+                        <span>{format(grandTotal)}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -51,39 +52,41 @@ const TotalsDisplay: React.FC<{
 const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ document, setDocument, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
     const { currentUser } = useAuth();
-    const permissions = usePermissions();
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const canChangeStatus = permissions.can(PermissionModule.SALES_INVOICES, PermissionAction.CHANGE_STATUS);
 
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setDocument, products);
 
     const { subTotal, tax, taxInfo, grandTotal } = useMemo(() => {
-        if (!document) return { subTotal: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة'}, grandTotal: 0 };
+        if (!document) return { subTotal: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة' }, grandTotal: 0 };
         const subTotal = document.items.reduce((sum, item) => sum + (item.total || 0), 0);
         const taxInfo = getTaxInfo(document.currency);
-        const tax = subTotal * taxInfo.rate;
+        // The user wants a simple model: 'taxIncluded' means we add tax, otherwise we don't.
+        const tax = document.taxIncluded ? subTotal * taxInfo.rate : 0;
         const grandTotal = subTotal + tax;
         return { subTotal, tax, taxInfo, grandTotal };
     }, [document]);
 
-
     useEffect(() => {
         setDocument(prev => {
             if (!prev) return null;
-            const newTotal = parseFloat(grandTotal.toFixed(2));
-            if (prev.totalAmount === newTotal) return prev; // Avoid re-render if total is the same
-            return { ...prev, totalAmount: newTotal };
+            const finalTotal = parseFloat(grandTotal.toFixed(2));
+            if (prev.totalAmount === finalTotal) return prev;
+            return { ...prev, totalAmount: finalTotal };
         });
     }, [grandTotal, setDocument]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setDocument(prev => prev ? { ...prev, [name]: value } : null);
+        setDocument(prev => {
+            if (!prev) return null;
+            return { ...prev, [name]: value };
+        });
     };
 
     const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
-        if (!currentUser) return { product: null, error: "User not authenticated to add a product." };
+        if (!currentUser) {
+            return { product: null, error: "User not authenticated to add a product." };
+        }
         return addProduct(productData);
     };
 
@@ -92,21 +95,22 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ documen
 
     return (
         <>
-            <AddProductModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleAddProduct}
-            />
+            <AddProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleAddProduct} />
             <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
-                <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل والفاتورة</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input type="text" name="clientName" placeholder="اسم العميل" value={document.clientName} onChange={handleInputChange} className={inputClasses} />
-                    <input type="text" name="company" placeholder="الشركة" value={document.company} onChange={handleInputChange} className={inputClasses} />
-                    <input type="text" name="project" placeholder="المشروع" value={document.project} onChange={handleInputChange} className={inputClasses} />
+                <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل الفاتورة</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <input type="text" name="clientName" placeholder="اسم العميل" value={document.clientName} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    <input type="text" name="company" placeholder="الشركة" value={document.company || ''} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    <input type="text" name="project" placeholder="المشروع" value={document.project} onChange={handleInputChange} className={`${inputClasses} lg:col-span-1`} />
+                    
+                    {document.quotationNumber && (
+                        <div className="lg:col-span-1">
+                            <label htmlFor="quotationNumber" className="text-sm font-medium text-text-secondary mb-1 block">عرض السعر المرتبط</label>
+                            <input id="quotationNumber" type="text" value={document.quotationNumber} readOnly className={`${inputClasses} bg-slate-100 cursor-not-allowed`} />
+                        </div>
+                    )}
+
                     <input type="date" name="date" value={document.date} onChange={handleInputChange} className={`${inputClasses}`} />
-                    <select name="status" value={document.status} onChange={handleInputChange} className={inputClasses} disabled={!canChangeStatus}>
-                        {Object.values(SalesInvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
                     <select name="currency" value={document.currency} onChange={handleInputChange} className={inputClasses}>
                         <option value={Currency.SAR}>ريال سعودي (SAR)</option>
                         <option value={Currency.EGP}>جنيه مصري (EGP)</option>
@@ -114,21 +118,22 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ documen
                     </select>
                 </div>
 
-                <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
+                <div className="mt-4 flex items-center gap-2">
+                    <label className="text-sm font-medium text-text-secondary">إعدادات الضريبة:</label>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setDocument(prev => prev ? { ...prev, taxIncluded: true } : null)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${document.taxIncluded ? 'bg-green-600 text-white shadow' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}>
+                            شامل الضريبة
+                        </button>
+                        <button type="button" onClick={() => setDocument(prev => prev ? { ...prev, taxIncluded: false } : null)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!document.taxIncluded ? 'bg-orange-500 text-white shadow' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}`}>
+                            غير شامل الضريبة
+                        </button>
+                    </div>
+                </div>
 
+                <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
                 <div className="space-y-3">
                     {document.items.map((item, index) => (
-                    <DocumentItemRow
-                        // Use the item's unique ID as the key. This is crucial for React to correctly handle updates and deletions.
-                        key={item.id}
-                        item={item}
-                        index={index}
-                        onItemChange={handleItemChange}
-                        onProductSelection={handleProductSelection}
-                        onRemoveItem={() => removeItem(item.id!)}
-                        products={products}
-                        inputClasses={inputClasses}
-                    />
+                        <DocumentItemRow key={item.id} item={item} index={index} onItemChange={handleItemChange} onProductSelection={handleProductSelection} onRemoveItem={() => removeItem(item.id!)} products={products} inputClasses={inputClasses} />
                     ))}
                 </div>
 
@@ -137,12 +142,7 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ documen
                     <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
                 </div>
 
-                <TotalsDisplay
-                    subTotal={subTotal}
-                    tax={tax}
-                    taxLabel={taxInfo.label}
-                    grandTotal={grandTotal}
-                />
+                <TotalsDisplay subTotal={subTotal} tax={tax} taxLabel={taxInfo.label} grandTotal={grandTotal} />
 
                 <div className="mt-8">
                     {saveError && (
@@ -161,7 +161,7 @@ const SalesInvoiceEditorForm: React.FC<SalesInvoiceEditorFormProps> = ({ documen
                 </div>
             </div>
         </>
-    )
-}
+    );
+};
 
 export default SalesInvoiceEditorForm;

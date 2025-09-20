@@ -23,6 +23,11 @@ const DocumentViewerLayout: React.FC<DocumentViewerLayoutProps> = ({ children, b
     const navigate = useNavigate();
     const location = useLocation();
 
+    // Defensive guard clause. The parent should ideally handle this, but this prevents a crash.
+    if (!document) {
+        return <div className="flex justify-center items-center p-20"><Spinner /></div>;
+    }
+
     const getDocumentInfo = (doc: AnyDocument): { number: string | number; label: string } => {
         if ('quotationNumber' in doc) {
             return { number: doc.quotationNumber, label: 'عرض سعر' };
@@ -82,9 +87,9 @@ const DocumentViewerLayout: React.FC<DocumentViewerLayoutProps> = ({ children, b
                     &larr; العودة
                 </button>
                 
-                <div className="flex justify-end items-center gap-2 bg-slate-100 p-2 rounded-lg border border-border w-full sm:w-auto">
+                <div className="flex flex-wrap justify-center sm:justify-end items-center gap-2 bg-slate-100 p-2 rounded-lg border border-border w-full sm:w-auto">
                     {customActions}
-                    <div className="w-px h-6 bg-border mx-1" />
+                    {customActions && <div className="w-px h-6 bg-border mx-1" />}
                     <button onClick={handleShare} className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-full transition-colors" disabled={isProcessing} title="مشاركة عبر واتساب">
                         <WhatsappIcon className="w-6 h-6" />
                     </button>

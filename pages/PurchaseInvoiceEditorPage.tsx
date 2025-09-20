@@ -1,18 +1,18 @@
-
 import React from 'react';
-import { PurchaseInvoice, DocumentItemState, Currency } from '../types';
-import PurchaseInvoiceViewer from '../components/PurchaseInvoiceViewer';
-import PurchaseInvoiceEditorForm from '../components/PurchaseInvoiceEditorForm';
+import { PurchaseInvoice as PurchaseInvoiceType, DocumentItemState } from '../types';
 import DocumentPage from './DocumentPage';
+import PurchaseInvoiceEditorForm from '../components/PurchaseInvoiceEditorForm';
+import PurchaseInvoiceViewer from '../components/PurchaseInvoiceViewer';
 
-export type PurchaseInvoiceState = Omit<PurchaseInvoice, 'items'> & { items: DocumentItemState[] };
+// Define the state type for the editor, which includes items with a temporary ID
+export type PurchaseInvoiceState = Omit<PurchaseInvoiceType, 'items'> & { items: DocumentItemState[] };
 
 const PurchaseInvoiceEditorPage: React.FC = () => {
     return (
-        <DocumentPage<PurchaseInvoiceState, PurchaseInvoice>
+        <DocumentPage<PurchaseInvoiceState, PurchaseInvoiceType>
             documentType="purchase_invoice"
             EditorFormComponent={PurchaseInvoiceEditorForm}
-            ViewerComponent={PurchaseInvoiceViewer}
+            ViewerComponent={PurchaseInvoiceViewer} // تم التحديث لاستخدام المكون الصحيح مع الأزرار
             listPath="/purchase-invoices"
         />
     );

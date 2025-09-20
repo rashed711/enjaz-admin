@@ -233,7 +233,7 @@ const docConfig = {
             project: 'project',
             quotationType: 'quotation_type',
             taxIncluded: 'tax_included',
-            discount: null, // FIX: Removed direct mapping to prevent DB error. Discount is now a line item.
+            discount: null, // Discount is handled as a special line item, not a column.
             supplierName: null,
             status: null,
             quotationId: null,
@@ -245,6 +245,7 @@ const docConfig = {
             project: 'project',
             quotation_type: 'quotationType',
             tax_included: 'taxIncluded',
+            // discount: 'discount', // This is incorrect, discount is saved as a line item.
         }
     },
     purchase_invoice: {
@@ -257,6 +258,7 @@ const docConfig = {
             invoiceNumber: 'invoice_number',
             supplierName: 'supplier_name',
             status: 'status',
+            taxIncluded: 'tax_included',
             supplierId: 'supplier_id',
             clientName: null,
             company: null,
@@ -268,12 +270,14 @@ const docConfig = {
             invoice_number: 'invoiceNumber',
             supplier_name: 'supplierName',
             status: 'status',
+            tax_included: 'taxIncluded',
             supplier_id: 'supplierId',
         }
     },
     sales_invoice: {
         mainTable: 'sales_invoices',
-        itemsTable: 'sales_invoice_items',
+        viewName: null, // FIX: Use main table to ensure tax_included is fetched, as the view might be stale.
+        itemsTable: 'sales_invoice_items', // Use table for items
         foreignKey: 'invoice_id',
         listPath: '/sales-invoices',
         viewPath: '/sales-invoices/:id/view',
@@ -283,7 +287,9 @@ const docConfig = {
             company: 'company',
             project: 'project',
             status: 'status',
+            taxIncluded: 'tax_included',
             quotationId: 'quotation_id',
+            quotationNumber: 'quotation_number',
             supplierName: null,
             quotationType: null,
         },
@@ -293,6 +299,7 @@ const docConfig = {
             company: 'company',
             project: 'project',
             status: 'status',
+            tax_included: 'taxIncluded',
             quotation_id: 'quotationId',
         }
     },
@@ -334,21 +341,40 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             case 'quotation':
                 return { ...base, quotationNumber: newDocNumber, clientName: '', company: '', project: '', quotationType: '', currency: Currency.EGP, taxIncluded: true, discount: 0 } as T;
             case 'purchase_invoice':
-                return { ...base, invoiceNumber: newDocNumber, supplierName: '', status: PurchaseInvoiceStatus.DRAFT, currency: Currency.EGP } as T;
+                return { ...base, invoiceNumber: newDocNumber, supplierName: '', status: PurchaseInvoiceStatus.DRAFT, currency: Currency.EGP, taxIncluded: true } as T;
             case 'sales_invoice':
-                return { ...base, invoiceNumber: newDocNumber, clientName: '', company: '', project: '', status: SalesInvoiceStatus.DRAFT, currency: Currency.EGP } as T;
+                return { ...base, invoiceNumber: newDocNumber, clientName: '', company: '', project: '', status: SalesInvoiceStatus.DRAFT, currency: Currency.EGP, taxIncluded: true } as T;
             default:
                 throw new Error("Invalid document type for new document generation.");
         }
     }, [config, currentUser, documentType]);
 
     useEffect(() => {
+        /**
+         * Processes document data after fetching or when preloaded.
+         * This is where we can apply transformations, like parsing the project field.
+         */
+        const processDocumentData = (doc: T): T => {
+            if (!doc) return doc;
+            let processedDoc = { ...doc };
+            if (documentType === 'sales_invoice' && processedDoc.quotationNumber && processedDoc.project) {
+                const projectString = processedDoc.project || '';
+                const match = projectString.match(/(.*)\s\(عرض سعر #(.+)\)/);
+                // If a match is found and the extracted quote number matches, clean the project field.
+                if (match && match[1] && match[2]?.trim() === processedDoc.quotationNumber?.trim()) {
+                    processedDoc.project = match[1].trim();
+                }
+            }
+            return processedDoc;
+        };
+
         const fetchDocument = async (docId: number) => {
             setLoading(true);
+            const tableToFetch = config.viewName || config.mainTable;
             try {
                 // Fetch main document and its items concurrently for better performance.
                 const [docResult, itemsResult] = await Promise.all([
-                    supabase.from(config.mainTable).select('*').eq('id', docId).single(),
+                    supabase.from(tableToFetch).select('*').eq('id', docId).single(),
                     supabase.from(config.itemsTable).select('*').eq(config.foreignKey, docId)
                 ]);
 
@@ -422,11 +448,28 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     return acc;
                 }, {} as any);
 
+                // --- NEW LOGIC for Sales Invoice Project field ---
+                // When fetching a sales invoice, if it's linked to a quotation,
+                // parse the project name to remove the embedded quotation number for cleaner editing.
+                if (documentType === 'sales_invoice' && docFields.quotationNumber && docFields.project) {
+                    const projectString = docFields.project || '';
+                    const match = projectString.match(/(.*)\s\(عرض سعر #(.+)\)/);
+                    if (match && match[1] && match[2]?.trim() === docFields.quotationNumber?.trim()) {
+                        docFields.project = match[1].trim(); // Store only the clean project name
+                    }
+                }
+
                 if (documentType === 'quotation') {
                     docFields.discount = discountAmount;
                     docFields.taxIncluded = wasTaxIncluded;
                 }
                 
+                // Explicitly handle taxIncluded for invoices as well, to ensure it's correctly fetched.
+                // This mirrors the working logic for quotations and prevents issues where the generic mapping might fail.
+                if (documentType === 'sales_invoice' || documentType === 'purchase_invoice') {
+                    docFields.taxIncluded = docData.tax_included ?? false;
+                }
+
                 const fetchedDoc = {
                     id: docData.id,
                     date: docData.date,
@@ -439,7 +482,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                     ...docFields
                 } as T;
                 
-                setDocument(fetchedDoc);
+                setDocument(processDocumentData(fetchedDoc));
 
             } catch (error: any) {
                 console.error(`Error fetching ${documentType}:`, error.message);
@@ -451,7 +494,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
 
         // If data was passed via navigation state, we don't need to fetch.
         if (preloadedData) {
-            // البيانات تم تعيينها بالفعل في useState، لذلك نتأكد فقط من أن التحميل متوقف
+            setDocument(processDocumentData(preloadedData));
             if (loading) setLoading(false);
             return;
         }
@@ -496,13 +539,6 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
 
         try {
             const { items, id, ...docDetails } = document;
-            
-            let discountToSaveAsItem = 0;
-            if (documentType === 'quotation') {
-                const quoteDetails = docDetails as any;
-                discountToSaveAsItem = quoteDetails.discount || 0;
-                delete quoteDetails.discount;
-            }
 
             const payload = Object.entries(config.payloadMap).reduce((acc, [dbKey, docKey]) => {
                 const value = docDetails[docKey as keyof typeof docDetails];
@@ -511,10 +547,32 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                 }
                 return acc;
             }, {} as any);
+
+            // --- NEW LOGIC for Sales Invoice Project field ---
+            // Before saving, reconstruct the combined project string if it's a sales invoice
+            // linked to a quotation, to maintain the existing data format.
+            if (documentType === 'sales_invoice') {
+                const invoiceDetails = docDetails as unknown as SalesInvoiceState;
+                if (invoiceDetails.quotationNumber && invoiceDetails.project) {
+                    payload.project = `${invoiceDetails.project} (عرض سعر #${invoiceDetails.quotationNumber})`;
+                }
+            }
+
+            let discountToSaveAsItem = 0;
+            if (documentType === 'quotation') {
+                discountToSaveAsItem = (docDetails as any).discount || 0;
+            }
             
             payload.date = docDetails.date;
             payload.currency = docDetails.currency;
             payload.total_amount = docDetails.totalAmount;
+
+            // Explicitly handle tax_included for documents that have this property.
+            // This is a safeguard against potential issues in the generic payloadMap logic,
+            // ensuring the value is present even if it's `false`.
+            if ('taxIncluded' in docDetails) {
+                payload.tax_included = (docDetails as any).taxIncluded;
+            }
 
             let savedDocId = id;
 
@@ -542,7 +600,8 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
                 savedDocId = newDoc.id;
             } else {
                 const { error } = await supabase.from(config.mainTable).update(payload).eq('id', id);
-                if (error) throw error;
+                if (error) throw new Error(error.message);
+
                 await supabase.from(config.itemsTable).delete().eq(config.foreignKey, id);
             }
 
@@ -579,9 +638,7 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             if (documentType === 'sales_invoice' && document.status === SalesInvoiceStatus.PAID) {
                 console.log(`Sales invoice ${savedDocId} is PAID. Triggering journal entry creation...`);
                 try {
-                    const { data: functionData, error: functionError } = await supabase.functions.invoke('create-journal-from-invoice', {
-                        body: { invoiceId: savedDocId },
-                    });
+                    const { data: functionData, error: functionError } = await supabase.functions.invoke('create-journal-from-invoice', { body: { invoiceId: savedDocId } });
 
                     if (functionError) throw functionError;
                     if (functionData?.error) throw new Error(functionData.error);

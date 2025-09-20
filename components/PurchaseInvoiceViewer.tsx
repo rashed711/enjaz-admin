@@ -9,6 +9,7 @@ import { supabase } from '../services/supabaseClient';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import PencilIcon from './icons/PencilIcon';
 import TrashIcon from './icons/TrashIcon';
+import Spinner from './Spinner';
 
 interface PurchaseInvoiceViewerProps {
     document: PurchaseInvoice;
@@ -23,8 +24,15 @@ const PurchaseInvoiceViewer: React.FC<PurchaseInvoiceViewerProps> = ({ document:
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
-    const canEdit = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.EDIT_OWN, invoice.createdBy);
-    const canDelete = permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.DELETE_OWN, invoice.createdBy);
+    // Guard clause to prevent rendering with a null document or while permissions are loading.
+    if (!invoice || !permissions) {
+        return <div className="flex justify-center items-center p-20"><Spinner /></div>;
+    }
+
+    // Defensively check for createdBy before checking ownership-based permissions.
+    // This prevents a crash if the can() function doesn't handle a null ownerId gracefully.
+    const canEdit = invoice.createdBy ? permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.EDIT_OWN, invoice.createdBy) : false;
+    const canDelete = invoice.createdBy ? permissions.can(PermissionModule.PURCHASE_INVOICES, PermissionAction.DELETE_OWN, invoice.createdBy) : false;
 
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete || !invoiceToDelete.id) return;

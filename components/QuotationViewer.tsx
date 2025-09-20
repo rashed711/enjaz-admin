@@ -6,14 +6,14 @@ import { Quotation, SalesInvoiceStatus, PermissionModule, PermissionAction, Sale
 import QuotationComponent from './Quotation';
 import DocumentViewerLayout from './DocumentViewerLayout';
 import { useAuth } from '../hooks/useAuth';
-import { usePermissions } from '../hooks/usePermissions';
+import { usePermissions } from '../hooks/usePermissions'; 
 import { useProducts } from '../contexts/ProductContext';
 import { supabase } from '../services/supabaseClient';
 import ArrowRightCircleIcon from './icons/ArrowRightCircleIcon';
 import PencilIcon from './icons/PencilIcon';
 import TrashIcon from './icons/TrashIcon';
+import Spinner from './Spinner';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
-import { generateDocumentNumber } from '../utils/numbering';
 
 interface QuotationViewerProps {
     document: Quotation;
@@ -29,39 +29,41 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
-    const canEdit = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.EDIT_OWN, quotation.createdBy);
-    const canDelete = permissions.can(PermissionModule.QUOTATIONS, PermissionAction.DELETE_OWN, quotation.createdBy);
+    // Guard clause to prevent rendering with a null document or while permissions are loading.
+    if (!quotation || !permissions) {
+        return <div className="flex justify-center items-center p-20"><Spinner /></div>;
+    }
 
-    const handleConvertToInvoice = async () => {
+    // Defensively check for createdBy before checking ownership-based permissions.
+    // This prevents a crash if the can() function doesn't handle a null ownerId gracefully.
+    const canEdit = quotation.createdBy ? permissions.can(PermissionModule.QUOTATIONS, PermissionAction.EDIT_OWN, quotation.createdBy) : false;
+    const canDelete = quotation.createdBy ? permissions.can(PermissionModule.QUOTATIONS, PermissionAction.DELETE_OWN, quotation.createdBy) : false;
+
+    const handleConvertToInvoice = () => {
         if (!quotation || !currentUser) return;
-        setIsProcessing(true);
-    
-        try {
-            const { data, error } = await supabase.rpc('convert_quotation_to_invoice', {
-                quotation_id_to_convert: quotation.id,
-                user_id: currentUser.id
-            });
-    
-            if (error) throw error;
-    
-            if (data.success) {
-                // Navigate to the newly created invoice
-                navigate(`/sales-invoices/${data.invoice_id}/view`);
-            } else {
-                // Handle cases where the invoice already exists or other server-side errors
-                alert(data.message);
-                if (data.invoice_id) {
-                    navigate(`/sales-invoices/${data.invoice_id}/view`);
-                }
-                return;
-            }
-    
-        } catch (error: any) {
-            console.error("Error converting to invoice:", error.message);
-            alert(`فشل تحويل عرض السعر إلى فاتورة: ${error.message}`);
-        } finally {
-            setIsProcessing(false);
-        }
+        // This function now prepares data and navigates to the editor,
+        // instead of calling a server-side RPC. This gives the user a chance to review
+        // and ensures all data (like tax settings) is correctly passed.
+        const newInvoiceData = {
+            // id is undefined for a new document
+            clientName: quotation.clientName,
+            company: quotation.company,
+            project: quotation.project,
+            date: new Date().toISOString().split('T')[0], // Default to today's date
+            currency: quotation.currency,
+            status: SalesInvoiceStatus.DRAFT,
+            taxIncluded: quotation.taxIncluded, // This is the fix
+            items: (quotation.items || []).map(item => ({
+                ...item,
+                id: -Date.now() + Math.random(), // Assign a new temporary negative ID for the editor
+            })),
+            totalAmount: 0, // Will be recalculated in the editor
+            createdBy: currentUser.id,
+            quotationId: quotation.id,
+            quotationNumber: quotation.quotationNumber, // Pass the quote number for reference
+        };
+
+        navigate('/sales-invoices/new', { state: { preloadedData: newInvoiceData } });
     };
     
     const handleConfirmDelete = async () => {
@@ -111,7 +113,7 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }
                     <TrashIcon className="w-6 h-6" />
                 </button>
             )}
-            <button onClick={handleConvertToInvoice} title="تحويل إلى فاتورة" className={`${iconButtonClasses} bg-blue-100 text-blue-600 hover:bg-blue-200`} disabled={isProcessing}>
+            <button onClick={handleConvertToInvoice} title="تحويل إلى فاتورة" className={`${iconButtonClasses} bg-blue-100 text-blue-600 hover:bg-blue-200`}>
                 <ArrowRightCircleIcon className="w-6 h-6" />
             </button>
         </>

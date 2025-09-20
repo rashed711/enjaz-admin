@@ -44,7 +44,7 @@ const JournalEntriesListPage: React.FC = () => {
     const canCreate = permissions.can(PermissionModule.JOURNAL_ENTRIES, PermissionAction.CREATE);
     const canDelete = permissions.can(PermissionModule.JOURNAL_ENTRIES, PermissionAction.DELETE_ALL);
 
-    const { items: entries, loading, totalCount, currentPage, setCurrentPage, itemsPerPage, refetch } = usePaginatedList({
+    const { items: entries, loading, error, totalCount, currentPage, setCurrentPage, itemsPerPage, refetch } = usePaginatedList({
         tableName: 'journal_entries_with_account_name',
         permissionModule: PermissionModule.JOURNAL_ENTRIES,
         formatter: formatJournalEntry,
@@ -124,6 +124,11 @@ const JournalEntriesListPage: React.FC = () => {
 
             {loading ? (
                 <div className="flex justify-center items-center p-10"><Spinner /></div>
+            ) : error ? (
+                <div className="p-4 my-6 text-center text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="font-bold">حدث خطأ</p>
+                    <p className="mt-2 font-mono text-sm">{error}</p>
+                </div>
             ) : entries.length === 0 ? (
                 <EmptyState
                     Icon={BanknotesIcon}
@@ -132,7 +137,9 @@ const JournalEntriesListPage: React.FC = () => {
                     action={!searchQuery && canCreate ? { label: '+ إضافة قيد جديد', onClick: handleAddClick } : undefined}
                 />
             ) : (
-                <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <>
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[800px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -169,8 +176,45 @@ const JournalEntriesListPage: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden space-y-4">
+                        {entries.map((entry) => (
+                            <div 
+                                key={entry.id} 
+                                className="bg-card border border-border rounded-lg p-4 shadow-sm even:bg-slate-50/50"
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <p className="font-bold text-lg text-primary">قيد #{entry.id}</p>
+                                    {canDelete && (
+                                        <button onClick={() => handleDeleteClick(entry)} title="حذف" className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200">
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium text-right">{new Date(entry.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} {entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">الحساب:</span> <span className="font-semibold text-right">{entry.account_name} ({entry.account_code})</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">الوصف:</span> <span className="font-medium text-right">{entry.description}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{entry.creatorName}</span></div>
+                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border mt-2 text-center">
+                                        <div>
+                                            <p className="text-text-secondary text-xs">مدين</p>
+                                            <p className="font-bold font-mono text-lg">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-text-secondary text-xs">دائن</p>
+                                            <p className="font-bold font-mono text-lg">{entry.credit > 0 ? formatCurrency(entry.credit) : '-'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
                     <Pagination currentPage={currentPage} totalCount={totalCount} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
-                </div>
+                </>
             )}
         </>
     );

@@ -1,7 +1,7 @@
 
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Product, ProductType, Unit, Currency, PurchaseInvoiceStatus, DocumentItemState, PermissionModule, PermissionAction } from '../types';
+import { Product, Currency, PurchaseInvoiceStatus, DocumentItemState, PermissionModule, PermissionAction } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
@@ -10,6 +10,7 @@ import { PurchaseInvoiceState } from '../pages/PurchaseInvoiceEditorPage';
 import Spinner from './Spinner';
 import DocumentItemRow from './QuotationItemRow';
 import { useDocumentItems } from '../hooks/useDocumentItems';
+import { getTaxInfo } from '../hooks/useDocument';
 
 interface PurchaseInvoiceEditorFormProps {
     document: PurchaseInvoiceState;
@@ -19,6 +20,37 @@ interface PurchaseInvoiceEditorFormProps {
     onCancel: () => void;
     saveError: string | null;
 }
+
+const TotalsDisplay: React.FC<{
+    subTotal: number;
+    tax: number;
+    taxLabel: string;
+    grandTotal: number;
+}> = ({ subTotal, tax, taxLabel, grandTotal }) => {
+    const format = (num: number) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (
+        <div className="mt-6 flex justify-end">
+            <div className="w-full max-w-sm space-y-3 bg-slate-50 p-4 rounded-lg border border-border">
+                <div className="flex justify-between font-medium text-text-secondary">
+                    <span>المجموع الفرعي</span>
+                    <span>{format(subTotal)}</span>
+                </div>
+                {tax > 0 && (
+                    <div className="flex justify-between font-medium text-text-secondary">
+                        <span>{taxLabel}</span>
+                        <span>{format(tax)}</span>
+                    </div>
+                )}
+                <div className="border-t border-dashed border-border pt-3 mt-3">
+                    <div className="flex justify-between font-bold text-lg text-text-primary">
+                        <span>الإجمالي النهائي</span>
+                        <span>{format(grandTotal)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ document, setDocument, onSave, isSaving, onCancel, saveError }) => {
     const { products, addProduct } = useProducts();
@@ -30,18 +62,24 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ d
 
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setDocument, products);
 
-    const subTotal = useMemo(() => {
-        return document?.items.reduce((sum, item) => sum + (item.total || 0), 0) ?? 0;
-    }, [document?.items]);
+    const { subTotal, tax, taxInfo, grandTotal } = useMemo(() => {
+        if (!document) return { subTotal: 0, tax: 0, taxInfo: { rate: 0, label: 'الضريبة' }, grandTotal: 0 };
+        const subTotal = document.items.reduce((sum, item) => sum + (item.total || 0), 0);
+        const taxInfo = getTaxInfo(document.currency);
+        // The user wants a simple model: 'taxIncluded' means we add tax, otherwise we don't.
+        const tax = document.taxIncluded ? subTotal * taxInfo.rate : 0;
+        const grandTotal = subTotal + tax;
+        return { subTotal, tax, taxInfo, grandTotal };
+    }, [document]);
 
     useEffect(() => {
         setDocument(prev => {
             if (!prev) return null;
-            const newTotalAmount = parseFloat(subTotal.toFixed(2));
-            if (prev.totalAmount === newTotalAmount) return prev; // Avoid re-render if total is the same
-            return { ...prev, totalAmount: newTotalAmount };
+            const finalTotal = parseFloat(grandTotal.toFixed(2));
+            if (prev.totalAmount === finalTotal) return prev;
+            return { ...prev, totalAmount: finalTotal };
         });
-    }, [subTotal, setDocument]);
+    }, [grandTotal, setDocument]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -80,6 +118,18 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ d
                     </select>
                 </div>
 
+                <div className="mt-4 flex items-center gap-2">
+                    <label className="text-sm font-medium text-text-secondary">إعدادات الضريبة:</label>
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setDocument(prev => prev ? { ...prev, taxIncluded: true } : null)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${document.taxIncluded ? 'bg-green-600 text-white shadow' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}>
+                            شامل الضريبة
+                        </button>
+                        <button type="button" onClick={() => setDocument(prev => prev ? { ...prev, taxIncluded: false } : null)} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${!document.taxIncluded ? 'bg-orange-500 text-white shadow' : 'bg-orange-100 text-orange-800 hover:bg-orange-200'}`}>
+                            غير شامل الضريبة
+                        </button>
+                    </div>
+                </div>
+
                 <h2 className="text-xl font-bold my-6 border-b border-border pb-2 text-text-secondary">البنود</h2>
 
                 <div className="space-y-3">
@@ -102,6 +152,8 @@ const PurchaseInvoiceEditorForm: React.FC<PurchaseInvoiceEditorFormProps> = ({ d
                     <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
                     <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
                 </div>
+
+                <TotalsDisplay subTotal={subTotal} tax={tax} taxLabel={taxInfo.label} grandTotal={grandTotal} />
 
                 <div className="mt-8">
                     {saveError && (

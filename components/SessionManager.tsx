@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient'; // إضافة جديدة
+import ErrorBoundary from './ErrorBoundary';
 import SessionTimeoutModal from './SessionTimeoutModal';
 
 const SessionManager: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -94,8 +95,10 @@ const SessionManager: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
     return (
         <>
-            <SessionTimeoutModal isOpen={isWarningModalOpen} onClose={handleLogout} onStay={handleStayLoggedIn} countdownSeconds={WARNING_MINUTES * 60} />
-            {children}
+            <ErrorBoundary>
+                <SessionTimeoutModal isOpen={isWarningModalOpen} onClose={handleLogout} onStay={handleStayLoggedIn} countdownSeconds={WARNING_MINUTES * 60} />
+                {children}
+            </ErrorBoundary>
         </>
     );
 };

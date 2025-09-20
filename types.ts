@@ -39,7 +39,6 @@ export enum Unit {
 export interface Product {
   id: number;
   name: string;
-  description: string;
   sellingPrice: number;
   productType: ProductType;
   unit: Unit;
@@ -51,12 +50,14 @@ export interface Product {
 export interface DocumentItem {
   id?: number;
   productId?: number;
-  productName?: string;
   description: string;
   quantity: number;
   unitPrice: number;
   total: number;
   unit?: Unit;
+  length?: number;
+  width?: number;
+  height?: number;
 }
 
 // Refactored: Generic DocumentItemState for use in editors
@@ -75,11 +76,10 @@ export interface Quotation {
   currency: Currency;
   items: DocumentItem[];
   totalAmount: number;
-  createdBy: string | null;
+  createdBy: string; // Stays string for Supabase UUID
   taxIncluded: boolean;
   discount: number;
   creatorName?: string;
-  createdAt?: string;
 }
 
 // --- New Interfaces for Purchase Invoices ---
@@ -93,15 +93,14 @@ export interface PurchaseInvoice {
   id?: number;
   invoiceNumber: string;
   supplierName: string;
-  supplierId?: number | null;
   date: string;
   currency: Currency;
   status: PurchaseInvoiceStatus;
+  taxIncluded: boolean;
   items: DocumentItem[];
   totalAmount: number;
-  createdBy: string | null;
+  createdBy: string;
   creatorName?: string;
-  createdAt?: string;
 }
 
 // --- New Interfaces for Sales Invoices ---
@@ -122,91 +121,86 @@ export interface SalesInvoice {
   date: string;
   currency: Currency;
   status: SalesInvoiceStatus;
+  taxIncluded: boolean;
   items: DocumentItem[];
   totalAmount: number;
-  createdBy: string | null;
+  createdBy: string;
   quotationId?: number; // Link to the original quotation
+  quotationNumber?: string; // For display and logic in the editor
   creatorName?: string;
-  createdAt?: string;
 }
 
-// --- New Interfaces for Accounting Module ---
+// --- New Types for Accounting ---
+export enum AccountType {
+    ASSET = 'Asset',
+    LIABILITY = 'Liability',
+    EQUITY = 'Equity',
+    REVENUE = 'Revenue',
+    EXPENSE = 'Expense',
+}
+
 export enum PartyType {
-  NONE = 'None',
-  CUSTOMER = 'Customer',
-  SUPPLIER = 'Supplier',
-  CUSTOMER_AND_SUPPLIER = 'CustomerAndSupplier',
+    NONE = 'None',
+    CUSTOMER = 'Customer',
+    SUPPLIER = 'Supplier',
+    EMPLOYEE = 'Employee',
 }
 
 export const partyTypeLabels: Record<PartyType, string> = {
-  [PartyType.NONE]: 'لا شيء',
-  [PartyType.CUSTOMER]: 'عميل',
-  [PartyType.SUPPLIER]: 'مورد',
-  [PartyType.CUSTOMER_AND_SUPPLIER]: 'عميل ومورد',
+    [PartyType.NONE]: 'لا يوجد',
+    [PartyType.CUSTOMER]: 'عميل',
+    [PartyType.SUPPLIER]: 'مورد',
+    [PartyType.EMPLOYEE]: 'موظف',
 };
 
-export enum AccountType {
-  ASSET = 'Asset',
-  LIABILITY = 'Liability',
-  EQUITY = 'Equity',
-  REVENUE = 'Revenue',
-  EXPENSE = 'Expense',
-}
-
 export interface Account {
-  id: number;
-  name: string;
-  code?: string;
-  account_type: AccountType;
-  parent_id?: number | null;
-  party_type: PartyType;
-  children?: Account[]; // For building the tree structure
+    id: number;
+    name: string;
+    code: string;
+    account_type: AccountType;
+    parent_id: number | null;
+    party_type: PartyType;
+    children?: Account[];
+    balance?: number;
 }
 
 export interface JournalEntry {
-  id: number;
-  date: string;
-  description?: string;
-  debit: number;
-  credit: number;
-  account_id: number;
-  account_name?: string; // Joined data
-  account_code?: string; // Joined data
-  createdBy: string | null;
-  creatorName?: string;
-  createdAt?: string;
+    id?: number;
+    date: string;
+    description: string;
+    debit: number;
+    credit: number;
+    account_id: number;
+    account_name?: string; // For display
+    created_by: string | null;
+    createdAt?: string;
 }
 
 export interface Receipt {
-    id: number;
+    id?: number;
     date: string;
+    account_id: number;
+    account_name: string;
     amount: number;
     payment_method: string;
-    description?: string;
-    account_id: number; // Credit account (e.g., customer)
-    cash_account_id: number; // Debit account (e.g., bank/cash)
-    createdBy: string | null;
+    description: string;
+    createdBy: string;
     creatorName?: string;
-    account_name?: string;
-    cash_account_name?: string;
     createdAt?: string;
 }
 
 export interface PaymentVoucher {
-    id: number;
+    id?: number;
     date: string;
+    account_id: number;
+    account_name: string;
     amount: number;
     payment_method: string;
-    description?: string;
-    account_id: number; // Debit account (e.g., supplier/expense)
-    cash_account_id: number; // Credit account (e.g., bank/cash)
-    createdBy: string | null;
+    description: string;
+    createdBy: string;
     creatorName?: string;
-    account_name?: string;
-    cash_account_name?: string;
     createdAt?: string;
 }
-
 
 // --- New Types for Permissions System ---
 export enum PermissionModule {
@@ -217,11 +211,10 @@ export enum PermissionModule {
   USERS = 'المستخدمين',
   PERMISSIONS = 'الصلاحيات',
   ACCOUNTS = 'دليل الحسابات',
-  CUSTOMERS = 'العملاء',
-  SUPPLIERS = 'الموردين',
   JOURNAL_ENTRIES = 'القيود اليومية',
   RECEIPTS = 'سندات القبض',
   PAYMENT_VOUCHERS = 'سندات الصرف',
+  REPORTS = 'التقارير',
 }
 
 export enum PermissionAction {
@@ -241,30 +234,3 @@ export type PermissionsConfig = {
     [key in PermissionModule]?: PermissionAction[];
   };
 };
-
-// --- Navigation Types ---
-// Placing these here to avoid circular dependencies if they were in navigation.ts
-// and imported by hooks that navigation.ts also imports.
-
-export interface NavLink {
-    path: string;
-    label: string;
-    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-    roles: Role[];
-    inSidebar: boolean;
-    inBottomNav: boolean;
-    bottomNavLabel?: string;
-    title: string;
-    children?: NavLinkChild[];
-    permission?: [PermissionModule, PermissionAction | 'VIEW_ANY'];
-}
-
-export interface NavLinkChild {
-    path: string;
-    label: string;
-    Icon: React.FC<React.SVGProps<SVGSVGElement>>;
-    roles: Role[];
-    title: string;
-    inSubMenu?: boolean;
-    permission?: [PermissionModule, PermissionAction | 'VIEW_ANY'];
-}

@@ -81,7 +81,9 @@ const PartyListPage: React.FC<PartyListPageProps> = ({ partyType }) => {
             ) : filteredParties.length === 0 ? (
                 <EmptyState Icon={UsersIcon} title={searchQuery ? 'لا توجد نتائج' : currentConfig.emptyTitle} message={searchQuery ? currentConfig.searchEmptyMessage : currentConfig.emptyMessage} />
             ) : (
-                <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <>
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[600px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -107,7 +109,33 @@ const PartyListPage: React.FC<PartyListPageProps> = ({ partyType }) => {
                             })}
                         </tbody>
                     </table>
-                </div>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden space-y-4">
+                        {filteredParties.map((party) => {
+                            const balance = party.balance || 0;
+                            return (
+                                <div 
+                                    key={party.id} 
+                                    className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50 cursor-pointer"
+                                    onClick={() => handlePartyClick(party.id)}
+                                >
+                                    <div className="flex justify-between items-start mb-3">
+                                        <p className="font-bold text-lg text-primary">{party.name}</p>
+                                        <span className={`font-mono font-semibold ${balance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            {formatCurrency(balance)}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between"><span className="text-text-secondary">كود الحساب:</span> <span className="font-mono text-right">{party.code}</span></div>
+                                        <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-primary font-semibold">عرض كشف الحساب &rarr;</span></div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
             )}
         </>
     );

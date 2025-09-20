@@ -62,8 +62,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         console.error('Critical error in fetchProducts. Error:', error.message);
-        setProducts(formattedProducts);
-        setTotalProducts(count || 0); // Update total count
         setProducts([]);
         setTotalProducts(0);
       }

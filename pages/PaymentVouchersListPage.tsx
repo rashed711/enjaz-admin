@@ -37,7 +37,7 @@ const PaymentVouchersListPage: React.FC = () => {
 
     const canCreate = permissions.can(PermissionModule.PAYMENT_VOUCHERS, PermissionAction.CREATE);
 
-    const { items: vouchers, loading, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
+    const { items: vouchers, loading, error, totalCount, currentPage, setCurrentPage, itemsPerPage } = usePaginatedList({
         // تم الإرجاع لاستخدام الـ view الذي يحتوي على أسماء الحسابات بعد التأكد من إنشائه في قاعدة البيانات
         tableName: 'payment_vouchers_with_names',
         permissionModule: PermissionModule.PAYMENT_VOUCHERS,
@@ -78,6 +78,11 @@ const PaymentVouchersListPage: React.FC = () => {
 
             {loading ? (
                 <div className="flex justify-center items-center p-10"><Spinner /></div>
+            ) : error ? (
+                <div className="p-4 my-6 text-center text-red-700 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="font-bold">حدث خطأ</p>
+                    <p className="mt-2 font-mono text-sm">{error}</p>
+                </div>
             ) : vouchers.length === 0 ? (
                 <EmptyState
                     Icon={ArchiveBoxIcon}
@@ -86,7 +91,9 @@ const PaymentVouchersListPage: React.FC = () => {
                     action={!searchQuery && canCreate ? { label: '+ إضافة سند صرف جديد', onClick: handleAddClick } : undefined}
                 />
             ) : (
-                <div className="bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
+                <>
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block bg-card rounded-lg shadow-sm border border-border overflow-x-auto">
                     <table className="w-full text-right min-w-[800px] text-sm">
                         <thead className="bg-slate-50">
                             <tr>
@@ -115,8 +122,33 @@ const PaymentVouchersListPage: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden space-y-4">
+                        {vouchers.map((voucher) => (
+                            <div 
+                                key={voucher.id} 
+                                className="bg-card border border-border rounded-lg p-4 shadow-sm active:bg-slate-50 even:bg-slate-50/50 cursor-pointer"
+                                onClick={() => navigate(`/accounts/payment-vouchers/${voucher.id}/view`)}
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <p className="font-bold text-lg text-primary">سند صرف #{voucher.id}</p>
+                                    <span className="font-bold text-lg">{formatCurrency(voucher.amount)}</span>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between"><span className="text-text-secondary">التاريخ:</span> <span className="font-medium text-right">{new Date(voucher.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} {voucher.createdAt ? new Date(voucher.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">من حساب (مدين):</span> <span className="font-semibold text-right">{voucher.account_name}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">إلى حساب (دائن):</span> <span className="font-medium text-right">{voucher.cash_account_name}</span></div>
+                                    <div className="flex justify-between"><span className="text-text-secondary">طريقة الدفع:</span> <span className="font-medium">{voucher.payment_method}</span></div>
+                                    <div className="flex justify-between pt-2 border-t border-border mt-2"><span className="text-text-secondary">بواسطة:</span> <span className="font-medium">{voucher.creatorName}</span></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
                     <Pagination currentPage={currentPage} totalCount={totalCount} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
-                </div>
+                </>
             )}
         </>
     );

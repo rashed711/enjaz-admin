@@ -64,7 +64,7 @@ const PrintView: React.FC<{
                     </tr>
                 </thead>
                 <tbody className="text-gray-800">
-                    {quotation.items.map((item, index) => (
+                    {(quotation.items || []).map((item, index) => (
                         <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
                             <td dir="auto" className="p-3 align-top text-left font-semibold">{item.productName || '-'}</td>
                             <td dir="auto" className="p-3 align-top text-left">{item.description}</td>
@@ -160,7 +160,7 @@ const OnScreenView: React.FC<{
         {/* Mobile View: Card-based layout */}
         <div className="md:hidden mt-8">
             <h3 className="text-lg font-bold mb-4 text-primary border-b pb-2">البنود</h3>
-            {quotation.items.map((item, index) => (
+            {(quotation.items || []).map((item, index) => (
                 <div key={item.id || index} className="bg-slate-50 rounded-lg p-4 mb-3 border border-slate-200 shadow-sm">
                     {item.productName && <p className="font-bold text-primary mb-1">{item.productName}</p>}
                     <p dir="auto" className={`font-semibold text-text-primary mb-3 ${item.productName ? 'text-sm' : 'text-base'}`}>{item.description}</p>
@@ -200,7 +200,7 @@ const OnScreenView: React.FC<{
                     </tr>
                 </thead>
                 <tbody className="text-gray-800">
-                    {quotation.items.map((item, index) => (
+                    {(quotation.items || []).map((item, index) => (
                         <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
                             <td dir="auto" className="p-3 align-top text-left font-semibold">{item.productName || '-'}</td>
                             <td dir="auto" className="p-3 align-top text-left">{item.description}</td>
@@ -256,7 +256,8 @@ const OnScreenView: React.FC<{
 
 // --- Main Quotation Component ---
 const Quotation: React.FC<QuotationProps> = ({ quotation }) => {
-    const subTotal = quotation.items.reduce((acc, item) => acc + item.total, 0);
+    const items = quotation.items || [];
+    const subTotal = items.reduce((acc, item) => acc + item.total, 0);
     const discount = quotation.discount || 0;
     const taxableAmount = subTotal - discount;
     const taxInfo = getTaxInfo(quotation.currency);

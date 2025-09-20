@@ -15,11 +15,11 @@ const PrintView: React.FC<{
     invoice: SalesInvoiceType;
     subTotal: number;
     taxInfo: { rate: number; label: string };
-    tax: number;
+    taxAmount: number;
     grandTotal: number;
     projectName: string;
     quotationRefNumber: string | null;
-}> = ({ invoice, subTotal, taxInfo, tax, grandTotal, projectName, quotationRefNumber }) => (
+}> = ({ invoice, subTotal, taxInfo, taxAmount, grandTotal, projectName, quotationRefNumber }) => (
     <div id="sales-invoice-pdf" dir="ltr" className="bg-white text-gray-800 p-12 w-[1024px]">
         {/* Header */}
         <header className="flex justify-between items-center pb-6 mb-8 border-b-2 border-primary">
@@ -69,7 +69,7 @@ const PrintView: React.FC<{
                     </tr>
                 </thead>
                 <tbody className="text-gray-800">
-                    {invoice.items.map((item, index) => (
+                    {(invoice.items || []).map((item, index) => (
                         <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
                             <td dir="auto" className="p-3 align-top text-left font-semibold">{item.productName || '-'}</td>
                             <td dir="auto" className="p-3 align-top text-left">{item.description}</td>
@@ -91,10 +91,12 @@ const PrintView: React.FC<{
                         <span>Subtotal</span>
                         <span>{formatNumber(subTotal)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600 font-medium" dir="ltr">
-                        <span>{taxInfo.label}</span>
-                        <span>{formatNumber(tax)}</span>
-                    </div>
+                    {invoice.taxIncluded && taxAmount > 0 && (
+                        <div className="flex justify-between text-gray-600 font-medium" dir="ltr">
+                            <span>{taxInfo.label}</span>
+                            <span>{formatNumber(taxAmount)}</span>
+                        </div>
+                    )}
                     <div className="border-t-2 border-dashed border-gray-300 my-4"></div>
                     <div className="flex justify-between text-white bg-[#10B981] p-4 rounded-lg" dir="ltr">
                         <span className="font-bold text-lg">Grand Total</span>
@@ -117,11 +119,11 @@ const OnScreenView: React.FC<{
     invoice: SalesInvoiceType;
     subTotal: number;
     taxInfo: { rate: number; label: string };
-    tax: number;
+    taxAmount: number;
     grandTotal: number;
     projectName: string;
     quotationRefNumber: string | null;
-}> = ({ invoice, subTotal, taxInfo, tax, grandTotal, projectName, quotationRefNumber }) => (
+}> = ({ invoice, subTotal, taxInfo, taxAmount, grandTotal, projectName, quotationRefNumber }) => (
     <div dir="ltr" className="bg-white text-gray-800 p-4 sm:p-8 rounded-lg shadow-lg max-w-4xl mx-auto my-8 border border-gray-100">
         {/* Header */}
         <header className="flex justify-between items-center pb-6 mb-8 border-b-2 border-primary">
@@ -161,7 +163,7 @@ const OnScreenView: React.FC<{
         {/* Mobile View: Cards */}
         <div className="md:hidden mt-8">
             <h3 className="text-lg font-bold mb-4 text-primary border-b pb-2">البنود</h3>
-            {invoice.items.map((item, index) => (
+            {(invoice.items || []).map((item, index) => (
                 <div key={item.id || index} className="bg-slate-50 rounded-lg p-4 mb-3 border border-slate-200 shadow-sm">
                     {item.productName && <p className="font-bold text-primary mb-1">{item.productName}</p>}
                     <p dir="auto" className={`font-semibold text-text-primary mb-3 ${item.productName ? 'text-sm' : 'text-base'}`}>{item.description}</p>
@@ -201,7 +203,7 @@ const OnScreenView: React.FC<{
                     </tr>
                 </thead>
                 <tbody className="text-gray-800">
-                    {invoice.items.map((item, index) => (
+                    {(invoice.items || []).map((item, index) => (
                         <tr key={item.id || index} className={`border-b border-gray-100 ${index % 2 !== 0 ? 'bg-[#f8f8f8]' : 'bg-white'}`}>
                             <td dir="auto" className="p-3 align-top text-left font-semibold">{item.productName || '-'}</td>
                             <td dir="auto" className="p-3 align-top text-left">{item.description}</td>
@@ -223,10 +225,12 @@ const OnScreenView: React.FC<{
                         <span>Subtotal</span>
                         <span>{formatNumber(subTotal)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600 font-medium" dir="ltr">
-                        <span>{taxInfo.label}</span>
-                        <span>{formatNumber(tax)}</span>
-                    </div>
+                    {invoice.taxIncluded && taxAmount > 0 && (
+                        <div className="flex justify-between text-gray-600 font-medium" dir="ltr">
+                            <span>{taxInfo.label}</span>
+                            <span>{formatNumber(taxAmount)}</span>
+                        </div>
+                    )}
                     <div className="border-t-2 border-dashed border-gray-300 my-4"></div>
                     <div className="flex justify-between text-white bg-[#10B981] p-4 rounded-lg" dir="ltr">
                         <span className="font-bold text-lg">Grand Total</span>
@@ -246,10 +250,15 @@ const OnScreenView: React.FC<{
 
 // --- Main SalesInvoice Component ---
 const SalesInvoice: React.FC<SalesInvoiceProps> = ({ invoice }) => {
-    const subTotal = invoice.items.reduce((acc, item) => acc + item.total, 0);
+    const items = invoice.items || [];
     const taxInfo = getTaxInfo(invoice.currency);
-    const tax = subTotal * taxInfo.rate;
-    const grandTotal = subTotal + tax;
+
+    const { subTotal, taxAmount, grandTotal } = useMemo(() => {
+        const subTotal = items.reduce((acc, item) => acc + item.total, 0);
+        const taxAmount = invoice.taxIncluded ? subTotal * taxInfo.rate : 0;
+        const grandTotal = subTotal + taxAmount;
+        return { subTotal, taxAmount, grandTotal };
+    }, [items, invoice.taxIncluded, invoice.currency, taxInfo.rate]);
 
     const { projectName, quotationRefNumber } = useMemo(() => {
         const projectString = invoice.project || '';
@@ -264,7 +273,7 @@ const SalesInvoice: React.FC<SalesInvoiceProps> = ({ invoice }) => {
         return { projectName: projectString, quotationRefNumber: null };
     }, [invoice.project]);
 
-    const viewProps = { invoice, subTotal, taxInfo, tax, grandTotal, projectName, quotationRefNumber };
+    const viewProps = { invoice, subTotal, taxInfo, taxAmount, grandTotal, projectName, quotationRefNumber };
 
     return (
         <>
