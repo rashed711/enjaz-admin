@@ -3,13 +3,15 @@
 
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Currency, DocumentItemState } from '../types';
+import { Currency, DocumentItemState, Product } from '../types';
 import { useProducts } from '../contexts/ProductContext';
 import { QuotationState } from '../pages/QuotationEditorPage';
 import Spinner from './Spinner';
 import DocumentItemRow from './QuotationItemRow';
 import { getTaxInfo } from '../hooks/useDocument';
 import { useDocumentItems } from '../hooks/useDocumentItems';
+import AddProductModal from './AddProductModal';
+import { useAuth } from '../hooks/useAuth';
 
 interface QuotationEditorFormProps {
     document: QuotationState;
@@ -59,7 +61,9 @@ const TotalsDisplay: React.FC<{
 };
 
 const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ document, setDocument, onSave, isSaving, onCancel, saveError }) => {
-    const { products } = useProducts();
+    const { products, addProduct } = useProducts();
+    const { currentUser } = useAuth();
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const { handleItemChange, handleProductSelection, addItem, removeItem } = useDocumentItems(setDocument, products);
 
@@ -95,11 +99,23 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ document, set
         });
     };
 
+    const handleAddProduct = async (productData: Omit<Product, 'id' | 'averagePurchasePrice' | 'averageSellingPrice'>) => {
+        if (!currentUser) {
+            return { product: null, error: "User not authenticated to add a product." };
+        }
+        return addProduct(productData);
+    };
+
     const inputClasses = "border border-border bg-white text-text-primary p-2 rounded w-full text-right focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors";
     const buttonClasses = "px-5 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
 
     return (
         <>
+            <AddProductModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleAddProduct}
+            />
             <div className="bg-card p-6 rounded-lg shadow-sm border border-border">
                 <h2 className="text-xl font-bold mb-4 border-b border-border pb-2 text-text-secondary">تفاصيل العميل</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -154,8 +170,9 @@ const QuotationEditorForm: React.FC<QuotationEditorFormProps> = ({ document, set
                     ))}
                 </div>
 
-                <div className="flex items-center gap-4 mt-4">
+                <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
                     <button onClick={addItem} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-lg font-semibold">+ إضافة بند جديد</button>
+                    <button onClick={() => setIsModalOpen(true)} className="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-semibold">+ إضافة منتج للقائمة</button>
                 </div>
 
                 <TotalsDisplay
