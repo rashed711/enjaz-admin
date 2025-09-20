@@ -492,6 +492,8 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
         setIsSaving(true);
         setSaveError(null);
 
+        let numberField = '';
+
         try {
             const { items, id, ...docDetails } = document;
             
@@ -517,7 +519,6 @@ export const useDocument = <T extends AnyDocumentState>({ documentType, id: idPa
             let savedDocId = id;
 
             if (isNew) {
-                let numberField = '';
                 if (documentType === 'quotation' || documentType === 'sales_invoice' || documentType === 'purchase_invoice') {
                     let prefix = '';
 

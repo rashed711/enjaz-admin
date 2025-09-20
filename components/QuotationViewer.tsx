@@ -85,8 +85,9 @@ const QuotationViewer: React.FC<QuotationViewerProps> = ({ document: quotation }
     
             if (quotationError) throw quotationError;
     
-            await fetchProducts();
+            // انتقل أولاً لمنع الصفحة الحالية من محاولة إعادة جلب المستند المحذوف
             navigate('/quotations');
+            await fetchProducts();
     
         } catch (error: any) {
             console.error("Error deleting quotation:", error.message);
