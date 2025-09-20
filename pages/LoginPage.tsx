@@ -38,26 +38,26 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setMessage(null);
     setLoading(true);
-
-    // تم تعديل هذا السطر ليحصل على بيانات المستخدم أيضاً
-    const { user, success, error: authError } = await login(email, password);
-    
-    if (success && user) {
-      // --- إضافة جديدة: تسجيل الجلسة فوراً عند تسجيل الدخول ---
-      try {
-        await supabase.from('user_sessions').upsert({
-          user_id: user.id,
-          last_seen_at: new Date().toISOString(),
-          // سيتم تحديث user_agent بواسطة أول heartbeat
-        }, { onConflict: 'user_id' });
-      } catch (sessionError) {
-        // لا توقف عملية تسجيل الدخول بسبب هذا الخطأ، فقط قم بتسجيله
-        console.error('Failed to create user session on login:', sessionError);
+    try {
+      // The login function from useAuth will just sign in and update the context state.
+      const { user, success, error: authError } = await login(email, password);
+  
+      if (success && user) {
+        // On successful login, sign out from other sessions.
+        // This will keep the current session active.
+        const { error: signOutError } = await supabase.auth.signOut({ scope: 'others' });
+        if (signOutError) {
+            // Log the error but don't block the login process
+            console.error('Error signing out from other sessions:', signOutError);
+        }
+        // Navigation is now handled by the useEffect in this component, which
+        // waits for `currentUser` to be updated by the AuthContext.
+      } else {
+        setMessage({ text: authError || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', isError: true });
+        setLoading(false);
       }
-      // --------------------------------------------------------
-      navigate(from, { replace: true });
-    } else {
-      setMessage({ text: authError || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', isError: true });
+    } catch (error: any) {
+      setMessage({ text: error.message || 'حدث خطأ غير متوقع.', isError: true });
       setLoading(false);
     }
   };

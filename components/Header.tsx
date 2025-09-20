@@ -18,7 +18,8 @@ const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    // No need to navigate. The AuthGuard will automatically redirect
+    // to the login page when the currentUser state becomes null.
   };
 
   useEffect(() => {

@@ -10,7 +10,8 @@ const ProfilePage: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    // No need to navigate. The AuthGuard in App.tsx will detect the change
+    // in `currentUser` and automatically render the LoginPage.
   };
 
   // The top-level AuthGuard in App.tsx now handles all loading and authentication checks.

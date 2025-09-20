@@ -1,10 +1,10 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Session, User } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import { Profile } from '../types';
 export interface AuthContextType {
   currentUser: Profile | null;
-  login: (email: string, password: string) => Promise<{ user: User | null; success: boolean; error: string | null; }>;
+  login: (email: string, password: string) => Promise<{ user: User | null; success: boolean; error: string | null }>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -15,8 +15,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // This is a stable function that won't change on re-renders,
-  // making it safe to use in the useEffect dependency array.
+  // This function is memoized, so it's safe to use in the useEffect dependency array.
+  // It fetches the user's profile from the 'profiles' table.
   const fetchUserProfile = useCallback(async (user: User | null): Promise<Profile | null> => {
     if (!user) return null;
     try {
@@ -27,48 +27,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
       
       if (error) {
-        // If the error is because the user doesn't exist in profiles, that's a valid state (e.g., just signed up).
-        // For other errors, log them. We shouldn't sign the user out here as it might be a temporary network issue.
         console.error('Error fetching user profile:', error);
         return null;
       }
-      return profile;
+      // A user is only valid if they have a profile with a role.
+      return profile && profile.role ? profile : null;
     } catch (e: any) {
-      // This might happen if the network is down.
       console.error('Exception in fetchUserProfile:', e);
       return null;
     }
   }, []);
 
   useEffect(() => {
-    // onAuthStateChange is the single source of truth. It fires on initial load
-    // with the current session, and again whenever the auth state changes.
-    // This is the most robust pattern and is resilient to Strict Mode.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // This effect provides a robust way to handle the session on initial load and subsequent changes,
+    // making it resilient to browser-specific behaviors like Chrome's caching.
+    let isMounted = true;
+
+    // 1. Proactively fetch the session on initial load.
+    const getInitialSession = async () => {
       try {
-      const profile = await fetchUserProfile(session?.user ?? null);
-        // The user is only considered "loaded" and "current" if they have a session AND a profile with a role.
-        // Otherwise, they are treated as logged out.
-        setCurrentUser(profile && profile.role ? profile : null);
-      } catch (e) {
-        console.error("Error in onAuthStateChange handler:", e);
-        setCurrentUser(null);
-      } finally {
-        // This is the key. It guarantees the loading state is always resolved
-        // after the first check, preventing the app from getting stuck.
-        if (loading) {
-            setLoading(false);
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        if (isMounted) {
+          const profile = await fetchUserProfile(session?.user ?? null);
+          setCurrentUser(profile);
         }
+      } catch (e) {
+        console.error("AuthContext: Error getting initial session:", e);
+        if (isMounted) setCurrentUser(null);
+      } finally {
+        // 3. Crucially, always set loading to false after the initial check.
+        // This prevents the app from getting stuck on a loading screen.
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    getInitialSession();
+
+    // 2. Set up a listener for any *future* changes in auth state.
+    // This handles sign-ins, sign-outs from other tabs, token refreshes, etc.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (isMounted) {
+        const profile = await fetchUserProfile(session?.user ?? null);
+        setCurrentUser(profile);
       }
     });
 
     return () => {
+      isMounted = false;
       subscription?.unsubscribe();
     };
-    // The dependency array ensures this effect runs only when fetchUserProfile changes,
-    // which it shouldn't because of useCallback.
-    // We add `loading` to ensure we can set it to false.
-  }, [fetchUserProfile, loading]);
+  }, [fetchUserProfile]);
 
   const login = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -77,21 +87,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const logout = useCallback(async () => {
-    const userId = currentUser?.id;
+    // Just sign out. The onAuthStateChange listener will detect the session change
+    // and update the currentUser to null, which is a more robust pattern.
     const { error } = await supabase.auth.signOut();
 
     if (error) {
         console.error("Error signing out:", error.message);
     }
-
-    if (userId) {
-      supabase.from('user_sessions').delete().eq('user_id', userId).then(({ error: deleteError }) => {
-          if (deleteError) {
-              console.warn("Could not clear user_session on logout:", deleteError.message);
-          }
-      });
-    }
-  }, [currentUser?.id]);
+  }, []);
 
   const value = useMemo(() => ({
     currentUser,
