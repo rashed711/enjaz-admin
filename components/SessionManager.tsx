@@ -61,37 +61,61 @@ const SessionManager: React.FC<{ children: React.ReactNode }> = ({ children }) =
         };
     }, [resetTimers, currentUser]);
 
-    // -- إضافة جديدة: Heartbeat لتحديث آخر ظهور للمستخدم --
+    // -- Heartbeat to update user's last seen status --
     useEffect(() => {
-        let heartbeatInterval: NodeJS.Timeout;
- 
+        if (!currentUser) return;
+
         const sendHeartbeat = async () => {
-            // Only send heartbeat if the user is logged in and the tab is visible
-            if (!currentUser || document.visibilityState !== 'visible') return;
- 
             try {
-                // لا حاجة للتعامل مع الاستجابة، فقط أرسل الطلب
+                // This function's only job is to update the last_seen status.
                 await supabase.functions.invoke('heartbeat');
             } catch (error) {
-                console.error('Heartbeat failed:', error);
+                // Don't log out the user for a failed heartbeat. Just log the error.
+                console.error('Heartbeat function failed:', error);
             }
         };
- 
-        if (currentUser) {
-            // Send a heartbeat immediately when the component mounts or user logs in
-            sendHeartbeat();
-            // And then every minute
-            heartbeatInterval = setInterval(sendHeartbeat, 60 * 1000); // كل دقيقة
- 
-            // Also send a heartbeat immediately when the tab becomes visible again
-            document.addEventListener('visibilitychange', sendHeartbeat);
-        }
- 
+
+        sendHeartbeat(); // Send one immediately
+        const heartbeatInterval = setInterval(sendHeartbeat, 60 * 1000); // And then every minute
+
         return () => {
             clearInterval(heartbeatInterval);
-            document.removeEventListener('visibilitychange', sendHeartbeat);
         };
     }, [currentUser]);
+
+    // -- Session refresh on tab focus --
+    useEffect(() => {
+        if (!currentUser) return;
+
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'visible') {
+                // When the tab becomes visible, we want to ensure the connection is active.
+                // 1. Explicitly resume realtime subscriptions. The client might do this automatically,
+                //    but being explicit can help in some edge cases.
+                supabase.realtime.resume();
+                console.log('Tab became visible, resuming Realtime and refreshing session.');
+                
+                // 2. Force a session refresh to get a new, valid access token.
+                //    This is crucial because the old token might have expired while the tab was in the background.
+                const { error } = await supabase.auth.refreshSession();
+                if (error) {
+                    console.error("Failed to refresh session on focus:", error.message);
+                    // If session refresh fails, it's a critical error. Log the user out.
+                    handleLogout();
+                }
+            } else if (document.visibilityState === 'hidden') {
+                // When the tab is hidden, we can optionally pause realtime connections to save resources.
+                supabase.realtime.pause();
+                console.log('Tab hidden, pausing Realtime connections.');
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [currentUser, handleLogout]);
 
     return (
         <>
