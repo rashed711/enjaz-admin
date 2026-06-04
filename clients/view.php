@@ -187,6 +187,12 @@ require_once INCLUDES_PATH . '/header.php';
                   <a href="../subscriptions/edit.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-outline" title="تعديل">
                     <i class="fas fa-edit"></i>
                   </a>
+                  <a href="../subscriptions/delete.php?id=<?= $sub['id'] ?>&client_id=<?= $client['id'] ?>"
+                     class="btn btn-sm btn-outline-danger"
+                     data-confirm="هل تريد حذف هذا الاشتراك؟ (سيتم إزالة ربطه بالمدفوعات دون حذف المبالغ)"
+                     title="حذف">
+                    <i class="fas fa-trash"></i>
+                  </a>
                   <?php if ($sub['status'] === 'expired' || $sub['status'] === 'cancelled'): ?>
                   <a href="../subscriptions/renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success" title="تجديد">
                     <i class="fas fa-redo"></i>

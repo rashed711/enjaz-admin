@@ -8,7 +8,7 @@ requirePermission('edit_subscriptions');
 
 $db  = getDB();
 $id  = (int)($_GET['id'] ?? 0);
-$stmt = $db->prepare("SELECT cs.*, s.name as service_name, c.name as client_name FROM client_subscriptions cs JOIN services s ON s.id=cs.service_id JOIN clients c ON c.id=cs.client_id WHERE cs.id=?");
+$stmt = $db->prepare("SELECT cs.*, s.name as service_name, c.name as client_name, c.domain, c.domain_provider FROM client_subscriptions cs JOIN services s ON s.id=cs.service_id JOIN clients c ON c.id=cs.client_id WHERE cs.id=?");
 $stmt->execute([$id]);
 $sub = $stmt->fetch();
 if (!$sub) { setFlash('error','الاشتراك غير موجود.'); header('Location: ../clients/index.php'); exit; }
@@ -65,6 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
             $db->prepare("UPDATE client_subscriptions SET plan_name=?,price=?,start_date=?,end_date=?,status=?,notes=? WHERE id=?")
                ->execute([$formData['plan_name'],$formData['price'],$dbValStartDate,$dbValEndDate,$formData['status'],$formData['notes'],$id]);
+            
+            // تحديث بيانات الدومين للعميل إذا كانت الخدمة تخص حجز الدومين
+            $isDomainService = (mb_strpos($sub['service_name'], 'دومين') !== false || mb_strpos(strtolower($sub['service_name']), 'domain') !== false);
+            if ($isDomainService) {
+                $domain = clean($_POST['domain'] ?? '');
+                $domainProvider = clean($_POST['domain_provider'] ?? '');
+                $db->prepare("UPDATE clients SET domain = ?, domain_provider = ? WHERE id = ?")
+                   ->execute([$domain, $domainProvider, $sub['client_id']]);
+            }
+
             setFlash('success','تم تحديث الاشتراك بنجاح.');
             header("Location: ../clients/view.php?id={$sub['client_id']}");
             exit;
@@ -160,6 +170,57 @@ require_once INCLUDES_PATH . '/header.php';
           </select>
         </div>
       </div>
+
+      <?php 
+      $isDomainService = (mb_strpos($sub['service_name'], 'دومين') !== false || mb_strpos(strtolower($sub['service_name']), 'domain') !== false);
+      if ($isDomainService):
+      ?>
+        <!-- حقول الدومين الإضافية (تظهر فقط عند حجز دومين) -->
+        <div style="background:#f8fafc;border:1px dashed var(--border-color);border-radius:8px;padding:14px;margin-bottom:14px;">
+          <div style="font-weight:700;font-size:13px;color:var(--primary-light);margin-bottom:10px;">
+            <i class="fas fa-globe"></i> تفاصيل الدومين ومزود الخدمة
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="sub_domain">اسم الدومين</label>
+              <input type="text" id="sub_domain" name="domain" class="form-control" placeholder="example.com" value="<?= e($sub['domain']) ?>" dir="ltr">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sub_domain_provider_select">مزود الخدمة</label>
+              <?php 
+              $providers = ['GoDaddy', 'Hostinger', 'Namecheap', 'Cloudflare', 'Dynadot', 'Hostgator', 'Bluehost', 'إنجاز للحلول الذكية'];
+              $isCustomProv = !empty($sub['domain_provider']) && !in_array($sub['domain_provider'], $providers);
+              ?>
+              <select id="sub_domain_provider_select" class="form-control" onchange="onSubProviderChange(this)">
+                <option value="">— اختر مزود الخدمة —</option>
+                <?php foreach ($providers as $prov): ?>
+                  <option value="<?= e($prov) ?>" <?= $sub['domain_provider'] === $prov ? 'selected' : '' ?>><?= e($prov) ?></option>
+                <?php endforeach; ?>
+                <option value="custom" <?= $isCustomProv ? 'selected' : '' ?>>مزود آخر (كتابة يدوية)...</option>
+              </select>
+              <input type="text" id="sub_domain_provider" name="domain_provider" class="form-control" 
+                     value="<?= e($sub['domain_provider']) ?>" 
+                     style="margin-top:8px; display: <?= $isCustomProv ? 'block' : 'none' ?>;" 
+                     placeholder="اكتب اسم مزود الخدمة...">
+            </div>
+          </div>
+        </div>
+        <script>
+        function onSubProviderChange(sel) {
+          const customInput = document.getElementById('sub_domain_provider');
+          if (sel.value === 'custom') {
+            customInput.style.display = 'block';
+            customInput.required = true;
+            customInput.value = '';
+          } else {
+            customInput.style.display = 'none';
+            customInput.required = false;
+            customInput.value = sel.value;
+          }
+        }
+        </script>
+      <?php endif; ?>
+
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="start_date">البداية <?= $serviceDuration > 0 ? '<span class="required">*</span>' : '' ?></label>
