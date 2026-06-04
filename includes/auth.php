@@ -13,6 +13,23 @@ function requireLogin(): void {
         header("Location: $loginUrl");
         exit;
     }
+
+    // فحص انتهاء الجلسة بسبب عدم النشاط (15 دقيقة)
+    $timeout = 900; // 15 دقيقة بالثواني
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeout)) {
+        logoutUser();
+        // إعادة تهيئة الجلسة لإرسال رسالة التنبيه
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        setFlash('warning', 'تم تسجيل الخروج تلقائياً بسبب عدم النشاط لحماية حسابك.');
+        $loginUrl = getBaseUrl() . '/login.php';
+        header("Location: $loginUrl");
+        exit;
+    }
+
+    // تحديث وقت آخر نشاط
+    $_SESSION['last_activity'] = time();
 }
 
 /**
@@ -86,6 +103,7 @@ function loginUser(string $username, string $password): array {
         $_SESSION['user_username']    = $user['username'];
         $_SESSION['user_role']        = $user['role'];
         $_SESSION['user_permissions'] = json_decode($user['permissions'] ?? '[]', true) ?? [];
+        $_SESSION['last_activity']    = time();
 
         return ['success' => true];
     } catch (Exception $e) {
