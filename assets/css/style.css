@@ -1238,6 +1238,17 @@ textarea.form-control {
   }
 }
 
+/* Collapsed sidebar on desktop */
+@media (min-width: 1025px) {
+  .layout.sidebar-collapsed .sidebar {
+    transform: translateX(100%);
+  }
+  .layout.sidebar-collapsed .main-content {
+    margin-right: 0;
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .page-content { padding: 12px; }
   .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
