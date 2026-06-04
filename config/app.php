@@ -46,6 +46,16 @@ define('ALL_PERMISSIONS', [
 // ── تحميل قاعدة البيانات ─────────────────────────────────────────
 require_once CONFIG_PATH . '/db.php';
 
+// التأكد من جعل حقول التواريخ تقبل القيمة الفارغة (Nullable)
+try {
+    $db = getDB();
+    $desc = $db->query("DESCRIBE client_subscriptions start_date")->fetch();
+    if ($desc && strtolower($desc['Null'] ?? 'no') === 'no') {
+        $db->exec("ALTER TABLE client_subscriptions MODIFY start_date DATE NULL;");
+        $db->exec("ALTER TABLE client_subscriptions MODIFY end_date DATE NULL;");
+    }
+} catch (Exception $e) {}
+
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
 require_once INCLUDES_PATH . '/functions.php';
 require_once INCLUDES_PATH . '/auth.php';

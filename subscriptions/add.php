@@ -23,16 +23,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$clientId)   $errors[] = 'العميل مطلوب.';
         if (!$serviceId)  $errors[] = 'الخدمة مطلوبة.';
         if ($price <= 0)  $errors[] = 'السعر يجب أن يكون أكبر من صفر.';
-        if (!$startDate)  $errors[] = 'تاريخ البداية مطلوب.';
-        if (!$endDate && $serviceId) {
-            // Check if service has duration
+
+        $dbValStartDate = null;
+        $dbValEndDate   = null;
+
+        if ($serviceId) {
             $srvStmt = $db->prepare("SELECT duration_months FROM services WHERE id = ?");
             $srvStmt->execute([$serviceId]);
             $srv = $srvStmt->fetch();
-            if ($srv && $srv['duration_months'] == 0) {
-                $endDate = $startDate; // one-time service
+            
+            if ($srv && (int)$srv['duration_months'] > 0) {
+                if (!$startDate) {
+                    $errors[] = 'تاريخ البداية مطلوب لهذه الخدمة.';
+                } else {
+                    $dbValStartDate = $startDate;
+                }
+                if (!$endDate) {
+                    $errors[] = 'تاريخ النهاية مطلوب لهذه الخدمة.';
+                } else {
+                    $dbValEndDate = $endDate;
+                }
             } else {
-                $errors[] = 'تاريخ النهاية مطلوب.';
+                if ($startDate) $dbValStartDate = $startDate;
+                if ($endDate)   $dbValEndDate   = $endDate;
             }
         }
 
@@ -41,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO client_subscriptions
                   (client_id, service_id, plan_name, price, start_date, end_date, notes, status, created_by)
                 VALUES (?,?,?,?,?,?,?,'active',?)
-            ")->execute([$clientId, $serviceId, $planName, $price, $startDate, $endDate, $notes, currentUserId()]);
+            ")->execute([$clientId, $serviceId, $planName, $price, $dbValStartDate, $dbValEndDate, $notes, currentUserId()]);
             setFlash('success', 'تم إضافة الخدمة للعميل بنجاح.');
             header("Location: ../clients/view.php?id=$clientId");
             exit;

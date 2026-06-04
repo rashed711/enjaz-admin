@@ -54,7 +54,7 @@ function formatMoney(float $amount, string $currency = null): string {
 /**
  * تنسيق التاريخ للعرض
  */
-function formatDate(string $date, string $format = 'd/m/Y'): string {
+function formatDate(?string $date, string $format = 'd/m/Y'): string {
     if (empty($date) || $date === '0000-00-00') return '—';
     return date($format, strtotime($date));
 }
@@ -83,7 +83,7 @@ function daysDiff(string $date1, string $date2 = 'today'): int {
 /**
  * حالة الاشتراك كـ badge HTML
  */
-function subscriptionStatusBadge(string $status, string $endDate = ''): string {
+function subscriptionStatusBadge(string $status, ?string $endDate = ''): string {
     $warningDays = (int)getSetting('renewal_warning_days', '30');
     // تحقق من الاقتراب من الانتهاء
     if ($status === 'active' && !empty($endDate)) {

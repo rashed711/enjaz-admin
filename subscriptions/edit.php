@@ -18,6 +18,12 @@ $plans = $db->prepare("SELECT * FROM service_plans WHERE service_id = ? AND stat
 $plans->execute([$sub['service_id']]);
 $plans = $plans->fetchAll();
 
+// جلب مدة الخدمة الافتراضية
+$srvStmt = $db->prepare("SELECT duration_months FROM services WHERE id = ?");
+$srvStmt->execute([$sub['service_id']]);
+$srv = $srvStmt->fetch();
+$serviceDuration = $srv ? (int)$srv['duration_months'] : 12;
+
 $errors = [];
 $formData = $sub;
 
@@ -36,12 +42,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $formData['notes']      = clean($_POST['notes'] ?? '');
 
         if ($formData['price'] <= 0) $errors[] = 'السعر يجب أن يكون أكبر من صفر.';
-        if (!$formData['start_date']) $errors[] = 'تاريخ البداية مطلوب.';
-        if (!$formData['end_date'])   $errors[] = 'تاريخ النهاية مطلوب.';
+
+        $dbValStartDate = null;
+        $dbValEndDate   = null;
+
+        if ($serviceDuration > 0) {
+            if (!$formData['start_date']) {
+                $errors[] = 'تاريخ البداية مطلوب لهذه الخدمة.';
+            } else {
+                $dbValStartDate = $formData['start_date'];
+            }
+            if (!$formData['end_date']) {
+                $errors[] = 'تاريخ النهاية مطلوب لهذه الخدمة.';
+            } else {
+                $dbValEndDate = $formData['end_date'];
+            }
+        } else {
+            if ($formData['start_date']) $dbValStartDate = $formData['start_date'];
+            if ($formData['end_date'])   $dbValEndDate   = $formData['end_date'];
+        }
 
         if (empty($errors)) {
             $db->prepare("UPDATE client_subscriptions SET plan_name=?,price=?,start_date=?,end_date=?,status=?,notes=? WHERE id=?")
-               ->execute([$formData['plan_name'],$formData['price'],$formData['start_date'],$formData['end_date'],$formData['status'],$formData['notes'],$id]);
+               ->execute([$formData['plan_name'],$formData['price'],$dbValStartDate,$dbValEndDate,$formData['status'],$formData['notes'],$id]);
             setFlash('success','تم تحديث الاشتراك بنجاح.');
             header("Location: ../clients/view.php?id={$sub['client_id']}");
             exit;
@@ -139,23 +162,23 @@ require_once INCLUDES_PATH . '/header.php';
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="start_date">البداية <span class="required">*</span></label>
-          <input type="date" id="startDate" name="start_date" class="form-control" value="<?= $formData['start_date'] ?>" required>
+          <label class="form-label" for="start_date">البداية <?= $serviceDuration > 0 ? '<span class="required">*</span>' : '' ?></label>
+          <input type="date" id="startDate" name="start_date" class="form-control" value="<?= $formData['start_date'] ?>" <?= $serviceDuration > 0 ? 'required' : '' ?>>
         </div>
         <div class="form-group">
           <label class="form-label">المدة (للحساب)</label>
           <select id="durationMonths" class="form-control">
-            <option value="0">—</option>
+            <option value="0" <?= $serviceDuration === 0 ? 'selected' : '' ?>>—</option>
             <option value="1">شهر</option>
             <option value="3">3 أشهر</option>
             <option value="6">6 أشهر</option>
-            <option value="12">سنة</option>
+            <option value="12" <?= $serviceDuration === 12 ? 'selected' : '' ?>>سنة</option>
             <option value="24">سنتان</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="end_date">النهاية <span class="required">*</span></label>
-          <input type="date" id="endDate" name="end_date" class="form-control" value="<?= $formData['end_date'] ?>" required>
+          <label class="form-label" for="end_date">النهاية <?= $serviceDuration > 0 ? '<span class="required">*</span>' : '' ?></label>
+          <input type="date" id="endDate" name="end_date" class="form-control" value="<?= $formData['end_date'] ?>" <?= $serviceDuration > 0 ? 'required' : '' ?>>
         </div>
       </div>
       <div class="form-group">

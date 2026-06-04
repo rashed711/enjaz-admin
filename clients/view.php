@@ -650,20 +650,42 @@ function selectCustomPlan() {
 
 // ══ حساب تاريخ النهاية ═══════════════════════════════════════
 function recalcEndDate() {
-  const startVal = document.getElementById('startDate').value;
-  const months   = parseInt(document.getElementById('durationMonths').value) || 0;
-  if (!startVal || months === 0) return;
+  const startInput = document.getElementById('startDate');
+  const endInput   = document.getElementById('endDate');
+  const durationEl = document.getElementById('durationMonths');
+  const startVal   = startInput.value;
+  const months     = parseInt(durationEl.value) || 0;
 
-  const start  = new Date(startVal);
-  // أضف الشهور
-  start.setMonth(start.getMonth() + months);
-  // اطرح يوم واحد (ينتهي قبل نفس اليوم من السنة القادمة)
-  start.setDate(start.getDate() - 1);
+  const startReq = startInput.previousElementSibling.querySelector('.required');
+  const endReq   = endInput.previousElementSibling.querySelector('.required');
 
-  const yyyy = start.getFullYear();
-  const mm   = String(start.getMonth() + 1).padStart(2, '0');
-  const dd   = String(start.getDate()).padStart(2, '0');
-  document.getElementById('endDate').value = `${yyyy}-${mm}-${dd}`;
+  if (months === 0) {
+    // الخدمة بدون تاريخ انتهاء - التواريخ غير مطلوبة
+    startInput.removeAttribute('required');
+    endInput.removeAttribute('required');
+    if (startReq) startReq.style.display = 'none';
+    if (endReq)   endReq.style.display = 'none';
+    endInput.value = '';
+  } else {
+    // الخدمة بمدة محددة - التواريخ مطلوبة
+    startInput.setAttribute('required', 'required');
+    endInput.setAttribute('required', 'required');
+    if (startReq) startReq.style.display = 'inline';
+    if (endReq)   endReq.style.display = 'inline';
+
+    if (!startVal) return;
+
+    const start  = new Date(startVal);
+    // أضف الشهور
+    start.setMonth(start.getMonth() + months);
+    // اطرح يوم واحد (ينتهي قبل نفس اليوم من السنة القادمة)
+    start.setDate(start.getDate() - 1);
+
+    const yyyy = start.getFullYear();
+    const mm   = String(start.getMonth() + 1).padStart(2, '0');
+    const dd   = String(start.getDate()).padStart(2, '0');
+    endInput.value = `${yyyy}-${mm}-${dd}`;
+  }
 }
 
 // احسب النهاية عند فتح الـ modal تلقائياً

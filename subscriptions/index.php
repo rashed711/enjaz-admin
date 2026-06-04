@@ -93,7 +93,8 @@ require_once INCLUDES_PATH . '/header.php';
           <td>
             <?php
             $d = $sub['days_left'];
-            if ($d < 0): ?><span class="badge badge-danger">انتهى</span>
+            if ($d === null): ?><span class="badge badge-success">مفتوح (لا ينتهي)</span>
+            <?php elseif ($d < 0): ?><span class="badge badge-danger">انتهى</span>
             <?php elseif ($d <= 7): ?><span class="badge badge-danger"><?= $d ?> يوم</span>
             <?php elseif ($d <= 30): ?><span class="badge badge-warning"><?= $d ?> يوم</span>
             <?php else: ?><span class="badge badge-success"><?= $d ?> يوم</span>

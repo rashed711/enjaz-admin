@@ -30,7 +30,7 @@
 
   /* Sidebar */
   --sidebar-bg:       #0e1e35;
-  --sidebar-width:    260px;
+  --sidebar-width:    230px;
   --sidebar-item-hover: rgba(240, 165, 0, 0.12);
   --sidebar-active-bg: rgba(240, 165, 0, 0.18);
   --sidebar-text:     #c8d8ea;
@@ -70,7 +70,7 @@
 
 html {
   direction: rtl;
-  font-size: 15px;
+  font-size: 13px;
   scroll-behavior: smooth;
 }
 
@@ -1239,17 +1239,28 @@ textarea.form-control {
 }
 
 @media (max-width: 768px) {
-  .page-content { padding: 16px; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .summary-boxes { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
-  .page-header { flex-direction: column; align-items: flex-start; }
-  .topbar { padding: 0 16px; }
+  .page-content { padding: 12px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .summary-boxes { grid-template-columns: 1fr; gap: 12px; }
+  .form-row { grid-template-columns: 1fr; gap: 12px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .topbar { padding: 0 12px; }
+  .data-table td, .data-table thead th { padding: 10px 8px; font-size: 12px; }
+  .table-wrapper { border-radius: 8px; }
+  .topbar-time { font-size: 11px; padding: 4px 10px; }
+}
+
+@media (max-width: 576px) {
+  .topbar-time { display: none; }
+  .topbar-breadcrumb { font-size: 12px; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .page-actions { width: 100%; display: flex; gap: 8px; }
+  .page-actions .btn { flex: 1; justify-content: center; }
 }
 
 @media (max-width: 480px) {
-  .stats-grid { grid-template-columns: 1fr; }
-  .search-box input { min-width: 180px; }
+  .search-box input { min-width: 150px; }
+  .client-header-card { padding: 16px; }
 }
 
 /* ── Sidebar Overlay (mobile) ─────────────────────────────────── */
