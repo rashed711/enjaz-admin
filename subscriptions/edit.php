@@ -13,13 +13,22 @@ $stmt->execute([$id]);
 $sub = $stmt->fetch();
 if (!$sub) { setFlash('error','الاشتراك غير موجود.'); header('Location: ../clients/index.php'); exit; }
 
+// جلب الباقات المتاحة لهذه الخدمة
+$plans = $db->prepare("SELECT * FROM service_plans WHERE service_id = ? AND status = 1 ORDER BY sort_order ASC, price ASC");
+$plans->execute([$sub['service_id']]);
+$plans = $plans->fetchAll();
+
 $errors = [];
 $formData = $sub;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $formData['plan_name']  = clean($_POST['plan_name'] ?? '');
+        $planName = clean($_POST['plan_name'] ?? '');
+        if ($planName === 'custom') {
+            $planName = clean($_POST['custom_plan_name'] ?? '');
+        }
+        $formData['plan_name']  = $planName;
         $formData['price']      = (float)($_POST['price'] ?? 0);
         $formData['start_date'] = clean($_POST['start_date'] ?? '');
         $formData['end_date']   = clean($_POST['end_date'] ?? '');
@@ -69,9 +78,50 @@ require_once INCLUDES_PATH . '/header.php';
         </div>
         <div class="form-group">
           <label class="form-label" for="plan_name">الخطة</label>
-          <input type="text" id="plan_name" name="plan_name" class="form-control" value="<?= e($formData['plan_name']) ?>">
+          <?php if (!empty($plans)): 
+              $planNames = array_column($plans, 'name');
+              $isCustom = !empty($formData['plan_name']) && !in_array($formData['plan_name'], $planNames);
+          ?>
+            <select id="plan_name" name="plan_name" class="form-control" onchange="updatePriceFromPlan(this)">
+              <option value="" data-price="0.00">— اختر باقة —</option>
+              <?php foreach ($plans as $p): ?>
+                <option value="<?= e($p['name']) ?>" data-price="<?= $p['price'] ?>" <?= $formData['plan_name'] === $p['name'] ? 'selected' : '' ?>>
+                  <?= e($p['name']) ?> (<?= formatMoney($p['price']) ?>)
+                </option>
+              <?php endforeach; ?>
+              <option value="custom" data-price="" <?= $isCustom ? 'selected' : '' ?>>باقة مخصصة...</option>
+            </select>
+            <input type="text" id="custom_plan_name" name="custom_plan_name" class="form-control" 
+                   style="margin-top:8px; display: <?= $isCustom ? 'block' : 'none' ?>;" 
+                   placeholder="اكتب اسم الباقة المخصصة..." value="<?= e($formData['plan_name']) ?>">
+          <?php else: ?>
+            <input type="text" id="plan_name" name="plan_name" class="form-control" value="<?= e($formData['plan_name']) ?>">
+          <?php endif; ?>
         </div>
       </div>
+      <script>
+        function updatePriceFromPlan(selectEl) {
+          const selectedOpt = selectEl.options[selectEl.selectedIndex];
+          const price = selectedOpt.getAttribute('data-price');
+          const customInput = document.getElementById('custom_plan_name');
+          
+          if (selectEl.value === 'custom') {
+            if (customInput) {
+              customInput.style.display = 'block';
+              customInput.value = '';
+              customInput.focus();
+            }
+          } else {
+            if (customInput) {
+              customInput.style.display = 'none';
+              customInput.value = selectEl.value;
+            }
+            if (price && parseFloat(price) > 0) {
+              document.getElementById('price').value = parseFloat(price);
+            }
+          }
+        }
+      </script>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="price">السعر <span class="required">*</span></label>
