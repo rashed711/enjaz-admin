@@ -83,6 +83,21 @@ try {
     }
 } catch (Exception $e) {}
 
+// التأكد من إضافة عمود الترتيب لجدول الخدمات
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM services LIKE 'sort_order'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE services ADD COLUMN sort_order INT NOT NULL DEFAULT 0;");
+        
+        // تعيين الترتيب الافتراضي بناءً على اسم الخدمة
+        $db->exec("UPDATE services SET sort_order = 1 WHERE name LIKE '%دومين%' OR name LIKE '%domain%';");
+        $db->exec("UPDATE services SET sort_order = 2 WHERE name LIKE '%بريد%' OR name LIKE '%ايميل%' OR name LIKE '%email%';");
+        $db->exec("UPDATE services SET sort_order = 3 WHERE name LIKE '%تصميم%' OR name LIKE '%موقع%' OR name LIKE '%web%';");
+        $db->exec("UPDATE services SET sort_order = 99 WHERE sort_order = 0;");
+    }
+} catch (Exception $e) {}
+
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
 require_once INCLUDES_PATH . '/functions.php';
 require_once INCLUDES_PATH . '/auth.php';

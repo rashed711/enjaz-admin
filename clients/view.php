@@ -54,7 +54,7 @@ $payments = $paysStmt->fetchAll();
 $summary = getClientSummary($id);
 
 // جلب الخدمات المتاحة (لنافذة إضافة اشتراك)
-$services = $db->query("SELECT * FROM services WHERE status = 1 ORDER BY name")->fetchAll();
+$services = $db->query("SELECT * FROM services WHERE status = 1 ORDER BY sort_order ASC, name ASC")->fetchAll();
 
 $pageTitle  = 'ملف العميل: ' . $client['name'];
 $activePage = 'clients';

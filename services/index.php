@@ -11,7 +11,7 @@ $services = $db->query("
     SELECT s.*, COUNT(DISTINCT cs.client_id) as clients_count
     FROM services s
     LEFT JOIN client_subscriptions cs ON cs.service_id = s.id AND cs.status = 'active'
-    GROUP BY s.id ORDER BY s.name
+    GROUP BY s.id ORDER BY s.sort_order ASC, s.name ASC
 ")->fetchAll();
 
 // جلب الباقات لكل خدمة
@@ -170,6 +170,13 @@ require_once INCLUDES_PATH . '/header.php';
             <input type="number" id="srv_duration" name="duration_months" class="form-control" min="0" value="12">
             <span class="form-hint">0 = مرة واحدة</span>
           </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="srv_sort">ترتيب الظهور</label>
+            <input type="number" id="srv_sort" name="sort_order" class="form-control" min="0" value="0">
+            <span class="form-hint">مثال: 1=الدومين، 2=البريد...</span>
+          </div>
           <div class="form-group">
             <label class="form-label" for="srv_status">الحالة</label>
             <select id="srv_status" name="status" class="form-control">
@@ -263,6 +270,7 @@ function openAddServiceModal() {
   document.getElementById('srv_desc').value     = '';
   document.getElementById('srv_price').value    = '0';
   document.getElementById('srv_duration').value = '12';
+  document.getElementById('srv_sort').value     = '0';
   document.getElementById('srv_status').value   = '1';
   openModal('addServiceModal');
 }
@@ -274,6 +282,7 @@ function editService(srv) {
   document.getElementById('srv_desc').value     = srv.description || '';
   document.getElementById('srv_price').value    = srv.default_price;
   document.getElementById('srv_duration').value = srv.duration_months;
+  document.getElementById('srv_sort').value     = srv.sort_order || 0;
   document.getElementById('srv_status').value   = srv.status;
   openModal('addServiceModal');
 }
