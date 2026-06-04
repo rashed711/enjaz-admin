@@ -128,26 +128,6 @@ try {
           </a>
         </li>
         <?php endif; ?>
-        <?php if (hasPermission('view_payments')): ?>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>payments/index.php"
-             class="nav-link <?= ($activePage ?? '') === 'payments' ? 'active' : '' ?>"
-             id="nav-payments">
-            <i class="fas fa-money-bill-wave nav-icon"></i>
-            <span>المدفوعات</span>
-          </a>
-        </li>
-        <?php endif; ?>
-        <?php if (hasPermission('print_invoices')): ?>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>invoices/index.php"
-             class="nav-link <?= ($activePage ?? '') === 'invoices' ? 'active' : '' ?>"
-             id="nav-invoices">
-            <i class="fas fa-file-invoice nav-icon"></i>
-            <span>الفواتير</span>
-          </a>
-        </li>
-        <?php endif; ?>
       </ul>
       <?php endif; ?>
 
@@ -165,17 +145,18 @@ try {
       </ul>
       <?php endif; ?>
 
-      <?php if (hasPermission('view_reports')): ?>
-      <p class="nav-section-title">التقارير</p>
+      <?php if (hasPermission('view_reports') || hasPermission('view_payments') || hasPermission('print_invoices')): ?>
+      <p class="nav-section-title">التقارير والحسابات</p>
       <ul>
         <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/monthly.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-monthly' ? 'active' : '' ?>"
-             id="nav-reports-monthly">
-            <i class="fas fa-chart-bar nav-icon"></i>
-            <span>الإيرادات الشهرية</span>
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/financial-hub.php?tab=payments"
+             class="nav-link <?= ($activePage ?? '') === 'financial-hub' ? 'active' : '' ?>"
+             id="nav-financial-hub">
+            <i class="fas fa-wallet nav-icon"></i>
+            <span>المركز المالي والتقارير</span>
           </a>
         </li>
+        <?php if (hasPermission('view_reports')): ?>
         <li class="nav-item">
           <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals.php"
              class="nav-link <?= ($activePage ?? '') === 'reports-renewals' ? 'active' : '' ?>"
@@ -187,14 +168,7 @@ try {
             <?php endif; ?>
           </a>
         </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/services-summary.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-services' ? 'active' : '' ?>"
-             id="nav-reports-services">
-            <i class="fas fa-layer-group nav-icon"></i>
-            <span>ملخص الخدمات</span>
-          </a>
-        </li>
+        <?php endif; ?>
       </ul>
       <?php endif; ?>
 
