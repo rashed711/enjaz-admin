@@ -1,186 +1,714 @@
--- ================================================================
--- نظام إنجاز للحلول الذكية - قاعدة البيانات
--- Enjaz Smart Solutions - Database Schema
--- ================================================================
+-- phpMyAdmin SQL Dump
+-- version 5.2.3
+-- https://www.phpmyadmin.net/
+--
+-- Host: localhost:3306
+-- Generation Time: Jun 04, 2026 at 08:38 PM
+-- Server version: 8.0.46-0ubuntu0.22.04.2
+-- PHP Version: 8.3.30
 
-SET NAMES utf8mb4;
-SET CHARACTER SET utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
 
-CREATE DATABASE IF NOT EXISTS `enjaz_admin`
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
 
-USE `enjaz_admin`;
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
 
--- ================================================================
--- جدول المستخدمين (موظفون + مدير)
--- ================================================================
-CREATE TABLE IF NOT EXISTS `users` (
-    `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `username`     VARCHAR(100) NOT NULL UNIQUE,
-    `password`     VARCHAR(255) NOT NULL,
-    `full_name`    VARCHAR(200) NOT NULL,
-    `role`         ENUM('admin','employee') NOT NULL DEFAULT 'employee',
-    `permissions`  JSON NULL COMMENT 'صلاحيات مخصصة للموظف',
-    `status`       TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=نشط, 0=موقوف',
-    `last_login`   DATETIME NULL,
-    `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+--
+-- Database: `enjaz_admin`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `clients`
+--
+
+CREATE TABLE `clients` (
+  `id` int UNSIGNED NOT NULL,
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'اسم العميل',
+  `company_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'اسم الشركة',
+  `mobile` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'رقم الموبايل',
+  `mobile_2` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'رقم موبايل إضافي',
+  `activity` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'النشاط التجاري',
+  `domain` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `domain_provider` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `username_note` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'اسم المستخدم (للإشارة)',
+  `email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1=نشط, 0=موقوف',
+  `created_by` int UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول العملاء
--- ================================================================
-CREATE TABLE IF NOT EXISTS `clients` (
-    `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `name`         VARCHAR(200) NOT NULL COMMENT 'اسم العميل',
-    `company_name` VARCHAR(200) NULL COMMENT 'اسم الشركة',
-    `mobile`       VARCHAR(20) NOT NULL COMMENT 'رقم الموبايل',
-    `mobile_2`     VARCHAR(20) NULL COMMENT 'رقم موبايل إضافي',
-    `activity`     VARCHAR(200) NULL COMMENT 'النشاط التجاري',
-    `username_note`VARCHAR(200) NULL COMMENT 'اسم المستخدم (للإشارة)',
-    `email`        VARCHAR(200) NULL,
-    `address`      TEXT NULL,
-    `notes`        TEXT NULL,
-    `status`       TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=نشط, 0=موقوف',
-    `created_by`   INT UNSIGNED NULL,
-    `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+--
+-- Dumping data for table `clients`
+--
+
+INSERT INTO `clients` (`id`, `name`, `company_name`, `mobile`, `mobile_2`, `activity`, `domain`, `domain_provider`, `username_note`, `email`, `address`, `notes`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 'م / باسم', 'مكتب مشعل بادغيش', '966598012129', '966598012129', 'مكتب محاماة', '', 'GoDaddy', '', '', '', '', 1, 1, '2026-06-04 13:13:44', '2026-06-04 14:16:26'),
+(2, 'م / مصعب نبيل', 'Kentro TFM', '201112957899', '', 'interior design', 'kentrotfm.com', 'Namecheap', 'kentrotfm', '', '', '', 1, 1, '2026-06-04 13:35:02', '2026-06-04 14:20:56'),
+(3, 'م / محمد', 'servot', '201277795959', '201015308608', 'interior design', 'servot.co', 'GoDaddy', 'servot', '', '', '', 1, 1, '2026-06-04 13:45:56', '2026-06-04 14:15:58'),
+(4, 'م / اشرف', 'nexforges', '201220003177', '', '', 'nexforges.com', 'GoDaddy', 'nexforges', '', '', '', 1, 1, '2026-06-04 14:17:11', '2026-06-04 14:17:11'),
+(5, 'م / محمود', 'Flourish Landscaping', '201000008145', '', 'interior design', 'flourish-landscaping.com', 'Namecheap', 'flourish', '', '', '', 1, 1, '2026-06-04 14:19:02', '2026-06-04 14:19:02'),
+(6, 'م / احمد سعيد', 'Smart Source', '201019826096', '', 'Electronics shop', 'smartsource-eg.com', 'GoDaddy', 'smartsource', '', '', '', 1, 1, '2026-06-04 14:23:20', '2026-06-04 14:38:22'),
+(7, 'م / الطيب', 'Royal Smart', '201097488085', '', 'عمالة خارجية', 'royalsmart-rs.com', 'GoDaddy', 'royalsmart', '', '', '', 1, 1, '2026-06-04 14:37:23', '2026-06-04 14:39:36'),
+(8, 'م / محمد مروان', 'Stars Services', '201012692176', '', 'خدمات النظافة', 'stars-smcs.com', 'GoDaddy', 'stars-smcs', '', '', '', 1, 1, '2026-06-04 14:44:51', '2026-06-04 14:44:51'),
+(9, 'م / اسلام كامل', 'Namaa invest', '201099000850', '', 'Contracting', 'namaa-invests.com', 'GoDaddy', 'namaainvests', '', '', '', 1, 1, '2026-06-04 14:50:29', '2026-06-04 14:50:29'),
+(10, 'م / احمد حماد', 'Micro Serial', '201023399311', '', 'online shop', 'microserial.com', 'GoDaddy', 'microserial', '', '', '', 1, 1, '2026-06-04 14:54:47', '2026-06-04 14:54:47'),
+(11, 'م / رفعت كريم', 'Alauma Contracting', '201111130655', '', 'Contracting', 'alauma.com', 'GoDaddy', 'alauma', '', '', '', 1, 1, '2026-06-04 15:11:18', '2026-06-04 15:11:18'),
+(12, 'د / محمد الجميعي', 'Onboarding 4u', '201003939499', '', 'قطاع الصيدليات', 'onboarding4u.com', 'GoDaddy', 'onboarding4u', '', '', '', 1, 1, '2026-06-04 15:14:13', '2026-06-04 15:14:13'),
+(13, 'م / اسلام الشريف', 'Alsherif Group', '201119589121', '', 'Contracting', 'alsherifgroup.net', 'GoDaddy', 'alsherifgroup', '', '', '', 1, 1, '2026-06-04 15:18:47', '2026-06-04 15:18:47'),
+(14, 'م / عاطف صلاح', 'التحدي تريد', '201000002267', '', 'استيراد وتصدير', 'eltahady-trade.com', 'GoDaddy', 'eltahadytrade', '', '', '', 1, 1, '2026-06-04 15:22:39', '2026-06-04 15:22:39'),
+(15, 'م / عمار بهنس', 'Arab House Vent', '201143638874', '', 'Mep - HVAC', 'arabhousevent.com', 'GoDaddy', 'arabhousevent', '', '', '', 1, 1, '2026-06-04 15:24:54', '2026-06-04 15:24:54'),
+(16, 'م / علي محمد', 'Blue Sea Metal', '201013982131', '', 'تشكيل المعان', 'bluesea-metal.com', 'GoDaddy', 'blueseametal', '', '', '', 1, 1, '2026-06-04 15:37:02', '2026-06-04 15:37:02'),
+(17, 'م / بيشوي رأفت', 'innova Egypt', '201288333348', '', 'برمجيات', 'innova-egypt.com', 'GoDaddy', 'innova-egypt', '', '', '', 1, 1, '2026-06-04 15:42:10', '2026-06-04 15:42:10'),
+(18, 'DR. Aya A Ahmed', 'Admissions Office', '201044929476', '', 'قطاع التعليم', 'admissions-office-eg.com', 'GoDaddy', 'admissions-office', '', '', '', 1, 1, '2026-06-04 15:44:49', '2026-06-04 15:44:49'),
+(19, 'د / طه منصور', 'TM Medical', '201016225666', '', 'القطاع الطبي', 'tm-medical.net', 'GoDaddy', 'tm-medical', '', '', '', 1, 1, '2026-06-04 15:48:14', '2026-06-04 15:48:14'),
+(20, 'م / بيتر فيكتور', 'AMD Consttructions', '201001479363', '', 'Contracting', 'amdconst.com', 'GoDaddy', 'amdconst', '', '', '', 1, 1, '2026-06-04 15:53:52', '2026-06-04 15:53:52'),
+(21, 'م / محمد نصر', 'همة وطن', '201128478217', '', 'Contracting', 'hemmatwatn.com', 'GoDaddy', 'hemmatwatn', '', '', '', 1, 1, '2026-06-04 15:56:14', '2026-06-04 15:56:14'),
+(22, 'م / مازن', 'مازن كو', '201055144517', '', 'القطاع المالي', 'mazenco.info', 'GoDaddy', 'mazenco', '', '', '', 1, 1, '2026-06-04 15:57:53', '2026-06-04 15:57:53'),
+(23, 'م / اسلام البلتاجي', 'Gladious Scape', '201207575483', '', 'Landscaping', 'gladiousscape.com', '', 'gladiousscape', '', '', '', 1, 1, '2026-06-04 15:59:19', '2026-06-04 15:59:19'),
+(24, 'م / احمد يوسف', 'Dimec', '201028071308', '', 'التوريدات', 'dimec-eg.com', 'GoDaddy', 'dimec-eg', '', '', '', 1, 1, '2026-06-04 16:01:46', '2026-06-04 16:01:46'),
+(25, 'م / نانسي', 'Vera Agency', '201206671454', '', 'Agency', 'veraagency-eg.com', 'GoDaddy', 'veraagency', '', '', '', 1, 1, '2026-06-04 16:05:19', '2026-06-04 16:05:19'),
+(26, 'د / عبد الرحمن', 'Advanced Tech', '201274432551', '', 'Tech', 'advancedtech-eg.com', 'GoDaddy', 'advancedtech', '', '', '', 1, 1, '2026-06-04 16:08:40', '2026-06-04 16:08:40'),
+(27, 'م / محمود نور الدين', 'Valve Link', '201018067511', '', 'PLUMBING', 'valvelink.co', 'GoDaddy', 'valvelink', '', '', '', 1, 1, '2026-06-04 16:12:11', '2026-06-04 16:12:11'),
+(28, 'م / عمرو محمد', 'Alex Air', '201226178167', '', 'HVAC', 'alexair-eg.com', 'GoDaddy', 'alexair', '', '', '', 1, 1, '2026-06-04 16:16:15', '2026-06-04 16:16:15'),
+(29, 'م / رامي عبد اللطيف', 'First Air', '201067996402', '', 'Mep - HVAC', 'first-air-eg.com', 'GoDaddy', 'firstair', '', '', '', 1, 1, '2026-06-04 16:19:46', '2026-06-04 16:31:41'),
+(30, 'م / صابر مكي', 'shariha', '966561036181', '', 'telecom', 'shariha.net', 'GoDaddy', 'shariha', '', '', '', 1, 1, '2026-06-04 16:34:00', '2026-06-04 16:34:00'),
+(31, 'م / محمد', 'Metal Power', '201090416807', '', 'Contracting', 'metalpwr.com', 'GoDaddy', 'metalpwr', '', '', '', 1, 1, '2026-06-04 18:40:00', '2026-06-04 18:40:00'),
+(32, 'م / احمد نجم', 'Oxyva Capital', '201555115296', '', 'consulting learning', 'oxyva-eg.com', 'GoDaddy', 'oxyva', '', '', '', 1, 1, '2026-06-04 18:44:16', '2026-06-04 18:44:16'),
+(33, 'م / محمود محمد', 'Ovo Way', '201025500011', '', '', 'ovo-way.com', 'GoDaddy', 'ovoway', '', '', '', 1, 1, '2026-06-04 18:46:52', '2026-06-04 18:46:52'),
+(34, 'م / احمد عبد العال', 'Sedra Oman', '201005151818', '', 'cosmetics', 'sedra-om.com', 'GoDaddy', 'sedraom', '', '', '', 1, 1, '2026-06-04 18:53:18', '2026-06-04 18:53:18'),
+(35, 'م / عبد الرحمن فرغلي', 'Exception CO', '201006829244', '', 'construction', 'exception-co.com', 'GoDaddy', 'exceptionco', '', '', '', 1, 1, '2026-06-04 18:56:03', '2026-06-04 18:56:03'),
+(36, 'م / احمد ابراهيم', 'Elhassan P S', '201068500268', '', 'Printing Supply', 'elhassan-ps.com', 'GoDaddy', 'elhassan', '', '', '', 1, 1, '2026-06-04 19:03:55', '2026-06-04 19:03:55'),
+(37, 'م / احمد ابراهيم', 'Makkah EST', '201068500268', '', 'construction', 'makkahest.com', 'GoDaddy', 'makkahest', '', '', '', 1, 1, '2026-06-04 19:05:57', '2026-06-04 19:05:57'),
+(38, 'م / يوسف هشام', 'reelify', '201505588416', '', 'videos Converter', 'reelify.cc', 'dynadot', 'reelify', '', '', '', 1, 1, '2026-06-04 19:09:16', '2026-06-04 19:10:08'),
+(39, 'م / احمد رؤوف', 'Nour Tiba', '201028085860', '', 'مكتب محاسبة', 'nourtiba-eg.com', 'GoDaddy', 'nourtiba', '', '', '', 1, 1, '2026-06-04 19:11:56', '2026-06-04 19:11:56'),
+(40, 'م / عمرو عبد الموجود', 'AB Pro Medical', '201091166448', '', 'Medical', 'abpromedical.com', 'GoDaddy', 'abpromedical', '', '', '', 1, 1, '2026-06-04 19:15:39', '2026-06-04 19:15:39'),
+(41, 'م / جمال محمد', 'Burhank', '201210400738', '', 'Contracting', 'burhank.com', 'Hostinger', 'burhank', '', '', '', 1, 1, '2026-06-04 19:18:26', '2026-06-04 19:18:26'),
+(42, 'م / احمد سرور', 'Prime Gate Tech', '201227187286', '', '', 'primegatetech.com', 'GoDaddy', 'primegatetech', '', '', '', 1, 1, '2026-06-04 19:30:05', '2026-06-04 19:30:05'),
+(43, 'م / اسلام اسامة', 'Almotaheda Engineering', '201012173608', '', 'Engineering', 'almotaheda-eng.com', 'GoDaddy', 'almotaheda', '', '', '', 1, 1, '2026-06-04 19:36:48', '2026-06-04 19:36:48'),
+(44, 'عميد يحي المراسي', 'International CP', '201018920639', '', '', 'international-cp.com', 'GoDaddy', 'internationalcp', '', '', '', 1, 1, '2026-06-04 19:39:03', '2026-06-04 19:39:03'),
+(45, 'م / تامر', 'Alkayan Transport', '201501400887', '', 'Transportation', 'alkayan-trans.com', 'GoDaddy', 'alkayantrans', '', '', '', 1, 1, '2026-06-04 19:42:26', '2026-06-04 19:42:26'),
+(46, 'م / محمد فتاح', 'Fattah Foundation', '201130713582', '', 'Contracting', 'fattahfoundation.com', 'GoDaddy', 'fattahfoundation', '', '', '', 1, 1, '2026-06-04 19:45:08', '2026-06-04 19:45:08'),
+(47, 'م / محمد سعيد', 'Enbridge', '201220404582', '', 'Petroleum Services', 'enbridge-eg.com', 'GoDaddy', 'enbridge', '', '', '', 1, 1, '2026-06-04 19:48:28', '2026-06-04 19:48:28'),
+(48, 'م / عبد الحميد عرابي', 'Oujaj Salt', '201003738806', '', '', 'oujajsalt.com', 'GoDaddy', 'oujajsalt', '', '', '', 1, 1, '2026-06-04 19:51:27', '2026-06-04 19:51:27'),
+(49, 'م / هيثم', 'White Group', '201050207906', '', 'Contracting', 'whitegroup-eng.com', 'GoDaddy', 'whitegroup-eng', '', '', '', 1, 1, '2026-06-04 19:53:49', '2026-06-04 19:53:49'),
+(50, 'م / محمد عبد الله', 'Pro Creativity', '010', '', 'Contracting', 'procreativity.net', 'GoDaddy', 'procreativity', '', '', '', 1, 1, '2026-06-04 19:55:58', '2026-06-04 19:55:58'),
+(51, 'م / ابو العيبد', 'Egy Fruitex', '201028240959', '', 'Fruitex', 'egy-fruitex.com', 'GoDaddy', 'egyfruitex', '', '', '', 1, 1, '2026-06-04 19:59:13', '2026-06-04 19:59:13'),
+(52, 'م / محمد علي', 'Ellevate Marketing', '201150695780', NULL, 'Marketing', 'ellevatemarketing.com', 'Netlify', 'ellevatemarketing', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(53, 'م / يوسف', 'G-Tech Solution', '201210622000', NULL, 'Tech', 'g-tech-solution.com', 'Godady', 'g-tech-solution', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(54, 'م / عمرو خالد', 'Construct Code', '201012468796', NULL, 'Contracting', 'Construct-code.com', 'Godady', 'Construct-code', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(55, 'م / نبيل رضا', 'Future Green', '201113416722', NULL, 'تجارة العدد اليدوية وانظمة الحريق', 'future-green.net', 'Godady', 'future-green', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(56, 'م / محمود مجدي', 'snoby', '201018766588', NULL, 'cosmetics', 'snoby-eg.com', 'Godady', 'snoby', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(57, 'م / خالد منصور', 'Omega', '201117013024', NULL, 'supplies', 'omega-supplies.com', 'Godady', 'omega-supplies', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(58, 'م / ريم', 'myriad', '201157184292', NULL, NULL, 'myriad-co.com', 'Godady', 'myriad-co', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(59, 'م / شريف مجدي', 'Senior Constructions', '201017571005', NULL, 'Constructions', 'seniorconstructions.com', 'Godady', 'seniorconstructions', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(60, 'م / السيد هاني', 'Alamana', '201280265841', NULL, 'Transport', 'alamanatransport.com', 'Godady', 'alamanatransport', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(61, 'م / فهمي جاد', 'Alnasem', '201100691874', NULL, NULL, 'alnasem-eg.com', 'Godady', 'alnasem-eg', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(62, 'د / مصطفي', 'Medx Hub', '201003939499', NULL, 'Medical', 'medx-hub.com', 'Godady', 'medx-hub', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(63, 'م / تامر خليل', 'Smart Partner', '201225770713', NULL, 'agency', 'smartpartner.agency', 'Godady', 'smartpartner', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(64, 'م / مروان هشام', 'Wijha Express', '201143594429', NULL, 'Express', 'wijha.express', 'Godady', 'wijha', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(65, 'م / ت', 'Transmission', '249123885888', NULL, 'Digital Marketing', 'transmission-dma.com', 'Godady', 'transmission', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(66, 'م / هدوي علي', 'plus-adv', '201147080280', NULL, 'Digital Marketing', 'plus-adv.com', 'Godady', 'plus-adv', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(67, 'م / كريم', 'Alfa Petroleum', '201124252602', NULL, 'Petroleum', 'alfa-petroleum.com', 'Godady', 'alfa-petroleum', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(68, 'م / نيرة الليثي', 'Eldewanya', '201093577377', NULL, 'تصدير', 'eldewanya.com', 'Godady', 'eldewanya', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(69, 'م / عبد اللطيف محمد', 'infinity Logistic', '201080146149', NULL, 'Logistic', 'infinity-logistic.net', 'Godady', 'infinity-logistic', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
+(70, 'م / تامر', 'Alkayan Logistics', '201040405470', '', '', 'alkayanlogistics.com', 'GoDaddy', 'alkayanlogistics', '', '', '', 1, 1, '2026-06-04 20:16:28', '2026-06-04 20:16:28'),
+(71, 'م / محمد عبد الله', 'Madar MEP', '201060565785', '', 'MEP', 'MadarMEP.com', 'GoDaddy', 'madarmep', '', '', '', 1, 1, '2026-06-04 20:17:20', '2026-06-04 20:17:20');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `client_subscriptions`
+--
+
+CREATE TABLE `client_subscriptions` (
+  `id` int UNSIGNED NOT NULL,
+  `client_id` int UNSIGNED NOT NULL,
+  `service_id` int UNSIGNED NOT NULL,
+  `plan_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'اسم الخطة (مثل: أساسية، بريميوم)',
+  `price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'سعر الاشتراك الفعلي',
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `status` enum('active','expired','cancelled','pending') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `created_by` int UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول الخدمات المتاحة
--- ================================================================
-CREATE TABLE IF NOT EXISTS `services` (
-    `id`              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `name`            VARCHAR(200) NOT NULL COMMENT 'اسم الخدمة',
-    `description`     TEXT NULL,
-    `default_price`   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    `duration_months` INT NOT NULL DEFAULT 12 COMMENT 'مدة الاشتراك الافتراضية بالأشهر',
-    `status`          TINYINT(1) NOT NULL DEFAULT 1,
-    `created_by`      INT UNSIGNED NULL,
-    `created_at`      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+--
+-- Dumping data for table `client_subscriptions`
+--
+
+INSERT INTO `client_subscriptions` (`id`, `client_id`, `service_id`, `plan_name`, `price`, `start_date`, `end_date`, `status`, `notes`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, '02-5G-2000EG', 2000.00, '2025-07-04', '2026-07-03', 'active', '', 1, '2026-06-04 13:26:26', '2026-06-04 13:27:56'),
+(2, 1, 3, 'موقع تعريفي', 23000.00, '2026-06-04', '2027-06-03', 'active', '', 1, '2026-06-04 13:29:13', '2026-06-04 13:31:47'),
+(3, 2, 1, '02-5G-2000EG', 2000.00, '2025-07-12', '2026-07-11', 'active', '', 1, '2026-06-04 13:35:32', '2026-06-04 13:35:32'),
+(4, 3, 1, '01-1G-800EG', 800.00, '2025-12-11', '2026-12-10', 'active', '', 1, '2026-06-04 14:02:36', '2026-06-04 14:02:36'),
+(5, 3, 3, 'موقع تعريفي', 0.00, '2025-12-11', '2026-12-10', 'active', '', 1, '2026-06-04 14:09:54', '2026-06-04 14:09:54'),
+(6, 4, 1, '01-1G-800EG', 800.00, '2025-12-21', '2026-12-20', 'active', '', 1, '2026-06-04 14:17:34', '2026-06-04 14:17:34'),
+(7, 5, 1, '02-5G-2000EG', 2000.00, '2025-12-22', '2026-12-21', 'active', '', 1, '2026-06-04 14:19:29', '2026-06-04 14:19:29'),
+(8, 5, 3, 'موقع تعريفي', 0.00, '2025-12-22', '2026-12-21', 'active', '', 1, '2026-06-04 14:19:48', '2026-06-04 14:19:48'),
+(9, 2, 3, 'موقع تعريفي', 0.00, '2025-12-07', '2026-12-06', 'active', '', 1, '2026-06-04 14:21:20', '2026-06-04 14:21:20'),
+(10, 6, 2, 'دومين', 750.00, '2025-12-28', '2026-12-27', 'active', '', 1, '2026-06-04 14:24:53', '2026-06-04 14:24:53'),
+(11, 6, 1, '02-5G-2000EG', 2000.00, '2025-12-28', '2026-12-27', 'active', '', 1, '2026-06-04 14:25:13', '2026-06-04 14:25:13'),
+(12, 6, 3, 'موقع تعريفي', 0.00, '2025-12-28', '2026-12-27', 'active', '', 1, '2026-06-04 14:25:36', '2026-06-04 14:25:36'),
+(13, 7, 2, 'دومين', 720.00, '2025-12-30', '2026-12-29', 'active', '', 1, '2026-06-04 14:40:23', '2026-06-04 14:42:17'),
+(14, 7, 1, '01-1G-800EG', 800.00, '2025-12-30', '2026-12-29', 'active', '', 1, '2026-06-04 14:40:53', '2026-06-04 14:40:53'),
+(15, 8, 2, 'دومين', 720.00, '2025-12-30', '2026-12-29', 'active', '', 1, '2026-06-04 14:45:43', '2026-06-04 14:45:43'),
+(16, 8, 1, '02-5G-2000EG', 2000.00, '2025-12-30', '2026-12-29', 'active', '', 1, '2026-06-04 14:46:06', '2026-06-04 14:46:06'),
+(17, 8, 2, 'دومين', 720.00, '2025-12-30', '2026-12-29', 'active', 'nogom-services.com', 1, '2026-06-04 14:47:34', '2026-06-04 14:47:34'),
+(18, 9, 2, 'دومين', 750.00, '2025-12-31', '2026-12-30', 'active', 'namaa-invests.com', 1, '2026-06-04 14:50:59', '2026-06-04 14:50:59'),
+(19, 9, 1, '01-1G-800EG', 800.00, '2025-12-31', '2026-12-30', 'active', '', 1, '2026-06-04 14:53:14', '2026-06-04 14:53:14'),
+(20, 10, 2, 'دومين', 750.00, '2026-01-04', '2027-01-03', 'active', '', 1, '2026-06-04 14:55:23', '2026-06-04 14:59:45'),
+(21, 10, 1, '01-1G-800EG', 800.00, '2026-01-04', '2027-01-03', 'active', '', 1, '2026-06-04 15:07:47', '2026-06-04 15:07:47'),
+(22, 11, 1, '02-5G-2000EG', 2000.00, '2026-01-05', '2027-01-04', 'active', '', 1, '2026-06-04 15:11:48', '2026-06-04 15:12:03'),
+(23, 12, 2, 'دومين', 750.00, '2026-01-08', '2027-01-07', 'active', '', 1, '2026-06-04 15:14:42', '2026-06-04 15:14:42'),
+(24, 12, 1, '01-1G-800EG', 800.00, '2026-01-08', '2027-01-07', 'active', '', 1, '2026-06-04 15:15:04', '2026-06-04 15:15:04'),
+(25, 12, 3, 'موقع تعريفي', 0.00, '2026-01-08', '2027-01-07', 'active', '', 1, '2026-06-04 15:15:25', '2026-06-04 15:15:25'),
+(26, 13, 2, 'دومين', 750.00, '2026-01-08', '2027-01-07', 'active', '', 1, '2026-06-04 15:20:47', '2026-06-04 15:20:47'),
+(27, 13, 1, '04-20G-5000EG', 5000.00, '2026-01-08', '2027-01-07', 'active', '', 1, '2026-06-04 15:21:08', '2026-06-04 15:21:08'),
+(28, 14, 2, 'دومين', 750.00, '2026-01-10', '2027-01-09', 'active', '', 1, '2026-06-04 15:23:00', '2026-06-04 15:23:00'),
+(29, 14, 1, '01-1G-800EG', 800.00, '2026-01-10', '2027-01-09', 'active', '', 1, '2026-06-04 15:23:19', '2026-06-04 15:23:19'),
+(30, 15, 2, 'دومين', 750.00, '2026-01-11', '2027-01-10', 'active', '', 1, '2026-06-04 15:27:51', '2026-06-04 15:27:51'),
+(31, 15, 1, '01-1G-800EG', 800.00, '2026-01-11', '2027-01-10', 'active', '', 1, '2026-06-04 15:28:09', '2026-06-04 15:28:09'),
+(32, 16, 2, 'دومين', 750.00, '2026-01-11', '2027-01-10', 'active', '', 1, '2026-06-04 15:37:49', '2026-06-04 15:37:49'),
+(33, 16, 1, '01-1G-800EG', 800.00, '2026-01-11', '2027-01-10', 'active', '', 1, '2026-06-04 15:38:07', '2026-06-04 15:38:07'),
+(34, 17, 1, '01-1G-800EG', 800.00, '2026-01-15', '2027-01-14', 'active', '', 1, '2026-06-04 15:42:39', '2026-06-04 15:42:39'),
+(35, 17, 3, 'موقع تعريفي', 0.00, '2026-01-15', '2027-01-14', 'active', '', 1, '2026-06-04 15:42:56', '2026-06-04 15:42:56'),
+(36, 18, 2, 'دومين', 1050.00, '2026-01-16', '2027-01-15', 'active', '', 1, '2026-06-04 15:45:15', '2026-06-04 15:45:15'),
+(37, 18, 1, '01-1G-800EG', 800.00, '2026-01-16', '2027-01-15', 'active', '', 1, '2026-06-04 15:45:29', '2026-06-04 15:45:29'),
+(38, 19, 2, 'دومين', 750.00, '2026-01-17', '2027-01-16', 'active', '', 1, '2026-06-04 15:48:39', '2026-06-04 15:48:39'),
+(39, 19, 1, '02-5G-2000EG', 2000.00, '2026-01-17', '2027-01-16', 'active', '', 1, '2026-06-04 15:49:12', '2026-06-04 15:49:12'),
+(40, 20, 2, 'دومين', 750.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:54:16', '2026-06-04 15:54:16'),
+(41, 20, 1, '02-5G-2000EG', 2000.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:54:50', '2026-06-04 15:54:50'),
+(42, 21, 2, 'دومين', 750.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:56:33', '2026-06-04 15:56:33'),
+(43, 21, 1, '02-5G-2000EG', 2000.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:56:46', '2026-06-04 15:56:46'),
+(44, 22, 1, '01-1G-800EG', 800.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:58:27', '2026-06-04 15:58:27'),
+(45, 23, 2, 'دومين', 750.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:59:42', '2026-06-04 15:59:42'),
+(46, 23, 1, '02-5G-2000EG', 2000.00, '2026-01-19', '2027-01-18', 'active', '', 1, '2026-06-04 15:59:59', '2026-06-04 15:59:59'),
+(47, 24, 2, 'دومين', 750.00, '2026-01-21', '2027-01-20', 'active', '', 1, '2026-06-04 16:02:08', '2026-06-04 16:02:08'),
+(48, 24, 1, '02-5G-2000EG', 2000.00, '2026-01-21', '2027-01-20', 'active', '', 1, '2026-06-04 16:02:21', '2026-06-04 16:02:21'),
+(49, 25, 2, 'دومين', 750.00, '2026-01-24', '2027-01-23', 'active', '', 1, '2026-06-04 16:05:42', '2026-06-04 16:05:42'),
+(50, 25, 1, '01-1G-800EG', 800.00, '2026-01-24', '2027-01-23', 'active', '', 1, '2026-06-04 16:05:57', '2026-06-04 16:05:57'),
+(51, 26, 2, 'دومين', 750.00, '2026-01-24', '2027-01-23', 'active', '', 1, '2026-06-04 16:09:23', '2026-06-04 16:09:23'),
+(52, 26, 1, '01-1G-800EG', 800.00, '2026-01-24', '2027-01-23', 'active', '', 1, '2026-06-04 16:09:53', '2026-06-04 16:09:53'),
+(53, 27, 2, 'دومين', 1670.00, '2026-01-25', '2027-01-24', 'active', '', 1, '2026-06-04 16:12:33', '2026-06-04 16:14:08'),
+(54, 27, 1, '01-1G-800EG', 800.00, '2026-01-25', '2027-01-24', 'active', '', 1, '2026-06-04 16:12:49', '2026-06-04 16:12:49'),
+(55, 28, 2, 'دومين', 750.00, '2026-01-26', '2027-01-25', 'active', '', 1, '2026-06-04 16:16:48', '2026-06-04 16:16:48'),
+(56, 28, 1, '01-1G-800EG', 800.00, '2026-01-26', '2027-01-25', 'active', '', 1, '2026-06-04 16:17:09', '2026-06-04 16:17:09'),
+(57, 29, 2, 'دومين', 750.00, '2026-04-30', '2027-04-29', 'active', '', 1, '2026-06-04 16:20:22', '2026-06-04 16:22:10'),
+(58, 29, 2, 'دومين', 750.00, '2026-01-17', '2027-01-16', 'active', '', 1, '2026-06-04 16:31:12', '2026-06-04 16:31:54'),
+(59, 29, 2, 'دومين', 750.00, '2026-01-12', '2027-01-11', 'active', '', 1, '2026-06-04 16:31:41', '2026-06-04 16:31:41'),
+(60, 29, 1, '06-10G-7000EG-2Domain', 7000.00, '2026-01-29', '2027-01-28', 'active', '', 1, '2026-06-04 16:33:15', '2026-06-04 16:33:15'),
+(61, 30, 2, 'دومين', 750.00, '2026-02-02', '2027-02-01', 'active', '', 1, '2026-06-04 16:34:33', '2026-06-04 16:34:33'),
+(62, 30, 1, '01-1G-800EG', 800.00, '2026-02-02', '2027-02-01', 'active', '', 1, '2026-06-04 16:34:46', '2026-06-04 16:34:46'),
+(63, 31, 2, 'دومين', 750.00, '2026-02-05', '2027-02-04', 'active', '', 1, '2026-06-04 18:41:23', '2026-06-04 18:42:35'),
+(64, 31, 1, '07-5G-950EG', 950.00, '2026-02-05', '2027-02-04', 'active', '', 1, '2026-06-04 18:42:19', '2026-06-04 18:42:19'),
+(65, 32, 2, 'دومين', 750.00, '2026-02-06', '2027-02-05', 'active', '', 1, '2026-06-04 18:44:45', '2026-06-04 18:44:45'),
+(66, 32, 1, '07-5G-950EG', 950.00, '2026-02-06', '2027-02-05', 'active', '', 1, '2026-06-04 18:45:24', '2026-06-04 18:45:24'),
+(67, 33, 2, 'دومين', 750.00, '2026-02-09', '2027-02-08', 'active', '', 1, '2026-06-04 18:47:16', '2026-06-04 18:48:03'),
+(68, 33, 1, '01-1G-800EG', 800.00, '2026-02-09', '2027-02-08', 'active', '', 1, '2026-06-04 18:47:41', '2026-06-04 18:47:41'),
+(70, 34, 1, '01-1G-800EG', 800.00, '2026-02-10', '2027-02-09', 'active', '', 1, '2026-06-04 18:54:13', '2026-06-04 18:54:13'),
+(71, 35, 2, 'دومين', 750.00, '2026-02-10', '2027-02-09', 'active', '', 1, '2026-06-04 18:56:25', '2026-06-04 18:57:08'),
+(72, 35, 1, '07-5G-950EG', 950.00, '2026-02-10', '2027-02-09', 'active', '', 1, '2026-06-04 18:56:39', '2026-06-04 18:56:39'),
+(73, 36, 2, 'دومين', 750.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:04:19', '2026-06-04 19:04:19'),
+(74, 36, 1, '01-1G-800EG', 800.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:04:46', '2026-06-04 19:04:46'),
+(75, 37, 2, 'دومين', 750.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:07:02', '2026-06-04 19:07:02'),
+(76, 37, 1, '01-1G-800EG', 800.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:07:29', '2026-06-04 19:07:29'),
+(78, 38, 1, '01-1G-800EG', 800.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:10:54', '2026-06-04 19:10:54'),
+(79, 39, 2, 'دومين', 750.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:13:17', '2026-06-04 19:13:17'),
+(80, 39, 1, '01-1G-800EG', 800.00, '2026-02-15', '2027-02-14', 'active', '', 1, '2026-06-04 19:14:13', '2026-06-04 19:14:13'),
+(81, 40, 2, 'دومين', 750.00, '2026-02-19', '2027-02-18', 'active', '', 1, '2026-06-04 19:16:08', '2026-06-04 19:16:08'),
+(82, 40, 1, '01-1G-800EG', 800.00, '2026-02-19', '2027-02-18', 'active', '', 1, '2026-06-04 19:16:46', '2026-06-04 19:16:46'),
+(84, 41, 1, '01-1G-800EG', 800.00, '2026-02-26', '2027-02-25', 'active', '', 1, '2026-06-04 19:20:14', '2026-06-04 19:20:14'),
+(85, 42, 2, 'دومين', 750.00, '2026-06-28', '2027-06-27', 'active', '', 1, '2026-06-04 19:35:01', '2026-06-04 19:35:01'),
+(86, 42, 1, '01-1G-800EG', 800.00, '2026-02-28', '2027-02-27', 'active', '', 1, '2026-06-04 19:35:25', '2026-06-04 19:35:25'),
+(87, 43, 2, 'دومين', 750.00, '2026-03-02', '2027-03-01', 'active', '', 1, '2026-06-04 19:37:12', '2026-06-04 19:37:12'),
+(88, 43, 1, '02-5G-2000EG', 2000.00, '2026-03-02', '2027-03-01', 'active', '', 1, '2026-06-04 19:37:29', '2026-06-04 19:37:29'),
+(89, 43, 3, 'موقع تعريفي', 0.00, '2026-03-02', '2027-03-01', 'active', '', 1, '2026-06-04 19:37:45', '2026-06-04 19:37:45'),
+(90, 44, 1, '03-10G-4000EG', 4000.00, '2026-03-03', '2027-03-02', 'active', '', 1, '2026-06-04 19:40:32', '2026-06-04 19:40:32'),
+(91, 44, 3, 'موقع تعريفي', 0.00, '2026-03-03', NULL, 'active', '', 1, '2026-06-04 19:40:54', '2026-06-04 19:40:54'),
+(92, 45, 2, 'دومين', 750.00, '2026-03-09', '2027-03-08', 'active', '', 1, '2026-06-04 19:42:45', '2026-06-04 19:42:45'),
+(93, 45, 1, '01-1G-800EG', 800.00, '2026-03-09', '2027-03-08', 'active', '', 1, '2026-06-04 19:43:07', '2026-06-04 19:43:07'),
+(94, 45, 3, 'موقع تعريفي', 0.00, '2026-03-09', NULL, 'active', '', 1, '2026-06-04 19:44:09', '2026-06-04 19:44:09'),
+(95, 46, 2, 'دومين', 750.00, '2026-03-09', '2027-03-08', 'active', '', 1, '2026-06-04 19:45:28', '2026-06-04 19:45:28'),
+(96, 46, 1, '01-1G-800EG', 800.00, '2026-03-09', '2027-03-08', 'active', '', 1, '2026-06-04 19:45:53', '2026-06-04 19:45:53'),
+(97, 46, 3, 'موقع تعريفي', 0.00, '2026-03-09', NULL, 'active', '', 1, '2026-06-04 19:46:09', '2026-06-04 19:46:09'),
+(98, 47, 2, 'دومين', 750.00, '2026-03-12', '2027-03-11', 'active', '', 1, '2026-06-04 19:49:47', '2026-06-04 19:49:47'),
+(99, 47, 1, '01-1G-800EG', 800.00, '2026-03-12', '2027-03-11', 'active', '', 1, '2026-06-04 19:50:10', '2026-06-04 19:50:10'),
+(100, 48, 2, 'دومين', 750.00, '2026-03-13', '2027-03-12', 'active', '', 1, '2026-06-04 19:51:46', '2026-06-04 19:51:46'),
+(101, 48, 1, '01-1G-800EG', 800.00, '2026-03-13', '2027-03-12', 'active', '', 1, '2026-06-04 19:52:08', '2026-06-04 19:52:08'),
+(102, 49, 2, 'دومين', 750.00, '2026-03-16', '2027-03-15', 'active', '', 1, '2026-06-04 19:54:03', '2026-06-04 19:54:03'),
+(103, 49, 1, '02-5G-2000EG', 2000.00, '2026-03-16', '2027-03-15', 'active', '', 1, '2026-06-04 19:54:20', '2026-06-04 19:54:20'),
+(104, 49, 3, 'موقع تعريفي', 0.00, '2026-03-16', NULL, 'active', '', 1, '2026-06-04 19:54:38', '2026-06-04 19:54:38'),
+(105, 50, 2, 'دومين', 850.00, '2026-03-16', '2027-03-15', 'active', '', 1, '2026-06-04 19:56:30', '2026-06-04 19:56:30'),
+(106, 50, 1, '01-1G-800EG', 800.00, '2026-03-16', '2027-03-15', 'active', '', 1, '2026-06-04 19:56:46', '2026-06-04 19:56:46'),
+(108, 51, 2, 'دومين', 750.00, '2026-03-25', '2027-03-24', 'active', '', 1, '2026-06-04 19:59:32', '2026-06-04 19:59:32'),
+(109, 51, 1, '01-1G-800EG', 800.00, '2026-03-25', '2027-03-24', 'active', '', 1, '2026-06-04 19:59:51', '2026-06-04 19:59:51'),
+(110, 70, 2, 'دومين', 750.00, '2026-03-30', '2027-03-29', 'active', '', 1, '2026-06-04 20:36:10', '2026-06-04 20:36:10'),
+(111, 70, 1, '01-1G-800EG', 800.00, '2026-03-30', '2027-03-29', 'active', '', 1, '2026-06-04 20:36:24', '2026-06-04 20:36:24'),
+(112, 70, 3, 'موقع تعريفي', 0.00, '2026-03-30', NULL, 'active', '', 1, '2026-06-04 20:36:41', '2026-06-04 20:36:41');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoices`
+--
+
+CREATE TABLE `invoices` (
+  `id` int UNSIGNED NOT NULL,
+  `invoice_number` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'رقم الفاتورة (INV-0001)',
+  `client_id` int UNSIGNED NOT NULL,
+  `total_amount` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `paid_amount` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `remaining` decimal(10,2) GENERATED ALWAYS AS ((`total_amount` - `paid_amount`)) STORED,
+  `items` json NOT NULL COMMENT 'بنود الفاتورة',
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `status` enum('draft','sent','paid','partial','cancelled') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
+  `created_by` int UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول اشتراكات العملاء في الخدمات
--- ================================================================
-CREATE TABLE IF NOT EXISTS `client_subscriptions` (
-    `id`           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `client_id`    INT UNSIGNED NOT NULL,
-    `service_id`   INT UNSIGNED NOT NULL,
-    `plan_name`    VARCHAR(200) NULL COMMENT 'اسم الخطة (مثل: أساسية، بريميوم)',
-    `price`        DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'سعر الاشتراك الفعلي',
-    `start_date`   DATE NOT NULL,
-    `end_date`     DATE NOT NULL,
-    `status`       ENUM('active','expired','cancelled','pending') NOT NULL DEFAULT 'active',
-    `notes`        TEXT NULL,
-    `created_by`   INT UNSIGNED NULL,
-    `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`service_id`) REFERENCES `services`(`id`) ON DELETE RESTRICT,
-    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payments`
+--
+
+CREATE TABLE `payments` (
+  `id` int UNSIGNED NOT NULL,
+  `client_id` int UNSIGNED NOT NULL,
+  `subscription_id` int UNSIGNED DEFAULT NULL COMMENT 'مرتبط باشتراك محدد (اختياري)',
+  `amount` decimal(10,2) NOT NULL,
+  `payment_date` date NOT NULL,
+  `payment_method` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'كاش',
+  `reference_number` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'رقم الإيصال أو التحويل',
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `receipt_file` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول المدفوعات
--- ================================================================
-CREATE TABLE IF NOT EXISTS `payments` (
-    `id`               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `client_id`        INT UNSIGNED NOT NULL,
-    `subscription_id`  INT UNSIGNED NULL COMMENT 'مرتبط باشتراك محدد (اختياري)',
-    `amount`           DECIMAL(10,2) NOT NULL,
-    `payment_date`     DATE NOT NULL,
-    `payment_method`   ENUM('cash','transfer','check','other') NOT NULL DEFAULT 'cash',
-    `reference_number` VARCHAR(200) NULL COMMENT 'رقم الإيصال أو التحويل',
-    `notes`            TEXT NULL,
-    `created_by`       INT UNSIGNED NULL,
-    `created_at`       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`subscription_id`) REFERENCES `client_subscriptions`(`id`) ON DELETE SET NULL,
-    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+--
+-- Dumping data for table `payments`
+--
+
+INSERT INTO `payments` (`id`, `client_id`, `subscription_id`, `amount`, `payment_date`, `payment_method`, `reference_number`, `notes`, `receipt_file`, `created_by`, `created_at`) VALUES
+(2, 1, 2, 23000.00, '2026-01-06', 'transfer', '', '', NULL, 1, '2026-06-04 13:32:22'),
+(3, 1, 1, 2000.00, '2025-07-04', 'cash', '', '', NULL, 1, '2026-06-04 13:32:58'),
+(4, 2, 3, 2000.00, '2025-12-07', 'transfer', '', '', NULL, 1, '2026-06-04 13:43:12'),
+(5, 3, NULL, 800.00, '2025-12-11', 'transfer', '', '', NULL, 1, '2026-06-04 14:10:19'),
+(6, 4, 6, 800.00, '2025-12-21', 'transfer', '', '', NULL, 1, '2026-06-04 14:17:53'),
+(7, 5, 7, 2000.00, '2025-12-22', 'transfer', '', '', NULL, 1, '2026-06-04 14:20:10'),
+(9, 6, 10, 750.00, '2025-12-28', 'transfer', '', '', NULL, 1, '2026-06-04 14:26:37'),
+(10, 6, 12, 2000.00, '2025-12-28', 'انستا باي', '', '', 'uploads/receipts/1780583738_6a218d3a17cf6.jpeg', 1, '2026-06-04 14:26:54'),
+(11, 7, 13, 720.00, '2025-12-30', 'انستا باي', '', '', NULL, 1, '2026-06-04 14:42:06'),
+(12, 7, NULL, 800.00, '2025-12-30', 'انستا باي', '', '', NULL, 1, '2026-06-04 14:42:34'),
+(13, 8, 17, 720.00, '2025-12-30', 'انستا باي', '', 'nogom-services.com', NULL, 1, '2026-06-04 14:48:43'),
+(14, 8, 15, 720.00, '2025-12-30', 'انستا باي', '', 'stars-smcs.com', NULL, 1, '2026-06-04 14:49:11'),
+(15, 8, 16, 2000.00, '2025-12-30', 'انستا باي', '', '', NULL, 1, '2026-06-04 14:49:35'),
+(16, 9, 18, 750.00, '2025-12-31', 'انستا باي', '', '', NULL, 1, '2026-06-04 14:53:31'),
+(17, 9, 19, 800.00, '2025-12-31', 'انستا باي', '', '', NULL, 1, '2026-06-04 14:54:00'),
+(18, 10, 20, 750.00, '2026-01-04', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:08:05'),
+(19, 10, 21, 800.00, '2026-01-04', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:08:25'),
+(20, 11, NULL, 2000.00, '2026-01-05', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:12:16'),
+(21, 12, 23, 750.00, '2026-01-08', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:15:42'),
+(22, 12, 24, 800.00, '2026-01-08', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:16:04'),
+(23, 13, 26, 750.00, '2026-01-08', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:21:26'),
+(24, 13, 27, 5000.00, '2026-01-08', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:21:43'),
+(25, 14, 28, 750.00, '2026-01-10', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:23:35'),
+(26, 15, 30, 750.00, '2026-01-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:29:16'),
+(27, 16, 32, 750.00, '2026-01-11', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:39:54'),
+(28, 16, 33, 800.00, '2026-01-11', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:40:08'),
+(29, 17, 34, 800.00, '2026-01-15', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:43:30'),
+(30, 18, 36, 1050.00, '2026-01-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:45:54'),
+(31, 18, 37, 800.00, '2026-01-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:46:17'),
+(32, 19, 38, 750.00, '2026-01-17', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:48:59'),
+(33, 19, 39, 2000.00, '2026-01-17', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:49:28'),
+(34, 20, 40, 750.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:55:05'),
+(35, 20, 41, 2000.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:55:26'),
+(36, 21, 42, 750.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:57:04'),
+(37, 21, 43, 2000.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:57:18'),
+(38, 22, 44, 800.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 15:58:44'),
+(39, 23, 45, 750.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:00:22'),
+(40, 23, 46, 2000.00, '2026-01-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:00:42'),
+(41, 24, 47, 750.00, '2026-01-21', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:02:36'),
+(42, 24, 48, 2000.00, '2026-01-21', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:02:53'),
+(43, 25, 49, 750.00, '2026-01-24', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:06:18'),
+(44, 25, 50, 800.00, '2026-01-24', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:06:36'),
+(45, 26, 51, 750.00, '2026-01-24', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:10:17'),
+(46, 27, 53, 1670.00, '2026-01-25', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:13:43'),
+(47, 27, 54, 800.00, '2026-01-25', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:14:45'),
+(48, 28, 55, 750.00, '2026-01-26', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:17:57'),
+(49, 28, 56, 800.00, '2026-01-26', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:18:25'),
+(50, 30, 61, 750.00, '2026-02-02', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:34:59'),
+(51, 30, 62, 800.00, '2026-02-02', 'انستا باي', '', '', NULL, 1, '2026-06-04 16:35:14'),
+(52, 31, 63, 750.00, '2026-02-05', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:42:53'),
+(53, 31, 64, 950.00, '2026-02-05', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:43:25'),
+(54, 32, 65, 750.00, '2026-02-06', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:45:41'),
+(55, 32, 66, 950.00, '2026-02-06', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:45:59'),
+(56, 33, 67, 750.00, '2026-02-09', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:48:35'),
+(57, 34, 70, 800.00, '2026-02-10', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:54:40'),
+(58, 35, 71, 750.00, '2026-02-10', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:57:27'),
+(59, 35, 72, 950.00, '2026-02-10', 'انستا باي', '', '', NULL, 1, '2026-06-04 18:58:04'),
+(60, 36, 73, 750.00, '2026-02-15', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:05:02'),
+(61, 37, 75, 750.00, '2026-02-15', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:08:20'),
+(62, 38, 78, 800.00, '2026-02-15', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:11:11'),
+(63, 39, 79, 750.00, '2026-02-15', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:14:34'),
+(64, 39, 80, 800.00, '2026-02-15', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:14:52'),
+(65, 40, 81, 750.00, '2026-02-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:17:00'),
+(66, 40, 82, 800.00, '2026-02-19', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:17:14'),
+(67, 41, 84, 800.00, '2026-02-26', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:20:29'),
+(68, 42, 85, 750.00, '2026-02-28', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:35:50'),
+(69, 42, 86, 800.00, '2026-02-28', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:36:03'),
+(70, 43, 87, 750.00, '2026-03-03', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:38:06'),
+(71, 43, NULL, 2000.00, '2026-03-02', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:38:17'),
+(72, 44, 90, 4000.00, '2026-03-03', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:41:11'),
+(73, 45, 92, 750.00, '2026-03-09', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:43:23'),
+(74, 45, 93, 800.00, '2026-03-09', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:43:38'),
+(75, 46, 95, 750.00, '2026-03-09', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:46:30'),
+(76, 46, 96, 800.00, '2026-03-09', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:46:50'),
+(77, 47, 98, 750.00, '2026-03-12', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:50:26'),
+(78, 47, 99, 800.00, '2026-03-12', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:50:40'),
+(79, 48, 100, 750.00, '2026-03-13', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:52:37'),
+(80, 48, 101, 800.00, '2026-03-13', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:52:58'),
+(81, 49, 102, 750.00, '2026-03-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:54:57'),
+(82, 49, 103, 2000.00, '2026-03-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:55:10'),
+(83, 50, 105, 850.00, '2026-03-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:57:26'),
+(84, 50, 106, 800.00, '2026-03-16', 'انستا باي', '', '', NULL, 1, '2026-06-04 19:57:52'),
+(85, 51, 108, 750.00, '2026-03-25', 'انستا باي', '', '', NULL, 1, '2026-06-04 20:00:06'),
+(86, 51, 109, 800.00, '2026-03-25', 'انستا باي', '', '', NULL, 1, '2026-06-04 20:00:20'),
+(87, 70, 110, 750.00, '2026-03-30', 'انستا باي', '', '', NULL, 1, '2026-06-04 20:36:57'),
+(88, 70, 111, 800.00, '2026-03-30', 'انستا باي', '', '', NULL, 1, '2026-06-04 20:37:13');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `services`
+--
+
+CREATE TABLE `services` (
+  `id` int UNSIGNED NOT NULL,
+  `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'اسم الخدمة',
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `default_price` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `duration_months` int NOT NULL DEFAULT '12' COMMENT 'مدة الاشتراك الافتراضية بالأشهر',
+  `status` tinyint(1) NOT NULL DEFAULT '1',
+  `created_by` int UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `sort_order` int NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول الفواتير
--- ================================================================
-CREATE TABLE IF NOT EXISTS `invoices` (
-    `id`             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `invoice_number` VARCHAR(50) NOT NULL UNIQUE COMMENT 'رقم الفاتورة (INV-0001)',
-    `client_id`      INT UNSIGNED NOT NULL,
-    `total_amount`   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    `paid_amount`    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    `remaining`      DECIMAL(10,2) GENERATED ALWAYS AS (`total_amount` - `paid_amount`) STORED,
-    `items`          JSON NOT NULL COMMENT 'بنود الفاتورة',
-    `notes`          TEXT NULL,
-    `status`         ENUM('draft','sent','paid','partial','cancelled') NOT NULL DEFAULT 'draft',
-    `created_by`     INT UNSIGNED NULL,
-    `created_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE RESTRICT,
-    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+--
+-- Dumping data for table `services`
+--
+
+INSERT INTO `services` (`id`, `name`, `description`, `default_price`, `duration_months`, `status`, `created_by`, `created_at`, `sort_order`) VALUES
+(1, 'استضافة البريد الإلكتروني', 'خدمة استضافة البريد الإلكتروني الاحترافي', 1000.00, 12, 1, NULL, '2026-06-04 12:49:30', 2),
+(2, 'حجز الدومين', 'تسجيل وتجديد أسماء النطاقات', 1200.00, 12, 1, NULL, '2026-06-04 12:49:30', 1),
+(3, 'تصميم المواقع', 'تصميم وتطوير المواقع الإلكترونية', 3000.00, 0, 1, NULL, '2026-06-04 12:49:30', 3);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `service_plans`
+--
+
+CREATE TABLE `service_plans` (
+  `id` int UNSIGNED NOT NULL,
+  `service_id` int UNSIGNED NOT NULL,
+  `name` varchar(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `price` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `sort_order` tinyint UNSIGNED NOT NULL DEFAULT '0',
+  `status` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول سجل رسائل الواتساب
--- ================================================================
-CREATE TABLE IF NOT EXISTS `whatsapp_logs` (
-    `id`          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `client_id`   INT UNSIGNED NULL,
-    `mobile`      VARCHAR(20) NOT NULL,
-    `message`     TEXT NOT NULL,
-    `msg_type`    ENUM('renewal','payment','statement','custom','bulk') NOT NULL DEFAULT 'custom',
-    `status`      ENUM('sent','failed','pending') NOT NULL DEFAULT 'pending',
-    `response`    TEXT NULL COMMENT 'رد الـ API',
-    `sent_by`     INT UNSIGNED NULL,
-    `sent_at`     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE SET NULL,
-    FOREIGN KEY (`sent_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+--
+-- Dumping data for table `service_plans`
+--
+
+INSERT INTO `service_plans` (`id`, `service_id`, `name`, `description`, `price`, `sort_order`, `status`, `created_at`) VALUES
+(1, 1, '01-1G-800EG', '', 800.00, 0, 1, '2026-06-04 13:25:01'),
+(2, 1, '02-5G-2000EG', '', 2000.00, 1, 1, '2026-06-04 13:25:23'),
+(3, 1, '03-10G-4000EG', '', 4000.00, 2, 1, '2026-06-04 13:25:47'),
+(4, 3, 'موقع تعريفي', '', 3000.00, 0, 1, '2026-06-04 13:28:54'),
+(5, 2, 'دومين', '', 750.00, 0, 1, '2026-06-04 14:24:02'),
+(6, 1, '04-20G-5000EG', '', 5000.00, 3, 1, '2026-06-04 15:19:53'),
+(7, 1, '06-10G-7000EG-2Domain', '', 7000.00, 4, 1, '2026-06-04 16:32:49'),
+(8, 1, '07-5G-950EG', '', 950.00, 5, 1, '2026-06-04 18:41:54');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `settings`
+--
+
+CREATE TABLE `settings` (
+  `id` int UNSIGNED NOT NULL,
+  `key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- جدول إعدادات النظام
--- ================================================================
-CREATE TABLE IF NOT EXISTS `settings` (
-    `id`         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `key`        VARCHAR(100) NOT NULL UNIQUE,
-    `value`      TEXT NULL,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+--
+-- Dumping data for table `settings`
+--
+
+INSERT INTO `settings` (`id`, `key`, `value`, `updated_at`) VALUES
+(1, 'company_name', 'إنجاز للحلول الذكية', '2026-06-04 12:49:30'),
+(2, 'company_phone', '201225251888', '2026-06-04 13:39:11'),
+(3, 'company_email', 'info@enjaz.app', '2026-06-04 13:39:11'),
+(4, 'company_address', '', '2026-06-04 12:49:30'),
+(5, 'invoice_prefix', 'INV', '2026-06-04 12:49:30'),
+(6, 'invoice_counter', '1', '2026-06-04 12:49:30'),
+(7, 'whatsapp_api_url', '', '2026-06-04 12:49:30'),
+(8, 'whatsapp_api_token', '', '2026-06-04 12:49:30'),
+(9, 'whatsapp_sender', '', '2026-06-04 12:49:30'),
+(10, 'currency', 'جنيه', '2026-06-04 12:49:30'),
+(11, 'renewal_warning_days', '30', '2026-06-04 12:49:30'),
+(12, 'payment_methods', 'انستا باي,فودافون كاش', '2026-06-04 14:43:05');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `id` int UNSIGNED NOT NULL,
+  `username` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `full_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role` enum('admin','employee') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'employee',
+  `permissions` json DEFAULT NULL COMMENT 'صلاحيات مخصصة للموظف',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1=نشط, 0=موقوف',
+  `last_login` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ================================================================
--- بيانات أولية - الإعدادات
--- ================================================================
-INSERT INTO `settings` (`key`, `value`) VALUES
-('company_name', 'إنجاز للحلول الذكية'),
-('company_phone', ''),
-('company_email', ''),
-('company_address', ''),
-('invoice_prefix', 'INV'),
-('invoice_counter', '1'),
-('whatsapp_api_url', ''),
-('whatsapp_api_token', ''),
-('whatsapp_sender', ''),
-('currency', 'جنيه'),
-('renewal_warning_days', '30');
+--
+-- Dumping data for table `users`
+--
 
--- ================================================================
--- بيانات أولية - الخدمات
--- ================================================================
-INSERT INTO `services` (`name`, `description`, `default_price`, `duration_months`) VALUES
-('استضافة البريد الإلكتروني', 'خدمة استضافة البريد الإلكتروني الاحترافي', 1000.00, 12),
-('حجز الدومين', 'تسجيل وتجديد أسماء النطاقات', 1200.00, 12),
-('تصميم المواقع', 'تصميم وتطوير المواقع الإلكترونية', 3000.00, 0);
+INSERT INTO `users` (`id`, `username`, `password`, `full_name`, `role`, `permissions`, `status`, `last_login`, `created_at`, `updated_at`) VALUES
+(1, 'admin', '$2y$10$HMgtq.XGLFO2GvH.eXtLku86XWVJPJnv9sFEfgU29.yq0SfF1BN0W', 'مدير النظام', 'admin', NULL, 1, '2026-06-04 18:38:16', '2026-06-04 12:49:30', '2026-06-04 18:38:16');
 
--- ================================================================
--- بيانات أولية - المدير الافتراضي
--- كلمة المرور: Admin@2025 (مشفرة بـ bcrypt)
--- ================================================================
-INSERT INTO `users` (`username`, `password`, `full_name`, `role`, `permissions`) VALUES
-('admin', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'مدير النظام', 'admin', NULL);
+-- --------------------------------------------------------
 
-SET FOREIGN_KEY_CHECKS = 1;
+--
+-- Table structure for table `whatsapp_logs`
+--
+
+CREATE TABLE `whatsapp_logs` (
+  `id` int UNSIGNED NOT NULL,
+  `client_id` int UNSIGNED DEFAULT NULL,
+  `mobile` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `msg_type` enum('renewal','payment','statement','custom','bulk') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'custom',
+  `status` enum('sent','failed','pending') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `response` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT 'رد الـ API',
+  `sent_by` int UNSIGNED DEFAULT NULL,
+  `sent_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `clients`
+--
+ALTER TABLE `clients`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `client_subscriptions`
+--
+ALTER TABLE `client_subscriptions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `client_id` (`client_id`),
+  ADD KEY `service_id` (`service_id`),
+  ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `invoices`
+--
+ALTER TABLE `invoices`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `invoice_number` (`invoice_number`),
+  ADD KEY `client_id` (`client_id`),
+  ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `payments`
+--
+ALTER TABLE `payments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `client_id` (`client_id`),
+  ADD KEY `subscription_id` (`subscription_id`),
+  ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `services`
+--
+ALTER TABLE `services`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `service_plans`
+--
+ALTER TABLE `service_plans`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_plan_service` (`service_id`);
+
+--
+-- Indexes for table `settings`
+--
+ALTER TABLE `settings`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `key` (`key`);
+
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `username` (`username`);
+
+--
+-- Indexes for table `whatsapp_logs`
+--
+ALTER TABLE `whatsapp_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `client_id` (`client_id`),
+  ADD KEY `sent_by` (`sent_by`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `clients`
+--
+ALTER TABLE `clients`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
+
+--
+-- AUTO_INCREMENT for table `client_subscriptions`
+--
+ALTER TABLE `client_subscriptions`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=113;
+
+--
+-- AUTO_INCREMENT for table `invoices`
+--
+ALTER TABLE `invoices`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `payments`
+--
+ALTER TABLE `payments`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=89;
+
+--
+-- AUTO_INCREMENT for table `services`
+--
+ALTER TABLE `services`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `service_plans`
+--
+ALTER TABLE `service_plans`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
+-- AUTO_INCREMENT for table `settings`
+--
+ALTER TABLE `settings`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `whatsapp_logs`
+--
+ALTER TABLE `whatsapp_logs`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `clients`
+--
+ALTER TABLE `clients`
+  ADD CONSTRAINT `clients_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `client_subscriptions`
+--
+ALTER TABLE `client_subscriptions`
+  ADD CONSTRAINT `client_subscriptions_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `client_subscriptions_ibfk_2` FOREIGN KEY (`service_id`) REFERENCES `services` (`id`) ON DELETE RESTRICT,
+  ADD CONSTRAINT `client_subscriptions_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `invoices`
+--
+ALTER TABLE `invoices`
+  ADD CONSTRAINT `invoices_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE RESTRICT,
+  ADD CONSTRAINT `invoices_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `payments`
+--
+ALTER TABLE `payments`
+  ADD CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `payments_ibfk_2` FOREIGN KEY (`subscription_id`) REFERENCES `client_subscriptions` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `payments_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `services`
+--
+ALTER TABLE `services`
+  ADD CONSTRAINT `services_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `service_plans`
+--
+ALTER TABLE `service_plans`
+  ADD CONSTRAINT `fk_plan_service` FOREIGN KEY (`service_id`) REFERENCES `services` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `whatsapp_logs`
+--
+ALTER TABLE `whatsapp_logs`
+  ADD CONSTRAINT `whatsapp_logs_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `whatsapp_logs_ibfk_2` FOREIGN KEY (`sent_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

@@ -79,11 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Confirm Delete ───────────────────────────────────────────
-  document.querySelectorAll('[data-confirm]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      const msg = el.dataset.confirm || 'هل أنت متأكد من هذا الإجراء؟';
+  document.addEventListener('click', (e) => {
+    const confirmEl = e.target.closest('[data-confirm]');
+    if (confirmEl) {
+      const msg = confirmEl.dataset.confirm || 'هل أنت متأكد من هذا الإجراء؟';
       if (!confirm(msg)) e.preventDefault();
-    });
+    }
   });
 
   // ── Number Format Inputs ─────────────────────────────────────
