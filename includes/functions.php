@@ -51,12 +51,9 @@ function formatMoney(float $amount, string $currency = null): string {
     return number_format($amount, 2) . ' ' . $currency;
 }
 
-/**
- * تنسيق التاريخ للعرض
- */
 function formatDate(?string $date, string $format = 'd/m/Y'): string {
     if (empty($date) || $date === '0000-00-00') return '—';
-    return date($format, strtotime($date));
+    return date('d/m/Y', strtotime($date));
 }
 
 /**
