@@ -15,16 +15,27 @@ $clientStmt->execute([$id]);
 $client = $clientStmt->fetch();
 if (!$client) { setFlash('error', 'العميل غير موجود.'); header('Location: index.php'); exit; }
 
-// جلب اشتراكاته مع اسم الخدمة
+// جلب اشتراكاته النشطة والمعلّقة مع اسم الخدمة
 $subsStmt = $db->prepare("
     SELECT cs.*, s.name AS service_name
     FROM client_subscriptions cs
     JOIN services s ON s.id = cs.service_id
-    WHERE cs.client_id = ?
+    WHERE cs.client_id = ? AND cs.status IN ('active', 'pending')
     ORDER BY cs.created_at DESC
 ");
 $subsStmt->execute([$id]);
 $subscriptions = $subsStmt->fetchAll();
+
+// جلب اشتراكاته السابقة (المنتهية أو الملغاة)
+$pastSubsStmt = $db->prepare("
+    SELECT cs.*, s.name AS service_name
+    FROM client_subscriptions cs
+    JOIN services s ON s.id = cs.service_id
+    WHERE cs.client_id = ? AND cs.status IN ('expired', 'cancelled')
+    ORDER BY cs.end_date DESC
+");
+$pastSubsStmt->execute([$id]);
+$pastSubscriptions = $pastSubsStmt->fetchAll();
 
 // جلب مدفوعاته
 $paysStmt = $db->prepare("
@@ -188,6 +199,43 @@ require_once INCLUDES_PATH . '/header.php';
             <?php endforeach; ?>
           </tbody>
         </table>
+      </div>
+      <?php endif; ?>
+      
+      <?php if (!empty($pastSubscriptions)): ?>
+      <div style="padding:12px 16px;border-top:1px dashed var(--border-color);background:#fafbfc;" x-data="{ open: false }">
+        <button type="button" @click="open = !open" class="btn btn-sm btn-outline" style="border:none;background:transparent;padding:0;color:var(--text-secondary);font-size:12.5px;cursor:pointer;">
+          <i class="fas" :class="open ? 'fa-chevron-up' : 'fa-chevron-down'" style="margin-left:6px;"></i>
+          عرض الاشتراكات السابقة المنتهية (<?= count($pastSubscriptions) ?>)
+        </button>
+        <div x-show="open" style="margin-top:12px;overflow-x:auto; display:none;" :style="open ? 'display:block;' : 'display:none;'">
+          <table class="data-table" style="font-size:12px;opacity:0.85;width:100%;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th>الخدمة</th>
+                <th>الخطة</th>
+                <th>البداية</th>
+                <th>النهاية</th>
+                <th>السعر</th>
+                <th>الحالة</th>
+                <th>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($pastSubscriptions as $ps): ?>
+              <tr>
+                <td><strong><?= e($ps['service_name']) ?></strong></td>
+                <td class="text-muted"><?= e($ps['plan_name'] ?: '—') ?></td>
+                <td><?= formatDate($ps['start_date']) ?></td>
+                <td><?= formatDate($ps['end_date']) ?></td>
+                <td><?= formatMoney($ps['price']) ?></td>
+                <td><?= subscriptionStatusBadge($ps['status'], $ps['end_date']) ?></td>
+                <td class="text-muted fs-sm"><?= e($ps['notes'] ?: '—') ?></td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
       </div>
       <?php endif; ?>
     </div>
