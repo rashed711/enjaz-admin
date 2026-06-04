@@ -768,7 +768,12 @@ function recalcEndDate() {
     const yyyy = start.getFullYear();
     const mm   = String(start.getMonth() + 1).padStart(2, '0');
     const dd   = String(start.getDate()).padStart(2, '0');
-    endInput.value = `${yyyy}-${mm}-${dd}`;
+    const targetDate = `${yyyy}-${mm}-${dd}`;
+    if (endInput._flatpickr) {
+      endInput._flatpickr.setDate(targetDate);
+    } else {
+      endInput.value = targetDate;
+    }
   }
 }
 

@@ -6,6 +6,17 @@
 // ── Sidebar Toggle ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
 
+  // ── Flatpickr Initialization ─────────────────────────────────
+  if (typeof flatpickr !== 'undefined') {
+    flatpickr('input[type="date"]', {
+      locale: 'ar',
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      allowInput: true
+    });
+  }
+
   const sidebar        = document.getElementById('sidebar');
   const sidebarOverlay = document.getElementById('sidebarOverlay');
   const sidebarToggle  = document.getElementById('sidebarToggle');
@@ -103,7 +114,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = new Date(start);
         d.setMonth(d.getMonth() + months);
         d.setDate(d.getDate() - 1);
-        endDateInput.value = d.toISOString().split('T')[0];
+        const targetDate = d.toISOString().split('T')[0];
+        if (endDateInput._flatpickr) {
+          endDateInput._flatpickr.setDate(targetDate);
+        } else {
+          endDateInput.value = targetDate;
+        }
       }
     };
     startDateInput.addEventListener('change', calcEndDate);
