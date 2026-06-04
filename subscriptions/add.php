@@ -56,15 +56,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?,?,?,?,?,?,?,'active',?)
             ")->execute([$clientId, $serviceId, $planName, $price, $dbValStartDate, $dbValEndDate, $notes, currentUserId()]);
 
-            // تحديث الدومين تلقائياً للعميل إذا كانت الخدمة تخص حجز الدومين وكان اسم الدومين مكتوباً في الخطة
-            $srvNameStmt = $db->prepare("SELECT name FROM services WHERE id = ?");
-            $srvNameStmt->execute([$serviceId]);
-            $serviceName = $srvNameStmt->fetchColumn();
-            if ($serviceName && (mb_strpos($serviceName, 'دومين') !== false || mb_strpos(strtolower($serviceName), 'domain') !== false)) {
-                $trimmedPlan = trim($planName);
-                if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,6}$/', $trimmedPlan)) {
-                    $db->prepare("UPDATE clients SET domain = ? WHERE id = ? AND (domain IS NULL OR domain = '')")
-                       ->execute([$trimmedPlan, $clientId]);
+            // تحديث بيانات الدومين ومزود الخدمة للعميل
+            $domain = clean($_POST['domain'] ?? '');
+            $domainProvider = clean($_POST['domain_provider'] ?? '');
+            
+            if ($domain) {
+                $db->prepare("UPDATE clients SET domain = ?, domain_provider = ? WHERE id = ?")
+                   ->execute([$domain, $domainProvider, $clientId]);
+            } else {
+                // الطريقة الاحتياطية: استخراج الدومين من اسم الخطة إذا كان صالحاً
+                $srvNameStmt = $db->prepare("SELECT name FROM services WHERE id = ?");
+                $srvNameStmt->execute([$serviceId]);
+                $serviceName = $srvNameStmt->fetchColumn();
+                if ($serviceName && (mb_strpos($serviceName, 'دومين') !== false || mb_strpos(strtolower($serviceName), 'domain') !== false)) {
+                    $trimmedPlan = trim($planName);
+                    if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,6}$/', $trimmedPlan)) {
+                        $db->prepare("UPDATE clients SET domain = ? WHERE id = ? AND (domain IS NULL OR domain = '')")
+                           ->execute([$trimmedPlan, $clientId]);
+                    }
                 }
             }
 

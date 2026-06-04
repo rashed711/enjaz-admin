@@ -423,6 +423,37 @@ require_once INCLUDES_PATH . '/header.php';
           </select>
         </div>
 
+        <!-- حقول الدومين الإضافية (تظهر فقط عند حجز دومين) -->
+        <div id="domainFieldsSection" style="display:none;background:#f8fafc;border:1px dashed var(--border-color);border-radius:8px;padding:14px;margin-bottom:14px;">
+          <div style="font-weight:700;font-size:13px;color:var(--primary-light);margin-bottom:10px;">
+            <i class="fas fa-globe"></i> تفاصيل الدومين ومزود الخدمة
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="sub_domain">اسم الدومين</label>
+              <input type="text" id="sub_domain" name="domain" class="form-control" placeholder="example.com" value="<?= e($client['domain']) ?>" dir="ltr">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sub_domain_provider_select">مزود الخدمة</label>
+              <?php 
+              $providers = ['GoDaddy', 'Hostinger', 'Namecheap', 'Cloudflare', 'Dynadot', 'Hostgator', 'Bluehost', 'إنجاز للحلول الذكية'];
+              $isCustomProv = !empty($client['domain_provider']) && !in_array($client['domain_provider'], $providers);
+              ?>
+              <select id="sub_domain_provider_select" class="form-control" onchange="onSubProviderChange(this)">
+                <option value="">— اختر مزود الخدمة —</option>
+                <?php foreach ($providers as $prov): ?>
+                  <option value="<?= e($prov) ?>" <?= $client['domain_provider'] === $prov ? 'selected' : '' ?>><?= e($prov) ?></option>
+                <?php endforeach; ?>
+                <option value="custom" <?= $isCustomProv ? 'selected' : '' ?>>مزود آخر (كتابة يدوية)...</option>
+              </select>
+              <input type="text" id="sub_domain_provider" name="domain_provider" class="form-control" 
+                     value="<?= e($client['domain_provider']) ?>" 
+                     style="margin-top:8px; display: <?= $isCustomProv ? 'block' : 'none' ?>;" 
+                     placeholder="اكتب اسم مزود الخدمة...">
+            </div>
+          </div>
+        </div>
+
         <!-- الباقات — تظهر ديناميكياً بعد اختيار الخدمة -->
         <div id="plansSection" style="display:none;margin-bottom:14px;">
           <label class="form-label">اختر الباقة <span class="required">*</span></label>
@@ -652,6 +683,11 @@ async function onServiceChange(sel) {
   document.getElementById('price').value          = '';
   currentPlans = [];
 
+  // إظهار/إخفاء حقول الدومين بناءً على اسم الخدمة المحددة
+  const serviceText = opt ? opt.text : '';
+  const isDomain = serviceText.includes('دومين') || serviceText.toLowerCase().includes('domain');
+  document.getElementById('domainFieldsSection').style.display = isDomain ? 'block' : 'none';
+
   // المدة الافتراضية للخدمة
   const defaultDur = parseInt(opt.dataset.duration) || 12;
   const durSel = document.getElementById('durationMonths');
@@ -675,6 +711,19 @@ async function onServiceChange(sel) {
   } else {
     // بدون باقات — استخدم السعر الافتراضي
     document.getElementById('price').value = opt.dataset.price || '';
+  }
+}
+
+function onSubProviderChange(sel) {
+  const customInput = document.getElementById('sub_domain_provider');
+  if (sel.value === 'custom') {
+    customInput.style.display = 'block';
+    customInput.required = true;
+    customInput.value = '';
+  } else {
+    customInput.style.display = 'none';
+    customInput.required = false;
+    customInput.value = sel.value;
   }
 }
 
