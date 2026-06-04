@@ -69,11 +69,14 @@ require_once INCLUDES_PATH . '/header.php';
         <i class="fas fa-search search-icon"></i>
         <input type="text" name="search" class="form-control" placeholder="اسم العميل..." value="<?= e($search) ?>">
       </div>
+      <?php 
+      $payMethods = explode(',', getSetting('payment_methods', 'كاش,تحويل بنكي,فودافون كاش,شيك,أخرى')); 
+      ?>
       <select name="method" class="form-control" style="width:auto;">
         <option value="">كل طرق الدفع</option>
-        <option value="cash" <?= $method==='cash'?'selected':'' ?>>كاش</option>
-        <option value="transfer" <?= $method==='transfer'?'selected':'' ?>>تحويل</option>
-        <option value="check" <?= $method==='check'?'selected':'' ?>>شيك</option>
+        <?php foreach ($payMethods as $pm): $pm = trim($pm); ?>
+        <option value="<?= e($pm) ?>" <?= $method === $pm ? 'selected' : '' ?>><?= e($pm) ?></option>
+        <?php endforeach; ?>
       </select>
       <input type="date" name="date_from" class="form-control" style="width:auto;" value="<?= e($dateFrom) ?>" placeholder="من تاريخ">
       <input type="date" name="date_to" class="form-control" style="width:auto;" value="<?= e($dateTo) ?>" placeholder="إلى تاريخ">
@@ -95,6 +98,7 @@ require_once INCLUDES_PATH . '/header.php';
           <th>طريقة الدفع</th>
           <th>الخدمة</th>
           <th>المرجع</th>
+          <th>الإيصال</th>
           <th>ملاحظات</th>
           <th>أضافه</th>
           <?php if (hasPermission('delete_payments')): ?><th></th><?php endif; ?>
@@ -102,7 +106,7 @@ require_once INCLUDES_PATH . '/header.php';
       </thead>
       <tbody>
         <?php if (empty($payments)): ?>
-        <tr><td colspan="10"><div class="empty-state"><div class="empty-icon"><i class="fas fa-coins"></i></div><p class="empty-title">لا توجد مدفوعات</p></div></td></tr>
+        <tr><td colspan="11"><div class="empty-state"><div class="empty-icon"><i class="fas fa-coins"></i></div><p class="empty-title">لا توجد مدفوعات</p></div></td></tr>
         <?php else: ?>
         <?php foreach ($payments as $i => $pay): ?>
         <tr>
@@ -120,6 +124,15 @@ require_once INCLUDES_PATH . '/header.php';
           <td><?= paymentMethodLabel($pay['payment_method']) ?></td>
           <td class="text-muted"><?= e($pay['service_name'] ?: '—') ?></td>
           <td class="text-muted fs-sm"><?= e($pay['reference_number'] ?: '—') ?></td>
+          <td>
+            <?php if (!empty($pay['receipt_file'])): ?>
+              <a href="../<?= e($pay['receipt_file']) ?>" target="_blank" class="btn btn-sm btn-outline-info" title="عرض الإيصال" style="padding: 2px 6px; font-size: 11.5px;">
+                <i class="fas fa-file-invoice"></i> عرض
+              </a>
+            <?php else: ?>
+              <span class="text-muted">—</span>
+            <?php endif; ?>
+          </td>
           <td class="text-muted fs-sm"><?= e($pay['notes'] ?: '—') ?></td>
           <td class="text-muted fs-sm"><?= e($pay['added_by'] ?? '—') ?></td>
           <?php if (hasPermission('delete_payments')): ?>
@@ -141,7 +154,7 @@ require_once INCLUDES_PATH . '/header.php';
           <td style="padding:12px 16px;color:var(--success);font-size:15px;">
             <?= formatMoney(array_sum(array_column($payments,'amount'))) ?>
           </td>
-          <td colspan="<?= hasPermission('delete_payments') ? 6 : 5 ?>"></td>
+          <td colspan="<?= hasPermission('delete_payments') ? 7 : 6 ?>"></td>
         </tr>
       </tfoot>
       <?php endif; ?>

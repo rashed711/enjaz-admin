@@ -270,9 +270,10 @@ require_once INCLUDES_PATH . '/header.php';
               <th>طريقة الدفع</th>
               <th>الخدمة المرتبطة</th>
               <th>رقم المرجع</th>
+              <th>الإيصال</th>
               <th>ملاحظات</th>
               <th>أضافه</th>
-              <?php if (hasPermission('delete_payments')): ?><th></th><?php endif; ?>
+              <?php if (hasPermission('add_payments') || hasPermission('delete_payments')): ?><th>إجراء</th><?php endif; ?>
             </tr>
           </thead>
           <tbody>
@@ -283,16 +284,34 @@ require_once INCLUDES_PATH . '/header.php';
               <td><?= paymentMethodLabel($pay['payment_method']) ?></td>
               <td class="text-muted"><?= e($pay['service_name'] ?: '—') ?></td>
               <td class="text-muted fs-sm"><?= e($pay['reference_number'] ?: '—') ?></td>
+              <td>
+                <?php if (!empty($pay['receipt_file'])): ?>
+                  <a href="../<?= e($pay['receipt_file']) ?>" target="_blank" class="btn btn-sm btn-outline-info" title="عرض الإيصال" style="padding: 2px 6px; font-size: 11.5px;">
+                    <i class="fas fa-file-invoice"></i> عرض
+                  </a>
+                <?php else: ?>
+                  <span class="text-muted">—</span>
+                <?php endif; ?>
+              </td>
               <td class="text-muted fs-sm"><?= e($pay['notes'] ?: '—') ?></td>
               <td class="text-muted fs-sm"><?= e($pay['added_by_name'] ?? '—') ?></td>
-              <?php if (hasPermission('delete_payments')): ?>
+              <?php if (hasPermission('add_payments') || hasPermission('delete_payments')): ?>
               <td>
-                <a href="../payments/delete.php?id=<?= $pay['id'] ?>&client_id=<?= $client['id'] ?>"
-                   class="btn btn-sm btn-outline-danger"
-                   data-confirm="هل تريد حذف هذه الدفعة؟"
-                   title="حذف">
-                  <i class="fas fa-trash"></i>
-                </a>
+                <div class="table-actions">
+                  <?php if (hasPermission('add_payments')): ?>
+                  <a href="../payments/edit.php?id=<?= $pay['id'] ?>" class="btn btn-sm btn-outline" title="تعديل">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <?php endif; ?>
+                  <?php if (hasPermission('delete_payments')): ?>
+                  <a href="../payments/delete.php?id=<?= $pay['id'] ?>&client_id=<?= $client['id'] ?>"
+                     class="btn btn-sm btn-outline-danger"
+                     data-confirm="هل تريد حذف هذه الدفعة؟"
+                     title="حذف">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                  <?php endif; ?>
+                </div>
               </td>
               <?php endif; ?>
             </tr>
@@ -477,7 +496,7 @@ require_once INCLUDES_PATH . '/header.php';
       <span class="modal-title"><i class="fas fa-money-bill-wave" style="color:var(--success);"></i> إضافة دفعة جديدة</span>
       <button class="modal-close" onclick="closeModal('addPayModal')"><i class="fas fa-times"></i></button>
     </div>
-    <form method="POST" action="../payments/add.php" data-validate>
+    <form method="POST" action="../payments/add.php" enctype="multipart/form-data" data-validate>
       <?= csrfField() ?>
       <input type="hidden" name="client_id" value="<?= $client['id'] ?>">
       <div class="modal-body">
@@ -509,11 +528,13 @@ require_once INCLUDES_PATH . '/header.php';
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="pay_method">طريقة الدفع</label>
+            <?php 
+            $payMethods = explode(',', getSetting('payment_methods', 'كاش,تحويل بنكي,فودافون كاش,شيك,أخرى')); 
+            ?>
             <select id="pay_method" name="payment_method" class="form-control">
-              <option value="cash">كاش</option>
-              <option value="transfer">تحويل بنكي</option>
-              <option value="check">شيك</option>
-              <option value="other">أخرى</option>
+              <?php foreach ($payMethods as $pm): $pm = trim($pm); ?>
+              <option value="<?= e($pm) ?>"><?= e($pm) ?></option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="form-group">
@@ -537,6 +558,11 @@ require_once INCLUDES_PATH . '/header.php';
         <div class="form-group">
           <label class="form-label" for="pay_notes">ملاحظات</label>
           <textarea id="pay_notes" name="notes" class="form-control" rows="2" placeholder="ملاحظات الدفعة..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="receipt_file">إرفاق صورة الإيصال أو ملف PDF</label>
+          <input type="file" id="receipt_file" name="receipt_file" class="form-control" accept="image/*,.pdf">
         </div>
 
       </div>

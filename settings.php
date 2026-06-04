@@ -14,7 +14,7 @@ $success  = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','whatsapp_api_url','whatsapp_api_token','whatsapp_sender'];
+        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods'];
         foreach ($fields as $f) {
             $val = clean($_POST[$f] ?? '');
             $db->prepare("UPDATE settings SET value=? WHERE `key`=?")->execute([$val,$f]);
@@ -71,7 +71,7 @@ require_once INCLUDES_PATH . '/header.php';
       </div>
 
       <!-- Invoice Settings -->
-      <div class="card">
+      <div class="card" style="margin-bottom:20px;">
         <div class="card-header"><span class="card-title"><i class="fas fa-file-invoice"></i> إعدادات الفواتير</span></div>
         <div class="card-body">
           <div class="form-row">
@@ -87,6 +87,18 @@ require_once INCLUDES_PATH . '/header.php';
           <div class="form-group">
             <label class="form-label" for="renewal_warning_days">تنبيه التجديد (أيام قبل الانتهاء)</label>
             <input type="number" id="renewal_warning_days" name="renewal_warning_days" class="form-control" min="1" max="365" value="<?= e($settings['renewal_warning_days'] ?? '30') ?>">
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Settings -->
+      <div class="card">
+        <div class="card-header"><span class="card-title"><i class="fas fa-credit-card"></i> إعدادات طرق الدفع</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label" for="payment_methods">طرق الدفع المتاحة <span class="required">*</span></label>
+            <input type="text" id="payment_methods" name="payment_methods" class="form-control" value="<?= e($settings['payment_methods'] ?? 'كاش,تحويل بنكي,فودافون كاش,شيك,أخرى') ?>" required>
+            <span class="form-hint">افصل بين الطرق بفاصلة (,) بدون مسافات إضافية. مثال: كاش,فودافون كاش,تحويل بنكي</span>
           </div>
         </div>
       </div>

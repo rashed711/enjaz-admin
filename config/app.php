@@ -66,6 +66,23 @@ try {
     }
 } catch (Exception $e) {}
 
+// التأكد من تعديل جدول المدفوعات لدعم طرق دفع مخصصة وإرفاق ملفات الإيصال
+try {
+    $db = getDB();
+    $db->exec("ALTER TABLE payments MODIFY COLUMN payment_method VARCHAR(100) NOT NULL DEFAULT 'كاش';");
+    
+    $desc = $db->query("SHOW COLUMNS FROM payments LIKE 'receipt_file'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE payments ADD COLUMN receipt_file VARCHAR(255) NULL AFTER notes;");
+    }
+    
+    $stmt = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key` = 'payment_methods'");
+    $stmt->execute();
+    if ((int)$stmt->fetchColumn() === 0) {
+        $db->exec("INSERT INTO settings (`key`, `value`) VALUES ('payment_methods', 'كاش,تحويل بنكي,فودافون كاش,شيك,أخرى')");
+    }
+} catch (Exception $e) {}
+
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
 require_once INCLUDES_PATH . '/functions.php';
 require_once INCLUDES_PATH . '/auth.php';

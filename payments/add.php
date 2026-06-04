@@ -24,9 +24,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($amount <= 0)  $errors[] = 'المبلغ يجب أن يكون أكبر من صفر.';
         if (!$paymentDate) $errors[] = 'تاريخ الدفع مطلوب.';
 
+        // رفع وحفظ ملف الإيصال
+        $receiptFile = null;
+        if (empty($errors) && !empty($_FILES['receipt_file']['name'])) {
+            $file = $_FILES['receipt_file'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
+            if (!in_array($ext, $allowed)) {
+                $errors[] = 'نوع الملف المرفق غير مسموح به (فقط الصور وملفات PDF).';
+            } else if ($file['size'] > 5 * 1024 * 1024) {
+                $errors[] = 'حجم الملف المرفق يجب ألا يتجاوز 5 ميجا بايت.';
+            } else {
+                $uploadDir = ROOT_PATH . '/uploads/receipts/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                $filename = time() . '_' . uniqid() . '.' . $ext;
+                if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+                    $receiptFile = 'uploads/receipts/' . $filename;
+                } else {
+                    $errors[] = 'فشل في حفظ الملف المرفق.';
+                }
+            }
+        }
+
         if (empty($errors)) {
-            $db->prepare("INSERT INTO payments (client_id,subscription_id,amount,payment_date,payment_method,reference_number,notes,created_by) VALUES (?,?,?,?,?,?,?,?)")
-               ->execute([$clientId,$subscriptionId,$amount,$paymentDate,$method,$reference,$notes,currentUserId()]);
+            $db->prepare("INSERT INTO payments (client_id,subscription_id,amount,payment_date,payment_method,reference_number,notes,receipt_file,created_by) VALUES (?,?,?,?,?,?,?,?,?)")
+               ->execute([$clientId,$subscriptionId,$amount,$paymentDate,$method,$reference,$notes,$receiptFile,currentUserId()]);
             setFlash('success', 'تم تسجيل الدفعة بمبلغ ' . formatMoney($amount) . ' بنجاح.');
             header("Location: ../clients/view.php?id=$clientId");
             exit;
