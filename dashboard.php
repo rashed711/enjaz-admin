@@ -242,7 +242,7 @@ if (ctx) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => ctx.parsed.y.toLocaleString('ar-EG', {minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>'
+            label: ctx => ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>'
           }
         }
       },

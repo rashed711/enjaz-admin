@@ -123,7 +123,7 @@ if (ctx) {
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString('ar-EG',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
       },
       scales: { y: { beginAtZero: true, ticks: { font: { family:'Cairo' } } }, x: { grid: { display:false }, ticks: { font:{family:'Cairo'} } } }
     }

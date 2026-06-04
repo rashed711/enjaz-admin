@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const now  = new Date();
       const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                      hour: '2-digit', minute: '2-digit', calendar: 'gregory' };
-      clockEl.textContent = now.toLocaleDateString('ar-EG', opts);
+      clockEl.textContent = now.toLocaleDateString('ar-EG-u-nu-latn', opts);
     };
     updateClock();
     setInterval(updateClock, 60000);
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const total   = parseFloat(totalInput.value) || 0;
       const paid    = parseFloat(paidInput.value)  || 0;
       const remaining = total - paid;
-      remainingEl.textContent = remaining.toLocaleString('ar-EG', {
+      remainingEl.textContent = remaining.toLocaleString('en-US', {
         minimumFractionDigits: 2, maximumFractionDigits: 2
       }) + ' ' + (window.CURRENCY || 'جنيه');
       remainingEl.style.color = remaining > 0 ? 'var(--danger)' : 'var(--success)';
@@ -311,7 +311,7 @@ async function apiPost(url, data = {}) {
  * Format number as currency
  */
 function formatMoney(amount, currency = window.CURRENCY || 'جنيه') {
-  return parseFloat(amount).toLocaleString('ar-EG', {
+  return parseFloat(amount).toLocaleString('en-US', {
     minimumFractionDigits: 2, maximumFractionDigits: 2
   }) + ' ' + currency;
 }

@@ -746,7 +746,7 @@ function renderPlans(plans) {
     card.innerHTML = `
       <div class="plan-card-name">${p.name}</div>
       ${p.description ? '<div class="plan-card-desc">' + p.description + '</div>' : ''}
-      <div class="plan-card-price">${parseFloat(p.price).toLocaleString('ar-EG', {minimumFractionDigits:2})} <?= getSetting('currency','جنيه') ?></div>
+      <div class="plan-card-price">${parseFloat(p.price).toLocaleString('en-US', {minimumFractionDigits:2})} <?= getSetting('currency','جنيه') ?></div>
     `;
     card.addEventListener('click', () => selectPlan(p));
     grid.appendChild(card);
