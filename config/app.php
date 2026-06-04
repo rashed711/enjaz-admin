@@ -56,6 +56,16 @@ try {
     }
 } catch (Exception $e) {}
 
+// التأكد من إضافة حقول الدومين ومزود الخدمة لجدول العملاء
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM clients LIKE 'domain'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE clients ADD COLUMN domain VARCHAR(255) NULL AFTER activity;");
+        $db->exec("ALTER TABLE clients ADD COLUMN domain_provider VARCHAR(100) NULL AFTER domain;");
+    }
+} catch (Exception $e) {}
+
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
 require_once INCLUDES_PATH . '/functions.php';
 require_once INCLUDES_PATH . '/auth.php';

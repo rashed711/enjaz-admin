@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$clientId)   $errors[] = 'العميل مطلوب.';
         if (!$serviceId)  $errors[] = 'الخدمة مطلوبة.';
-        if ($price <= 0)  $errors[] = 'السعر يجب أن يكون أكبر من صفر.';
+        if ($price < 0)  $errors[] = 'السعر لا يمكن أن يكون أقل من صفر.';
 
         $dbValStartDate = null;
         $dbValEndDate   = null;
@@ -55,6 +55,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   (client_id, service_id, plan_name, price, start_date, end_date, notes, status, created_by)
                 VALUES (?,?,?,?,?,?,?,'active',?)
             ")->execute([$clientId, $serviceId, $planName, $price, $dbValStartDate, $dbValEndDate, $notes, currentUserId()]);
+
+            // تحديث الدومين تلقائياً للعميل إذا كانت الخدمة تخص حجز الدومين وكان اسم الدومين مكتوباً في الخطة
+            $srvNameStmt = $db->prepare("SELECT name FROM services WHERE id = ?");
+            $srvNameStmt->execute([$serviceId]);
+            $serviceName = $srvNameStmt->fetchColumn();
+            if ($serviceName && (mb_strpos($serviceName, 'دومين') !== false || mb_strpos(strtolower($serviceName), 'domain') !== false)) {
+                $trimmedPlan = trim($planName);
+                if (preg_match('/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,6}$/', $trimmedPlan)) {
+                    $db->prepare("UPDATE clients SET domain = ? WHERE id = ? AND (domain IS NULL OR domain = '')")
+                       ->execute([$trimmedPlan, $clientId]);
+                }
+            }
+
             setFlash('success', 'تم إضافة الخدمة للعميل بنجاح.');
             header("Location: ../clients/view.php?id=$clientId");
             exit;

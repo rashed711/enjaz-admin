@@ -133,7 +133,7 @@ require_once INCLUDES_PATH . '/header.php';
         <?php foreach ($clients as $i => $client):
           $remaining = $client['total_services'] - $client['total_paid'];
         ?>
-        <tr>
+        <tr onclick="if(!event.target.closest('a') && !event.target.closest('button')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
           <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">

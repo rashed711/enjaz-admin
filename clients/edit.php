@@ -19,7 +19,7 @@ $formData = $client;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $fields = ['name','company_name','mobile','mobile_2','activity','username_note','email','address','notes'];
+        $fields = ['name','company_name','mobile','mobile_2','activity','username_note','domain','domain_provider','email','address','notes'];
         foreach ($fields as $f) $formData[$f] = clean($_POST[$f] ?? '');
         $formData['status'] = ($_POST['status'] ?? '1') === '1' ? 1 : 0;
 
@@ -29,10 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
             $db->prepare("
                 UPDATE clients SET name=?,company_name=?,mobile=?,mobile_2=?,activity=?,
-                username_note=?,email=?,address=?,notes=?,status=? WHERE id=?
+                username_note=?,domain=?,domain_provider=?,email=?,address=?,notes=?,status=? WHERE id=?
             ")->execute([
                 $formData['name'],$formData['company_name'],$formData['mobile'],
                 $formData['mobile_2'],$formData['activity'],$formData['username_note'],
+                $formData['domain'],$formData['domain_provider'],
                 $formData['email'],$formData['address'],$formData['notes'],
                 $formData['status'], $id
             ]);
@@ -77,7 +78,12 @@ require_once INCLUDES_PATH . '/header.php';
           <label class="form-label" for="company_name">الشركة</label>
           <input type="text" id="company_name" name="company_name" class="form-control" value="<?= e($formData['company_name']) ?>">
         </div>
+        <div class="form-group">
+          <label class="form-label" for="activity">النشاط</label>
+          <input type="text" id="activity" name="activity" class="form-control" value="<?= e($formData['activity']) ?>">
+        </div>
       </div>
+
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="mobile">الموبايل <span class="required">*</span></label>
@@ -87,21 +93,45 @@ require_once INCLUDES_PATH . '/header.php';
           <label class="form-label" for="mobile_2">موبايل إضافي</label>
           <input type="tel" id="mobile_2" name="mobile_2" class="form-control" value="<?= e($formData['mobile_2']) ?>">
         </div>
+        <div class="form-group">
+          <label class="form-label" for="email">البريد</label>
+          <input type="email" id="email" name="email" class="form-control" value="<?= e($formData['email']) ?>" dir="ltr">
+        </div>
       </div>
+
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="activity">النشاط</label>
-          <input type="text" id="activity" name="activity" class="form-control" value="<?= e($formData['activity']) ?>">
+          <label class="form-label" for="domain">نطاق الموقع (الدومين)</label>
+          <input type="text" id="domain" name="domain" class="form-control" value="<?= e($formData['domain']) ?>" placeholder="example.com" dir="ltr">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="domain_provider">مزود الخدمة (الدومين)</label>
+          <?php 
+          $providers = ['GoDaddy', 'Hostinger', 'Namecheap', 'Cloudflare', 'Dynadot', 'Hostgator', 'Bluehost', 'إنجاز للحلول الذكية'];
+          $isCustomProvider = !empty($formData['domain_provider']) && !in_array($formData['domain_provider'], $providers);
+          ?>
+          <select id="domain_provider_select" class="form-control" onchange="onProviderChange(this)">
+            <option value="">— اختر مزود الخدمة —</option>
+            <?php foreach ($providers as $prov): ?>
+              <option value="<?= e($prov) ?>" <?= $formData['domain_provider'] === $prov ? 'selected' : '' ?>><?= e($prov) ?></option>
+            <?php endforeach; ?>
+            <option value="custom" <?= $isCustomProvider ? 'selected' : '' ?>>مزود آخر (كتابة يدوية)...</option>
+          </select>
+          <input type="text" id="domain_provider" name="domain_provider" class="form-control" 
+                 value="<?= e($formData['domain_provider']) ?>" 
+                 style="margin-top:8px; display: <?= $isCustomProvider ? 'block' : 'none' ?>;" 
+                 placeholder="اكتب اسم مزود الخدمة...">
         </div>
         <div class="form-group">
           <label class="form-label" for="username_note">اسم المستخدم</label>
           <input type="text" id="username_note" name="username_note" class="form-control" value="<?= e($formData['username_note']) ?>">
         </div>
       </div>
+
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="email">البريد</label>
-          <input type="email" id="email" name="email" class="form-control" value="<?= e($formData['email']) ?>" dir="ltr">
+          <label class="form-label" for="address">العنوان</label>
+          <input type="text" id="address" name="address" class="form-control" value="<?= e($formData['address']) ?>">
         </div>
         <div class="form-group">
           <label class="form-label" for="status">الحالة</label>
@@ -111,10 +141,70 @@ require_once INCLUDES_PATH . '/header.php';
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="address">العنوان</label>
-        <input type="text" id="address" name="address" class="form-control" value="<?= e($formData['address']) ?>">
-      </div>
+
+      <script>
+        function onProviderChange(selectEl) {
+          const textInput = document.getElementById('domain_provider');
+          if (selectEl.value === 'custom') {
+            textInput.style.display = 'block';
+            textInput.value = '';
+            textInput.focus();
+          } else {
+            textInput.style.display = 'none';
+            textInput.value = selectEl.value;
+          }
+        }
+
+        // تتبع كتابة اسم المستخدم يدوياً لمنع تداخل الاقتراحات التلقائية
+        document.getElementById('username_note')?.addEventListener('input', function() {
+          this.dataset.manual = 'true';
+        });
+
+        document.getElementById('domain')?.addEventListener('input', async function() {
+          const domainVal = this.value.trim().toLowerCase();
+          if (!domainVal) return;
+          
+          let name = domainVal.replace(/^(https?:\/\/)?(www\.)?/, '');
+          name = name.split('/')[0].split('?')[0];
+          name = name.split('.')[0];
+          
+          const parts = name.split('-');
+          if (parts.length > 1) {
+            const commonSuffixes = ['eg', 'sa', 'ae', 'qa', 'kw', 'bh', 'om', 'jo', 'lb', 'sy', 'iq', 'ye', 'sd', 'ly', 'tn', 'dz', 'ma', 'com', 'net', 'org', 'web', 'dev', 'app', 'solutions', 'tech', 'smart', 'media', 'design'];
+            const lastPart = parts[parts.length - 1];
+            if (commonSuffixes.includes(lastPart)) {
+              name = parts.slice(0, -1).join('-') + '-' + lastPart;
+            } else {
+              name = parts[0];
+            }
+          }
+          
+          const usernameInput = document.getElementById('username_note');
+          if (usernameInput && (!usernameInput.dataset.manual || !usernameInput.value)) {
+            let finalUsername = name;
+            let counter = 1;
+            let isAvailable = false;
+            const clientId = <?= (int)$id ?>;
+
+            while (!isAvailable && counter < 100) {
+              try {
+                const res = await fetch(`../api/check-username.php?username=${finalUsername}&client_id=${clientId}`);
+                const data = await res.json();
+                if (data.available) {
+                  isAvailable = true;
+                } else {
+                  counter++;
+                  finalUsername = name + counter;
+                }
+              } catch (e) {
+                isAvailable = true;
+              }
+            }
+            usernameInput.value = finalUsername;
+          }
+        });
+      </script>
+
       <div class="form-group">
         <label class="form-label" for="notes">ملاحظات</label>
         <textarea id="notes" name="notes" class="form-control" rows="3"><?= e($formData['notes']) ?></textarea>

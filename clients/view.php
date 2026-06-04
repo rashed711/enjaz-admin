@@ -274,6 +274,8 @@ require_once INCLUDES_PATH . '/header.php';
             ['fas fa-phone',       'موبايل إضافي',      $client['mobile_2']],
             ['fas fa-briefcase',   'النشاط',            $client['activity']],
             ['fas fa-at',          'اسم المستخدم',       $client['username_note']],
+            ['fas fa-globe',       'نطاق الموقع (الدومين)', $client['domain']],
+            ['fas fa-server',      'مزود خدمة الدومين',  $client['domain_provider']],
             ['fas fa-envelope',    'البريد',             $client['email']],
             ['fas fa-map-marker',  'العنوان',            $client['address']],
           ];
@@ -288,7 +290,15 @@ require_once INCLUDES_PATH . '/header.php';
             </div>
             <div>
               <div style="font-size:11px;color:var(--text-muted);font-weight:600;"><?= $label ?></div>
-              <div style="font-size:13.5px;color:var(--text-primary);font-weight:600;"><?= e($value) ?></div>
+              <div style="font-size:13.5px;color:var(--text-primary);font-weight:600;">
+                <?php if ($label === 'نطاق الموقع (الدومين)'): ?>
+                  <a href="http://<?= e($value) ?>" target="_blank" style="color:var(--primary-light);text-decoration:underline;">
+                    <?= e($value) ?> <i class="fas fa-external-link-alt fa-xs" style="margin-right:3px;"></i>
+                  </a>
+                <?php else: ?>
+                  <?= e($value) ?>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
           <?php endforeach; ?>

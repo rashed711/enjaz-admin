@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $formData['status']     = clean($_POST['status'] ?? 'active');
         $formData['notes']      = clean($_POST['notes'] ?? '');
 
-        if ($formData['price'] <= 0) $errors[] = 'السعر يجب أن يكون أكبر من صفر.';
+        if ($formData['price'] < 0) $errors[] = 'السعر لا يمكن أن يكون أقل من صفر.';
 
         $dbValStartDate = null;
         $dbValEndDate   = null;

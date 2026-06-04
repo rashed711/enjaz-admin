@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $endDate   = clean($_POST['end_date'] ?? '');
         $notes     = clean($_POST['notes'] ?? '');
 
-        if ($price <= 0)  $errors[] = 'السعر يجب أن يكون أكبر من صفر.';
+        if ($price < 0)  $errors[] = 'السعر لا يمكن أن يكون أقل من صفر.';
         if (!$startDate)  $errors[] = 'تاريخ البداية مطلوب.';
         if (!$endDate)    $errors[] = 'تاريخ النهاية مطلوب.';
 
