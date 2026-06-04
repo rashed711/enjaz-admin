@@ -41,14 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateClock, 60000);
   }
 
-  // ── Active Nav Link ──────────────────────────────────────────
-  const currentPath = window.location.pathname;
-  document.querySelectorAll('.nav-link').forEach(link => {
-    const href = link.getAttribute('href') || '';
-    if (href && currentPath.includes(href.replace(/^.*\//, '').replace('.php', ''))) {
-      link.classList.add('active');
-    }
-  });
+
 
   // ── Auto-dismiss Alerts ──────────────────────────────────────
   document.querySelectorAll('.alert[data-auto-dismiss]').forEach(alert => {
