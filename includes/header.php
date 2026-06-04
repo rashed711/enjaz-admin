@@ -195,14 +195,6 @@ try {
             <span>ملخص الخدمات</span>
           </a>
         </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/advanced-stats.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-advanced' ? 'active' : '' ?>"
-             id="nav-reports-advanced">
-            <i class="fas fa-chart-pie nav-icon"></i>
-            <span>إحصائيات متقدمة</span>
-          </a>
-        </li>
       </ul>
       <?php endif; ?>
 
