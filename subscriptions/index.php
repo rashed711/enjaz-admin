@@ -30,6 +30,60 @@ $subs = $db->prepare("
 $subs->execute($params);
 $subs = $subs->fetchAll();
 
+// AJAX live search handler
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    ob_start();
+    ?>
+    <?php if (empty($subs)): ?>
+    <tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><i class="fas fa-file-slash"></i></div><p class="empty-title">لا توجد اشتراكات</p></div></td></tr>
+    <?php else: ?>
+    <?php foreach ($subs as $sub): ?>
+    <tr>
+      <td>
+        <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" style="font-weight:700;">
+          <?= e($sub['client_name']) ?>
+        </a>
+      </td>
+      <td><?= e($sub['service_name']) ?></td>
+      <td class="text-muted"><?= e($sub['plan_name'] ?: '—') ?></td>
+      <td class="fw-bold"><?= formatMoney($sub['price']) ?></td>
+      <td><?= formatDate($sub['start_date']) ?></td>
+      <td><?= formatDate($sub['end_date']) ?></td>
+      <td>
+        <?php
+        $d = $sub['days_left'];
+        if ($d === null): ?><span class="badge badge-success">مفتوح (لا ينتهي)</span>
+        <?php elseif ($d < 0): ?><span class="badge badge-danger">انتهى</span>
+        <?php elseif ($d <= 7): ?><span class="badge badge-danger"><?= $d ?> يوم</span>
+        <?php elseif ($d <= 30): ?><span class="badge badge-warning"><?= $d ?> يوم</span>
+        <?php else: ?><span class="badge badge-success"><?= $d ?> يوم</span>
+        <?php endif; ?>
+      </td>
+      <td><?= subscriptionStatusBadge($sub['status'], $sub['end_date']) ?></td>
+      <td>
+        <div class="table-actions">
+          <?php if (hasPermission('edit_subscriptions')): ?>
+          <a href="edit.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-outline"><i class="fas fa-edit"></i></a>
+          <?php endif; ?>
+          <?php if ($sub['status'] !== 'active' && hasPermission('add_subscriptions')): ?>
+          <a href="renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-redo"></i></a>
+          <?php endif; ?>
+        </div>
+      </td>
+    </tr>
+    <?php endforeach; ?>
+    <?php endif; ?>
+    <?php
+    $tbodyHtml = ob_get_clean();
+
+    echo json_encode([
+        'tbody' => $tbodyHtml,
+        'subtitle' => 'إجمالي ' . count($subs) . ' اشتراك'
+    ]);
+    exit;
+}
+
 $services = $db->query("SELECT id,name FROM services ORDER BY name")->fetchAll();
 $pageTitle  = 'الاشتراكات';
 $activePage = 'subscriptions';
@@ -45,10 +99,10 @@ require_once INCLUDES_PATH . '/header.php';
 
 <div class="card" style="margin-bottom:16px;">
   <div class="filters-bar">
-    <form method="GET" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;width:100%;">
+    <form method="GET" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;width:100%;" id="searchForm">
       <div class="search-box">
         <i class="fas fa-search search-icon"></i>
-        <input type="text" name="search" class="form-control" placeholder="اسم العميل..." value="<?= e($search) ?>">
+        <input type="text" name="search" class="form-control" placeholder="اسم العميل..." value="<?= e($search) ?>" autocomplete="off">
       </div>
       <select name="status" class="form-control" style="width:auto;">
         <option value="">كل الحالات</option>
@@ -63,7 +117,7 @@ require_once INCLUDES_PATH . '/header.php';
         <?php endforeach; ?>
       </select>
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
-      <a href="index.php" class="btn btn-outline"><i class="fas fa-times"></i> مسح</a>
+      <a href="index.php" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
     </form>
   </div>
 </div>
@@ -118,4 +172,75 @@ require_once INCLUDES_PATH . '/header.php';
     </table>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.querySelector('input[name="search"]');
+    const statusSelect = document.querySelector('select[name="status"]');
+    const serviceSelect = document.querySelector('select[name="service"]');
+    const searchForm = document.getElementById('searchForm');
+    const tbody = document.querySelector('.data-table tbody');
+    const subtitle = document.querySelector('.page-subtitle');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    
+    let debounceTimer;
+
+    searchForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        doSearch();
+    });
+
+    function doSearch() {
+        const searchQuery = searchInput.value;
+        const statusQuery = statusSelect.value;
+        const serviceQuery = serviceSelect.value;
+
+        const params = new URLSearchParams({
+            search: searchQuery,
+            status: statusQuery,
+            service: serviceQuery,
+            ajax: 1
+        });
+
+        // Update URL
+        const cleanParams = new URLSearchParams({
+            search: searchQuery,
+            status: statusQuery,
+            service: serviceQuery
+        });
+        if (!searchQuery) cleanParams.delete('search');
+        if (!statusQuery) cleanParams.delete('status');
+        if (!serviceQuery || serviceQuery === '0') cleanParams.delete('service');
+        
+        const newUrl = window.location.pathname + (cleanParams.toString() ? '?' + cleanParams.toString() : '');
+        window.history.replaceState({path: newUrl}, '', newUrl);
+
+        // Clear button display toggler
+        if (clearSearchBtn) {
+            if (searchQuery || statusQuery || serviceQuery) {
+                clearSearchBtn.style.display = 'inline-flex';
+            } else {
+                clearSearchBtn.style.display = 'none';
+            }
+        }
+
+        fetch('index.php?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                tbody.innerHTML = data.tbody;
+                subtitle.textContent = data.subtitle;
+            })
+            .catch(err => console.error('Error fetching search results:', err));
+    }
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(doSearch, 150);
+    });
+
+    statusSelect.addEventListener('change', doSearch);
+    serviceSelect.addEventListener('change', doSearch);
+});
+</script>
+
 <?php require_once INCLUDES_PATH . '/footer.php'; ?>
