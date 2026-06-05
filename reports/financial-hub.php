@@ -178,12 +178,21 @@ elseif ($tab === 'monthly') {
     $year = (int)($_GET['year'] ?? date('Y'));
 
     $months = [];
+    $monthlyExpenses = [];
     for ($m = 1; $m <= 12; $m++) {
+        // الإيرادات
         $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date)=? AND MONTH(payment_date)=?");
         $stmt->execute([$year, $m]);
         $months[$m] = (float)$stmt->fetchColumn();
+
+        // المصروفات
+        $stmt2 = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE YEAR(expense_date)=? AND MONTH(expense_date)=?");
+        $stmt2->execute([$year, $m]);
+        $monthlyExpenses[$m] = (float)$stmt2->fetchColumn();
     }
     $totalYear = array_sum($months);
+    $totalExpensesYear = array_sum($monthlyExpenses);
+    $netProfitYear = $totalYear - $totalExpensesYear;
 
     // أفضل الخدمات
     $topServices = $db->query("
@@ -208,6 +217,23 @@ elseif ($tab === 'monthly') {
             ");
             $stmt->execute([$srv['id'], $year, $m]);
             $serviceMonthlyRevenue[$m][$srv['id']] = (float)$stmt->fetchColumn();
+        }
+    }
+    // تفصيل المصروفات حسب التصنيفات لكل شهر
+    $expenseCategories = ['دومين', 'سيرفر', 'إعلانات', 'موظفين', 'أخرى'];
+    $categoryMonthlyExpenses = [];
+    foreach (range(1, 12) as $m) {
+        $categoryMonthlyExpenses[$m] = [];
+        foreach ($expenseCategories as $cat) {
+            $stmt = $db->prepare("
+                SELECT COALESCE(SUM(amount),0) 
+                FROM expenses 
+                WHERE category = ? 
+                  AND YEAR(expense_date) = ? 
+                  AND MONTH(expense_date) = ?
+            ");
+            $stmt->execute([$cat, $year, $m]);
+            $categoryMonthlyExpenses[$m][$cat] = (float)$stmt->fetchColumn();
         }
     }
 
@@ -484,7 +510,7 @@ require_once INCLUDES_PATH . '/header.php';
     <i class="fas fa-file-invoice"></i> الفواتير
   </a>
   <a href="?tab=monthly" class="tab-btn <?= $tab === 'monthly' ? 'active' : '' ?>">
-    <i class="fas fa-chart-line"></i> الإيرادات الشهرية
+    <i class="fas fa-chart-line"></i> الأرباح والخسائر والتحليلات
   </a>
   <a href="?tab=services" class="tab-btn <?= $tab === 'services' ? 'active' : '' ?>">
     <i class="fas fa-layer-group"></i> ملخص الخدمات
@@ -905,12 +931,46 @@ require_once INCLUDES_PATH . '/header.php';
   </div>
   <?php endif; ?>
 
-  <!-- 3. الإيرادات الشهرية -->
+  <!-- 3. الأرباح والخسائر والتحليلات -->
   <?php if ($tab === 'monthly'): ?>
+  
+  <!-- بطاقات الملخص السنوي للمركز المالي -->
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:20px;">
+    <div class="card" style="border-right: 4px solid var(--success); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(16,185,129,0.1); color:var(--success); display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-arrow-trend-up"></i>
+      </div>
+      <div>
+        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي إيرادات السنة</div>
+        <div style="font-size:18px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalYear) ?></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-right: 4px solid var(--danger); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(239,68,68,0.1); color:var(--danger); display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-arrow-trend-down"></i>
+      </div>
+      <div>
+        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي مصروفات السنة</div>
+        <div style="font-size:18px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney($totalExpensesYear) ?></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-right: 4px solid <?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:<?= $netProfitYear >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' ?>; color:<?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas <?= $netProfitYear >= 0 ? 'fa-scale-balanced' : 'fa-triangle-exclamation' ?>"></i>
+      </div>
+      <div>
+        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">صافي أرباح السنة</div>
+        <div style="font-size:18px; font-weight:800; color:<?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?></div>
+      </div>
+    </div>
+  </div>
+
   <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
-    <div class="card">
+    <div class="card" style="margin: 0;">
       <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="card-title"><i class="fas fa-chart-bar"></i> الإيرادات الشهرية لعام <?= $year ?> (إجمالي: <?= formatMoney($totalYear) ?>)</span>
+        <span class="card-title"><i class="fas fa-chart-bar"></i> تحليل الأرباح والخسائر لعام <?= $year ?></span>
         <form method="GET" style="display:flex;gap:10px;align-items:center;">
           <input type="hidden" name="tab" value="monthly">
           <select name="year" class="form-control" style="width:auto;" onchange="this.form.submit()">
@@ -925,33 +985,34 @@ require_once INCLUDES_PATH . '/header.php';
       </div>
       <div class="table-wrapper">
         <table class="data-table">
-          <thead><tr><th>الشهر</th><th>الإيرادات</th><th>النسبة</th></tr></thead>
+          <thead><tr><th>الشهر</th><th>الإيرادات (+)</th><th>المصروفات (-)</th><th>صافي الربح / الخسارة</th></tr></thead>
           <tbody>
-            <?php foreach ($months as $m => $amt): ?>
+            <?php foreach ($months as $m => $amt): 
+              $expAmt = $monthlyExpenses[$m] ?? 0;
+              $profit = $amt - $expAmt;
+            ?>
             <tr>
               <td>
                 <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="font-weight:700;color:var(--primary);">
                   <?= $arabicMonths[$m] ?>
                 </a>
               </td>
-              <td class="fw-bold <?= $amt > 0 ? 'text-success' : 'text-muted' ?>"><?= formatMoney($amt) ?></td>
-              <td>
-                <?php $pct = $totalYear > 0 ? ($amt/$totalYear*100) : 0; ?>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;">
-                    <div style="width:<?= round($pct) ?>%;height:100%;background:var(--primary-light);border-radius:3px;transition:.5s;"></div>
-                  </div>
-                  <span class="fs-sm text-muted"><?= number_format($pct,1) ?>%</span>
-                </div>
+              <td class="fw-bold text-success"><?= formatMoney($amt) ?></td>
+              <td class="fw-bold text-danger"><?= formatMoney($expAmt) ?></td>
+              <td class="fw-bold" style="color: <?= $profit >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
+                <?= ($profit >= 0 ? '+' : '') . formatMoney($profit) ?>
               </td>
             </tr>
             <?php endforeach; ?>
           </tbody>
           <tfoot>
             <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
-              <td style="padding:12px 16px;">الإجمالي</td>
+              <td style="padding:12px 16px;">الإجمالي السنوي</td>
               <td style="padding:12px 16px;color:var(--success);"><?= formatMoney($totalYear) ?></td>
-              <td></td>
+              <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalExpensesYear) ?></td>
+              <td style="padding:12px 16px;color: <?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
+                <?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?>
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -980,56 +1041,116 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
   </div>
 
-  <!-- تفصيل الإيرادات حسب الخدمات -->
+  <!-- تفصيل الأرباح والخسائر الشامل لعام 2026 -->
   <div class="card" style="margin-top: 20px;">
     <div class="card-header">
-      <span class="card-title"><i class="fas fa-table"></i> تفصيل الإيرادات حسب الخدمات لعام <?= $year ?></span>
+      <span class="card-title"><i class="fas fa-table"></i> الميزانية التفصيلية (إيرادات الخدمات مقابل مصروفات الأقسام) لعام <?= $year ?></span>
     </div>
-    <div class="table-wrapper">
-      <table class="data-table">
+    <div class="table-wrapper" style="overflow-x: auto;">
+      <table class="data-table" style="font-size:12px; width:100%; min-width:1200px; text-align:center;">
         <thead>
-          <tr>
-            <th>الشهر</th>
+          <tr style="background:#f1f5f9; text-align:center;">
+            <th rowspan="2" style="vertical-align:middle; border-left:1.5px solid var(--border-color); text-align:center;">الشهر</th>
+            <th colspan="<?= count($allServices) + 1 ?>" style="background:rgba(16,185,129,0.08); color:#065f46; border-left:1.5px solid var(--border-color); font-weight:800; text-align:center;">إيرادات الخدمات المباشرة (+)</th>
+            <th colspan="<?= count($expenseCategories) + 1 ?>" style="background:rgba(239,68,68,0.08); color:#991b1b; border-left:1.5px solid var(--border-color); font-weight:800; text-align:center;">مصروفات التشغيل حسب الأقسام (-)</th>
+            <th rowspan="2" style="vertical-align:middle; background:rgba(36,86,164,0.08); color:#1e3a8a; font-weight:800; text-align:center;">صافي الربح / الخسارة</th>
+          </tr>
+          <tr style="background:#fafbfc;">
             <?php foreach ($allServices as $srv): ?>
-            <th><?= e($srv['name']) ?></th>
+            <th style="font-size:11px;"><?= e($srv['name']) ?></th>
             <?php endforeach; ?>
-            <th>إجمالي الشهر</th>
+            <th style="font-weight:700; border-left:1.5px solid var(--border-color); background:rgba(16,185,129,0.04); color:#065f46;">إجمالي الإيرادات</th>
+            
+            <?php foreach ($expenseCategories as $cat): ?>
+            <th style="font-size:11px;"><?= e($cat) ?></th>
+            <?php endforeach; ?>
+            <th style="font-weight:700; border-left:1.5px solid var(--border-color); background:rgba(239,68,68,0.04); color:#991b1b;">إجمالي المصروفات</th>
           </tr>
         </thead>
         <tbody>
-          <?php foreach (range(1, 12) as $m): ?>
-          <tr>
-            <td>
-              <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="font-weight:700;color:var(--primary);">
+          <?php 
+          $servicesColTotals = array_fill_keys(array_column($allServices, 'id'), 0);
+          $categoriesColTotals = array_fill_keys($expenseCategories, 0);
+          $grandTotalRevenue = 0;
+          $grandTotalExpenses = 0;
+          $grandTotalNetProfit = 0;
+
+          foreach (range(1, 12) as $m): 
+              $rowRevTotal = 0;
+              $rowExpTotal = 0;
+          ?>
+          <tr style="transition: background 0.15s;">
+            <td style="font-weight:700; border-left:1.5px solid var(--border-color); background:#fafbfc;">
+              <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="color:var(--primary); font-weight:700;">
                 <?= $arabicMonths[$m] ?>
               </a>
             </td>
-            <?php 
-            $rowTotal = 0;
-            foreach ($allServices as $srv): 
-              $srvAmt = $serviceMonthlyRevenue[$m][$srv['id']] ?? 0;
-              $rowTotal += $srvAmt;
+            
+            <!-- قيم إيرادات الخدمات -->
+            <?php foreach ($allServices as $srv): 
+              $val = $serviceMonthlyRevenue[$m][$srv['id']] ?? 0;
+              $rowRevTotal += $val;
+              $servicesColTotals[$srv['id']] += $val;
             ?>
-            <td class="<?= $srvAmt > 0 ? 'fw-bold' : 'text-muted' ?>" style="<?= $srvAmt > 0 ? 'color:var(--success);' : '' ?>">
-              <?= $srvAmt > 0 ? formatMoney($srvAmt) : '—' ?>
+            <td class="<?= $val > 0 ? 'fw-bold text-success' : 'text-muted' ?>" style="font-size:11.5px;">
+              <?= $val > 0 ? formatMoney($val) : '—' ?>
             </td>
             <?php endforeach; ?>
-            <td class="fw-bold" style="color:var(--primary-light); background:rgba(36,86,164,0.02);"><?= formatMoney($rowTotal) ?></td>
+            <td class="fw-bold text-success" style="border-left:1.5px solid var(--border-color); background:rgba(16,185,129,0.02); font-size:12px;">
+              <?= formatMoney($rowRevTotal) ?>
+            </td>
+            
+            <!-- قيم مصروفات الأقسام -->
+            <?php foreach ($expenseCategories as $cat): 
+              $val = $categoryMonthlyExpenses[$m][$cat] ?? 0;
+              $rowExpTotal += $val;
+              $categoriesColTotals[$cat] += $val;
+            ?>
+            <td class="<?= $val > 0 ? 'fw-bold text-danger' : 'text-muted' ?>" style="font-size:11.5px;">
+              <?= $val > 0 ? formatMoney($val) : '—' ?>
+            </td>
+            <?php endforeach; ?>
+            <td class="fw-bold text-danger" style="border-left:1.5px solid var(--border-color); background:rgba(239,68,68,0.02); font-size:12px;">
+              <?= formatMoney($rowExpTotal) ?>
+            </td>
+            
+            <!-- صافي الربح للمقاصة -->
+            <?php 
+            $rowNet = $rowRevTotal - $rowExpTotal;
+            $grandTotalRevenue += $rowRevTotal;
+            $grandTotalExpenses += $rowExpTotal;
+            $grandTotalNetProfit += $rowNet;
+            ?>
+            <td class="fw-bold" style="background:rgba(36,86,164,0.02); color:<?= $rowNet >= 0 ? 'var(--success)' : 'var(--danger)' ?>; font-size:12px;">
+              <?= ($rowNet >= 0 ? '+' : '') . formatMoney($rowNet) ?>
+            </td>
           </tr>
           <?php endforeach; ?>
         </tbody>
         <tfoot class="table-totals">
-          <tr style="background:#f8fafc;font-weight:800;border-top:2px solid #e2e8f0;">
-            <td style="padding:12px 16px;">الإجمالي السنوي</td>
-            <?php 
-            $grandTotal = 0;
-            foreach ($allServices as $srv): 
-              $srvColTotal = array_sum(array_column($serviceMonthlyRevenue, $srv['id']));
-              $grandTotal += $srvColTotal;
-            ?>
-            <td style="padding:12px 16px;color:var(--primary-light);"><?= formatMoney($srvColTotal) ?></td>
+          <tr style="background:#f8fafc; font-weight:800; border-top:2.5px solid #cbd5e1; font-size:12px;">
+            <td style="padding:12px 16px; border-left:1.5px solid var(--border-color);">الإجمالي السنوي</td>
+            
+            <!-- مجاميع الخدمات -->
+            <?php foreach ($allServices as $srv): ?>
+            <td style="padding:12px 16px; color:var(--primary-light);"><?= formatMoney($servicesColTotals[$srv['id']]) ?></td>
             <?php endforeach; ?>
-            <td style="padding:12px 16px;color:var(--success);font-size:15px;"><?= formatMoney($grandTotal) ?></td>
+            <td style="padding:12px 16px; color:var(--success); border-left:1.5px solid var(--border-color); background:rgba(16,185,129,0.04); font-size:12.5px;">
+              <?= formatMoney($grandTotalRevenue) ?>
+            </td>
+            
+            <!-- مجاميع المصروفات -->
+            <?php foreach ($expenseCategories as $cat): ?>
+            <td style="padding:12px 16px; color:var(--primary-light);"><?= formatMoney($categoriesColTotals[$cat]) ?></td>
+            <?php endforeach; ?>
+            <td style="padding:12px 16px; color:var(--danger); border-left:1.5px solid var(--border-color); background:rgba(239,68,68,0.04); font-size:12.5px;">
+              <?= formatMoney($grandTotalExpenses) ?>
+            </td>
+            
+            <!-- صافي الربح السنوي الإجمالي -->
+            <td style="padding:12px 16px; color:<?= $grandTotalNetProfit >= 0 ? 'var(--success)' : 'var(--danger)' ?>; font-size:13px; background:rgba(36,86,164,0.06);">
+              <?= ($grandTotalNetProfit >= 0 ? '+' : '') . formatMoney($grandTotalNetProfit) ?>
+            </td>
           </tr>
         </tfoot>
       </table>
@@ -1044,17 +1165,30 @@ require_once INCLUDES_PATH . '/header.php';
           type: 'bar',
           data: {
             labels: [<?= implode(',', array_map(fn($m) => '"'.$arabicMonths[$m].'"', range(1,12))) ?>],
-            datasets: [{
-              data: [<?= implode(',', array_values($months)) ?>],
-              backgroundColor: [<?= implode(',', array_map(fn($m) => $months[$m]>0?'"rgba(36,86,164,0.7)"':'"rgba(226,232,240,0.7)"', range(1,12))) ?>],
-              borderColor: 'rgba(36,86,164,0.8)', borderWidth: 1.5, borderRadius: 6,
-            }]
+            datasets: [
+              {
+                label: 'الإيرادات',
+                data: [<?= implode(',', array_values($months)) ?>],
+                backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                borderColor: '#10b981',
+                borderWidth: 1.5,
+                borderRadius: 6,
+              },
+              {
+                label: 'المصروفات',
+                data: [<?= implode(',', array_values($monthlyExpenses)) ?>],
+                backgroundColor: 'rgba(239, 68, 68, 0.75)',
+                borderColor: '#ef4444',
+                borderWidth: 1.5,
+                borderRadius: 6,
+              }
+            ]
           },
           options: {
             responsive: true,
             plugins: {
-              legend: { display: false },
-              tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
+              legend: { display: true, labels: { font: { family: 'Cairo', weight: 'bold' } } },
+              tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
             },
             scales: { y: { beginAtZero: true, ticks: { font: { family:'Cairo' } } }, x: { grid: { display:false }, ticks: { font:{family:'Cairo'} } } }
           }
