@@ -296,8 +296,19 @@ require_once INCLUDES_PATH . '/header.php';
           <option value="<?= e($pm) ?>" <?= $method === $pm ? 'selected' : '' ?>><?= e($pm) ?></option>
           <?php endforeach; ?>
         </select>
-        <input type="date" name="date_from" class="form-control" style="width:auto;" value="<?= e($dateFrom) ?>" placeholder="من تاريخ">
-        <input type="date" name="date_to" class="form-control" style="width:auto;" value="<?= e($dateTo) ?>" placeholder="إلى تاريخ">
+        <!-- أزرار الفلترة السريعة -->
+        <div class="btn-group" id="quickDateFilters" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:8px;">
+          <button type="button" class="btn btn-sm" data-range="all" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">الكل</button>
+          <button type="button" class="btn btn-sm" data-range="day" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">يوم</button>
+          <button type="button" class="btn btn-sm" data-range="month" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">شهر</button>
+          <button type="button" class="btn btn-sm" data-range="year" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">سنة</button>
+          <button type="button" class="btn btn-sm" data-range="custom" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">مخصص</button>
+        </div>
+
+        <div id="customDateWrapper" style="display:none; gap:12px; align-items:center;">
+          <input type="date" name="date_from" class="form-control" style="width:auto;" value="<?= e($dateFrom) ?>" placeholder="من تاريخ">
+          <input type="date" name="date_to" class="form-control" style="width:auto;" value="<?= e($dateTo) ?>" placeholder="إلى تاريخ">
+        </div>
         <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
         <a href="?tab=payments" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
       </form>
@@ -427,6 +438,103 @@ require_once INCLUDES_PATH . '/header.php';
       
       let debounceTimer;
       let currentPage = 1;
+
+      // أجهزة الفلترة السريعة وتنسيق التواريخ
+      const quickFilters = document.getElementById('quickDateFilters');
+      const customWrapper = document.getElementById('customDateWrapper');
+
+      const formatDate = (date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+      };
+
+      function updateActiveFilter(range) {
+          document.querySelectorAll('#quickDateFilters button').forEach(btn => {
+              if (btn.dataset.range === range) {
+                  btn.style.background = 'var(--primary)';
+                  btn.style.color = '#fff';
+              } else {
+                  btn.style.background = 'transparent';
+                  btn.style.color = 'var(--text-muted)';
+              }
+          });
+          
+          if (range === 'custom') {
+              customWrapper.style.display = 'inline-flex';
+          } else {
+              customWrapper.style.display = 'none';
+          }
+      }
+
+      // حساب التواريخ الافتراضية
+      const todayStr = formatDate(new Date());
+      const firstDayMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+      const lastDayMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+      const firstDayYear = formatDate(new Date(new Date().getFullYear(), 0, 1));
+      const lastDayYear = formatDate(new Date(new Date().getFullYear(), 11, 31));
+
+      // تحديد الحالة النشطة الافتراضية عند تحميل الصفحة
+      const initFrom = dateFromInput.value;
+      const initTo = dateToInput.value;
+      let activeRange = 'all';
+
+      if (initFrom || initTo) {
+          if (initFrom === todayStr && initTo === todayStr) {
+              activeRange = 'day';
+          } else if (initFrom === firstDayMonth && initTo === lastDayMonth) {
+              activeRange = 'month';
+          } else if (initFrom === firstDayYear && initTo === lastDayYear) {
+              activeRange = 'year';
+          } else {
+              activeRange = 'custom';
+          }
+      }
+      updateActiveFilter(activeRange);
+
+      if (quickFilters) {
+          quickFilters.addEventListener('click', function(e) {
+              const btn = e.target.closest('button');
+              if (!btn) return;
+              
+              const range = btn.dataset.range;
+              let fromVal = '';
+              let toVal = '';
+              
+              if (range === 'day') {
+                  fromVal = todayStr;
+                  toVal = todayStr;
+              } else if (range === 'month') {
+                  fromVal = firstDayMonth;
+                  toVal = lastDayMonth;
+              } else if (range === 'year') {
+                  fromVal = firstDayYear;
+                  toVal = lastDayYear;
+              } else if (range === 'custom') {
+                  fromVal = dateFromInput.value;
+                  toVal = dateToInput.value;
+              }
+              
+              if (dateFromInput._flatpickr) {
+                  dateFromInput._flatpickr.setDate(fromVal);
+              } else {
+                  dateFromInput.value = fromVal;
+              }
+              
+              if (dateToInput._flatpickr) {
+                  dateToInput._flatpickr.setDate(toVal);
+              } else {
+                  dateToInput.value = toVal;
+              }
+              
+              updateActiveFilter(range);
+              
+              if (range !== 'custom') {
+                  doSearch(1);
+              }
+          });
+      }
 
       if (searchForm) {
           searchForm.addEventListener('submit', function(e) {
@@ -601,7 +709,11 @@ require_once INCLUDES_PATH . '/header.php';
           <tbody>
             <?php foreach ($months as $m => $amt): ?>
             <tr>
-              <td><?= $arabicMonths[$m] ?></td>
+              <td>
+                <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="font-weight:700;color:var(--primary);">
+                  <?= $arabicMonths[$m] ?>
+                </a>
+              </td>
               <td class="fw-bold <?= $amt > 0 ? 'text-success' : 'text-muted' ?>"><?= formatMoney($amt) ?></td>
               <td>
                 <?php $pct = $totalYear > 0 ? ($amt/$totalYear*100) : 0; ?>
