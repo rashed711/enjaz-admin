@@ -266,6 +266,25 @@ elseif ($tab === 'expenses') {
         header("Location: financial-hub.php?tab=expenses&msg=added");
         exit;
     }
+
+    // تعديل مصروف جديد
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_expense'])) {
+        $id       = (int)$_POST['expense_id'];
+        $title    = clean($_POST['title']);
+        $amount   = (float)$_POST['amount'];
+        $expDate  = clean($_POST['expense_date']);
+        $category = clean($_POST['category']);
+        $notes    = clean($_POST['notes']);
+        
+        $db->prepare("
+            UPDATE expenses 
+            SET title = ?, amount = ?, expense_date = ?, category = ?, notes = ?
+            WHERE id = ?
+        ")->execute([$title, $amount, $expDate, $category, $notes, $id]);
+        
+        header("Location: financial-hub.php?tab=expenses&msg=updated");
+        exit;
+    }
     
     // حذف مصروف
     if (isset($_GET['delete_expense'])) {
@@ -328,10 +347,23 @@ elseif ($tab === 'expenses') {
           <td class="text-muted fs-sm"><?= e($exp['notes'] ?: '—') ?></td>
           <td class="text-muted fs-sm"><?= e($exp['added_by'] ?? '—') ?></td>
           <td>
-            <a href="?tab=expenses&delete_expense=<?= $exp['id'] ?>"
-               class="btn btn-sm btn-outline-danger" data-confirm="حذف هذا المصروف؟">
-              <i class="fas fa-trash"></i>
-            </a>
+            <div class="table-actions">
+              <button type="button" class="btn btn-sm btn-outline" title="تعديل"
+                      onclick="openEditExpenseModal(<?= htmlspecialchars(json_encode([
+                          'id' => $exp['id'],
+                          'title' => $exp['title'],
+                          'amount' => $exp['amount'],
+                          'expense_date' => $exp['expense_date'],
+                          'category' => $exp['category'],
+                          'notes' => $exp['notes']
+                      ]), ENT_QUOTES, 'UTF-8') ?>)">
+                <i class="fas fa-edit"></i>
+              </button>
+              <a href="?tab=expenses&delete_expense=<?= $exp['id'] ?>"
+                 class="btn btn-sm btn-outline-danger" data-confirm="حذف هذا المصروف؟" title="حذف">
+                <i class="fas fa-trash"></i>
+              </a>
+            </div>
           </td>
         </tr>
         <?php endforeach; ?>
@@ -1220,6 +1252,8 @@ require_once INCLUDES_PATH . '/header.php';
   <?php if (isset($_GET['msg'])): ?>
     <?php if ($_GET['msg'] === 'added'): ?>
       <div class="alert alert-success" style="margin-bottom: 16px;"><i class="fas fa-check-circle"></i> تم إضافة المصروف بنجاح.</div>
+    <?php elseif ($_GET['msg'] === 'updated'): ?>
+      <div class="alert alert-success" style="margin-bottom: 16px;"><i class="fas fa-check-circle"></i> تم تعديل المصروف بنجاح.</div>
     <?php elseif ($_GET['msg'] === 'deleted'): ?>
       <div class="alert alert-success" style="margin-bottom: 16px;"><i class="fas fa-check-circle"></i> تم حذف المصروف بنجاح.</div>
     <?php endif; ?>
@@ -1345,6 +1379,68 @@ require_once INCLUDES_PATH . '/header.php';
       </form>
     </div>
   </div>
+
+  <!-- Modal تعديل مصروف -->
+  <div class="modal-overlay" id="editExpenseModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div class="modal-box card" style="width:100%; max-width:500px; padding:24px; border-radius:12px; background:#fff; position:relative;">
+      <h3 style="margin-top:0; margin-bottom:20px; font-size:18px; font-weight:700; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+        <i class="fas fa-edit" style="margin-left:8px; color:var(--primary-light);"></i>تعديل مصروف
+      </h3>
+      <form method="POST" action="?tab=expenses">
+        <input type="hidden" name="edit_expense" value="1">
+        <input type="hidden" name="expense_id" id="edit_expense_id">
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">بند المصروف <span style="color:var(--danger)">*</span></label>
+          <input type="text" name="title" id="edit_expense_title" class="form-control" required placeholder="مثال: تجديد سيرفر الاستضافة">
+        </div>
+        
+        <div class="row" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+          <div class="form-group">
+            <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">القيمة (بالجنيه) <span style="color:var(--danger)">*</span></label>
+            <input type="number" step="0.01" name="amount" id="edit_expense_amount" class="form-control" required placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">التاريخ <span style="color:var(--danger)">*</span></label>
+            <input type="date" name="expense_date" id="edit_expense_date" class="form-control" required>
+          </div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">التصنيف <span style="color:var(--danger)">*</span></label>
+          <select name="category" id="edit_expense_category" class="form-control" required>
+            <option value="دومين">دومينات</option>
+            <option value="سيرفر">سيرفرات واستضافات</option>
+            <option value="إعلانات">إعلانات وتسويق</option>
+            <option value="موظفين">رواتب وموظفين</option>
+            <option value="أخرى">مصاريف أخرى</option>
+          </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">ملاحظات إضافية</label>
+          <textarea name="notes" id="edit_expense_notes" class="form-control" rows="3" placeholder="تفاصيل المصروف..."></textarea>
+        </div>
+        
+        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #f1f5f9; padding-top:16px;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('editExpenseModal').style.display='none'">إلغاء</button>
+          <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  function openEditExpenseModal(exp) {
+      document.getElementById('edit_expense_id').value = exp.id;
+      document.getElementById('edit_expense_title').value = exp.title;
+      document.getElementById('edit_expense_amount').value = exp.amount;
+      document.getElementById('edit_expense_date').value = exp.expense_date;
+      document.getElementById('edit_expense_category').value = exp.category;
+      document.getElementById('edit_expense_notes').value = exp.notes || '';
+      document.getElementById('editExpenseModal').style.display = 'flex';
+  }
+  </script>
 
   <script>
   document.addEventListener('DOMContentLoaded', function() {
