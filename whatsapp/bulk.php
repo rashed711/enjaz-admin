@@ -45,19 +45,41 @@ foreach ($clients as $cl) {
 
     $message = "السادة / {$cl['name']}\n\nنود إعلامكم بأن اشتراككم في خدمة «{$cl['service_name']}» لدى {$companyName} ينتهي بتاريخ {$endDate}.\n\nيرجى التواصل معنا لتجديد الاشتراك والاستمرار في الاستفادة من خدماتنا.\n\nشكراً لثقتكم 🌟";
 
-    $apiUrl   = getSetting('whatsapp_api_url','');
-    $apiToken = getSetting('whatsapp_api_token','');
-    $status   = 'sent';
-    $response = '';
+    $apiUrl    = getSetting('whatsapp_api_url', '');
+    $apiToken  = getSetting('whatsapp_api_token', '');
+    $sessionId = getSetting('whatsapp_sender', '');
+    $status    = 'sent';
+    $response  = '';
 
-    if (!empty($apiUrl)) {
-        $payload = json_encode(['token'=>$apiToken,'to'=>$mobile,'body'=>$message]);
-        $ch = curl_init($apiUrl);
-        curl_setopt_array($ch, [CURLOPT_POST=>true, CURLOPT_POSTFIELDS=>$payload, CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>10, CURLOPT_HTTPHEADER=>['Content-Type: application/json', 'Authorization: Bearer '.$apiToken]]);
+    if (!empty($apiUrl) && !empty($apiToken) && !empty($sessionId)) {
+        // بناء الرابط الكامل للـ API باستخدام الـ Session ID
+        $endpoint = rtrim($apiUrl, '/');
+        if (strpos($endpoint, '/api/sessions') === false) {
+            $endpoint = $endpoint . '/api/sessions/' . $sessionId . '/messages';
+        }
+
+        $payload = json_encode([
+            'to'   => $mobile,
+            'text' => $message,
+        ]);
+        
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true, 
+            CURLOPT_POSTFIELDS     => $payload, 
+            CURLOPT_RETURNTRANSFER => true, 
+            CURLOPT_TIMEOUT        => 10, 
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json', 
+                'x-api-key: ' . $apiToken
+            ]
+        ]);
         $response = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         $status = ($code >= 200 && $code < 300) ? 'sent' : 'failed';
+    } else {
+        $response = 'API or Session not configured — logged only';
     }
 
     $db->prepare("INSERT INTO whatsapp_logs (client_id,mobile,message,msg_type,status,response,sent_by) VALUES (?,?,?,'bulk',?,?,?)")

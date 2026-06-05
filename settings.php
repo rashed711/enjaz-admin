@@ -110,20 +110,20 @@ require_once INCLUDES_PATH . '/header.php';
         <div class="card-header"><span class="card-title"><i class="fab fa-whatsapp" style="color:#25D366;"></i> إعدادات الواتساب</span></div>
         <div class="card-body">
           <div class="form-group">
-            <label class="form-label" for="whatsapp_api_url">رابط الـ API (Endpoint)</label>
-            <input type="url" id="whatsapp_api_url" name="whatsapp_api_url" class="form-control" value="<?= e($settings['whatsapp_api_url'] ?? '') ?>" placeholder="https://api.example.com/send" dir="ltr">
+            <label class="form-label" for="whatsapp_api_url">رابط الخادم الأساسي (Base URL)</label>
+            <input type="url" id="whatsapp_api_url" name="whatsapp_api_url" class="form-control" value="<?= e($settings['whatsapp_api_url'] ?? '') ?>" placeholder="https://whatsapp.enjaz.cloud" dir="ltr">
           </div>
           <div class="form-group">
-            <label class="form-label" for="whatsapp_api_token">Token المصادقة</label>
-            <input type="text" id="whatsapp_api_token" name="whatsapp_api_token" class="form-control" value="<?= e($settings['whatsapp_api_token'] ?? '') ?>" placeholder="Bearer token..." dir="ltr">
+            <label class="form-label" for="whatsapp_api_token">مفتاح الـ API (x-api-key)</label>
+            <input type="text" id="whatsapp_api_token" name="whatsapp_api_token" class="form-control" value="<?= e($settings['whatsapp_api_token'] ?? '') ?>" placeholder="ak_de6fe9510..." dir="ltr">
           </div>
           <div class="form-group">
-            <label class="form-label" for="whatsapp_sender">رقم المرسل</label>
-            <input type="text" id="whatsapp_sender" name="whatsapp_sender" class="form-control" value="<?= e($settings['whatsapp_sender'] ?? '') ?>" placeholder="20xxxxxxxxxx" dir="ltr">
+            <label class="form-label" for="whatsapp_sender">معرف الجلسة (Session ID)</label>
+            <input type="text" id="whatsapp_sender" name="whatsapp_sender" class="form-control" value="<?= e($settings['whatsapp_sender'] ?? '') ?>" placeholder="sess_xxxxxx" dir="ltr">
           </div>
           <div style="background:rgba(37,211,102,.08);border-right:3px solid #25D366;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#166534;">
             <i class="fas fa-info-circle" style="margin-left:6px;"></i>
-            ضع بيانات الـ API الخاص بك (WaAPI أو أي سيرفس آخر). النظام سيرسل POST request تلقائياً.
+            ضع بيانات خادم بوابة الواتساب والجلسة ومفتاح المصادقة لتفعيل إرسال الإشعارات والرسائل التلقائية للعملاء.
           </div>
         </div>
       </div>

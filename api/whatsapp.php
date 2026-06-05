@@ -39,29 +39,35 @@ if (strlen($mobile) === 11 && $mobile[0] === '0') {
     $mobile = '2' . $mobile; // Egypt: 0 → 20
 }
 
-$apiUrl   = getSetting('whatsapp_api_url', '');
-$apiToken = getSetting('whatsapp_api_token', '');
-$sender   = getSetting('whatsapp_sender', '');
+$apiUrl    = getSetting('whatsapp_api_url', '');
+$apiToken  = getSetting('whatsapp_api_token', '');
+$sessionId = getSetting('whatsapp_sender', '');
 
 $status   = 'failed';
 $response = '';
 
-if (!empty($apiUrl) && !empty($apiToken)) {
-    // Send via API
+if (!empty($apiUrl) && !empty($apiToken) && !empty($sessionId)) {
+    // بناء الرابط الكامل للـ API باستخدام الـ Session ID
+    $endpoint = rtrim($apiUrl, '/');
+    if (strpos($endpoint, '/api/sessions') === false) {
+        $endpoint = $endpoint . '/api/sessions/' . $sessionId . '/messages';
+    }
+
     $payload = json_encode([
-        'token'   => $apiToken,
-        'to'      => $mobile,
-        'body'    => $message,
-        'sender'  => $sender,
+        'to'   => $mobile,
+        'text' => $message,
     ]);
 
-    $ch = curl_init($apiUrl);
+    $ch = curl_init($endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => $payload,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 15,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Authorization: Bearer ' . $apiToken],
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json', 
+            'x-api-key: ' . $apiToken
+        ],
     ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -71,7 +77,7 @@ if (!empty($apiUrl) && !empty($apiToken)) {
 } else {
     // No API configured — log only
     $status   = 'sent';  // Optimistic in dev mode
-    $response = 'API not configured — logged only';
+    $response = 'API or Session not configured — logged only';
 }
 
 // Log the message
