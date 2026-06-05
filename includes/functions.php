@@ -81,7 +81,7 @@ function daysDiff(string $date1, string $date2 = 'today'): int {
  * حالة الاشتراك كـ badge HTML
  */
 function subscriptionStatusBadge(string $status, ?string $endDate = ''): string {
-    $warningDays = (int)getSetting('renewal_warning_days', '30');
+    $warningDays = (int)getSetting('renewal_warning_days', '60');
     // تحقق من الاقتراب من الانتهاء
     if ($status === 'active' && !empty($endDate)) {
         $daysLeft = daysDiff($endDate, 'today');
@@ -260,7 +260,7 @@ function daysUntilExpiry(string $endDate): int {
  */
 function isExpiringSoon(string $endDate): bool {
     $days = daysUntilExpiry($endDate);
-    $warningDays = (int)getSetting('renewal_warning_days', '30');
+    $warningDays = (int)getSetting('renewal_warning_days', '60');
     return $days >= 0 && $days <= $warningDays;
 }
 

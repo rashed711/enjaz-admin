@@ -24,9 +24,9 @@ $userInitial = mb_substr($userName, 0, 1, 'UTF-8');
 $renewalCount = 0;
 try {
     $db   = getDB();
-    $days = (int)getSetting('renewal_warning_days', '30');
+    $days = (int)getSetting('renewal_warning_days', '60');
     $stmt = $db->prepare("
-        SELECT COUNT(*) FROM client_subscriptions
+        SELECT COUNT(DISTINCT client_id) FROM client_subscriptions
         WHERE status = 'active'
           AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
     ");

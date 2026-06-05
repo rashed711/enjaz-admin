@@ -6,7 +6,7 @@ require_once __DIR__ . '/config/app.php';
 
 // لو مسجّل دخول بالفعل
 if (!empty($_SESSION['user_id'])) {
-    header('Location: dashboard.php');
+    header('Location: reports/renewals.php');
     exit;
 }
 
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $result = loginUser($username, $password);
             if ($result['success']) {
-                header('Location: dashboard.php');
+                header('Location: reports/renewals.php');
                 exit;
             } else {
                 $error = $result['message'];

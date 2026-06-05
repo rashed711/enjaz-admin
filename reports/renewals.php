@@ -7,7 +7,7 @@ requireLogin();
 requirePermission('view_reports');
 
 $db = getDB();
-$warningDays = (int)getSetting('renewal_warning_days','30');
+$warningDays = (int)getSetting('renewal_warning_days','60');
 $filterDays  = (int)($_GET['days'] ?? $warningDays);
 
 $stmt = $db->prepare("
