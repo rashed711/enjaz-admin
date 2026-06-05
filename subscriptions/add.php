@@ -56,66 +56,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?,?,?,?,?,?,?,'active',?)
             ")->execute([$clientId, $serviceId, $planName, $price, $dbValStartDate, $dbValEndDate, $notes, currentUserId()]);
 
-            // تحديث بيانات الدومين ومزود الخدمة للعميل إذا كانت الخدمة تخص حجز الدومين
-            $srvNameStmt = $db->prepare("SELECT name FROM services WHERE id = ?");
-            $srvNameStmt->execute([$serviceId]);
-            $serviceName = $srvNameStmt->fetchColumn();
-            $isDomainService = ($serviceName && (mb_strpos($serviceName, 'دومين') !== false || mb_strpos(strtolower($serviceName), 'domain') !== false));
-
-            if ($isDomainService) {
-                $domain = clean($_POST['domain'] ?? '');
-                $domainProvider = clean($_POST['domain_provider'] ?? '');
-                
-                $inputDomains = [];
-                // تصفية الدومينات المدخلة للتأكد من أنها نطاقات حقيقية
-                if ($domain) {
-                    $parts = array_map('trim', explode(',', $domain));
-                    foreach ($parts as $p) {
-                        if (preg_match('/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,18}$/', $p)) {
-                            $inputDomains[] = $p;
-                        }
-                    }
-                }
-                
-                // التحقق من اسم الخطة كدومين احتياطي
-                $trimmedPlan = trim($planName);
-                if (preg_match('/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,18}$/', $trimmedPlan)) {
-                    $inputDomains[] = $trimmedPlan;
-                }
-
-                $inputDomains = array_unique(array_filter($inputDomains));
-
-                if (!empty($inputDomains)) {
-                    $stmt = $db->prepare("SELECT domain, domain_provider FROM clients WHERE id = ?");
-                    $stmt->execute([$clientId]);
-                    $clientInfo = $stmt->fetch();
-                    $existingDomain = trim($clientInfo['domain'] ?? '');
-                    $existingProvider = trim($clientInfo['domain_provider'] ?? '');
-
-                    $existingDomainsList = $existingDomain ? array_map('trim', explode(',', $existingDomain)) : [];
-                    
-                    // تصفية الدومينات الحالية للتخلص من أي قيم خاطئة سابقة مثل "دومين"
-                    $cleanExisting = [];
-                    foreach ($existingDomainsList as $ed) {
-                        if (preg_match('/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,18}$/', $ed)) {
-                            $cleanExisting[] = $ed;
-                        }
-                    }
-
-                    // دمج الدومينات الجديدة مع القديمة بشكل فريد
-                    $mergedDomains = array_unique(array_merge($cleanExisting, $inputDomains));
-                    $newDomains = implode(', ', $mergedDomains);
-
-                    $providersList = $existingProvider ? array_map('trim', explode(',', $existingProvider)) : [];
-                    if ($domainProvider && !in_array($domainProvider, $providersList)) {
-                        $providersList[] = $domainProvider;
-                    }
-                    $newProviders = implode(', ', array_unique(array_filter($providersList)));
-
-                    $db->prepare("UPDATE clients SET domain = ?, domain_provider = ? WHERE id = ?")
-                       ->execute([$newDomains, $newProviders, $clientId]);
-                }
-            }
 
             setFlash('success', 'تم إضافة الخدمة للعميل بنجاح.');
             header("Location: ../clients/view.php?id=$clientId");

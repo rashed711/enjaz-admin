@@ -429,37 +429,6 @@ require_once INCLUDES_PATH . '/header.php';
           </select>
         </div>
 
-        <!-- حقول الدومين الإضافية (تظهر فقط عند حجز دومين) -->
-        <div id="domainFieldsSection" style="display:none;background:#f8fafc;border:1px dashed var(--border-color);border-radius:8px;padding:14px;margin-bottom:14px;">
-          <div style="font-weight:700;font-size:13px;color:var(--primary-light);margin-bottom:10px;">
-            <i class="fas fa-globe"></i> تفاصيل الدومين ومزود الخدمة
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="sub_domain">اسم الدومين</label>
-              <input type="text" id="sub_domain" name="domain" class="form-control" placeholder="example.com" value="<?= e($client['domain']) ?>" dir="ltr">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="sub_domain_provider_select">مزود الخدمة</label>
-              <?php 
-              $providers = ['GoDaddy', 'Hostinger', 'Namecheap', 'Cloudflare', 'Dynadot', 'Hostgator', 'Bluehost', 'إنجاز للحلول الذكية'];
-              $isCustomProv = !empty($client['domain_provider']) && !in_array($client['domain_provider'], $providers);
-              ?>
-              <select id="sub_domain_provider_select" class="form-control" onchange="onSubProviderChange(this)">
-                <option value="">— اختر مزود الخدمة —</option>
-                <?php foreach ($providers as $prov): ?>
-                  <option value="<?= e($prov) ?>" <?= $client['domain_provider'] === $prov ? 'selected' : '' ?>><?= e($prov) ?></option>
-                <?php endforeach; ?>
-                <option value="custom" <?= $isCustomProv ? 'selected' : '' ?>>مزود آخر (كتابة يدوية)...</option>
-              </select>
-              <input type="text" id="sub_domain_provider" name="domain_provider" class="form-control" 
-                     value="<?= e($client['domain_provider']) ?>" 
-                     style="margin-top:8px; display: <?= $isCustomProv ? 'block' : 'none' ?>;" 
-                     placeholder="اكتب اسم مزود الخدمة...">
-            </div>
-          </div>
-        </div>
-
         <!-- الباقات — تظهر ديناميكياً بعد اختيار الخدمة -->
         <div id="plansSection" style="display:none;margin-bottom:14px;">
           <label class="form-label">اختر الباقة <span class="required">*</span></label>
@@ -471,7 +440,7 @@ require_once INCLUDES_PATH . '/header.php';
         <div id="customPriceSection">
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="plan_name">اسم الباقة / الخطة</label>
+              <label class="form-label" for="plan_name" id="plan_name_label">اسم الباقة / الخطة</label>
               <input type="text" id="plan_name" name="plan_name" class="form-control"
                      placeholder="مثال: باقة 5 جيجا، أساسية...">
             </div>
@@ -689,10 +658,24 @@ async function onServiceChange(sel) {
   document.getElementById('price').value          = '';
   currentPlans = [];
 
-  // إظهار/إخفاء حقول الدومين بناءً على اسم الخدمة المحددة
+  // تغيير مسمى الحقل وتلميحه بناءً على اختيار خدمة الدومين
   const serviceText = opt ? opt.text : '';
   const isDomain = serviceText.includes('دومين') || serviceText.toLowerCase().includes('domain');
-  document.getElementById('domainFieldsSection').style.display = isDomain ? 'block' : 'none';
+  const planLabel = document.getElementById('plan_name_label');
+  const planInput = document.getElementById('plan_name');
+  if (isDomain) {
+      if (planLabel) planLabel.innerHTML = 'اسم الدومين المحجوز <span class="required">*</span>';
+      if (planInput) {
+          planInput.placeholder = 'example.com';
+          planInput.required = true;
+      }
+  } else {
+      if (planLabel) planLabel.innerHTML = 'اسم الباقة / الخطة';
+      if (planInput) {
+          planInput.placeholder = 'مثال: باقة 5 جيجا، أساسية...';
+          planInput.required = false;
+      }
+  }
 
   // المدة الافتراضية للخدمة
   const defaultDur = parseInt(opt.dataset.duration) || 12;
