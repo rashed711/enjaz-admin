@@ -243,7 +243,157 @@ elseif ($tab === 'services') {
         GROUP BY s.id ORDER BY total_revenue DESC
     ");
     $services->execute($payParams);
-    $services = $services->fetchAll();
+}
+
+// ── 5. تبويب المصروفات (Expenses Tab) ─────────────────────────────
+elseif ($tab === 'expenses') {
+    requirePermission('manage_expenses');
+    
+    // إضافة مصروف جديد
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
+        $title    = clean($_POST['title']);
+        $amount   = (float)$_POST['amount'];
+        $expDate  = clean($_POST['expense_date']);
+        $category = clean($_POST['category']);
+        $notes    = clean($_POST['notes']);
+        $userId   = currentUserId();
+        
+        $db->prepare("
+            INSERT INTO expenses (title, amount, expense_date, category, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ")->execute([$title, $amount, $expDate, $category, $notes, $userId]);
+        
+        header("Location: financial-hub.php?tab=expenses&msg=added");
+        exit;
+    }
+    
+    // حذف مصروف
+    if (isset($_GET['delete_expense'])) {
+        $id = (int)$_GET['delete_expense'];
+        $db->prepare("DELETE FROM expenses WHERE id = ?")->execute([$id]);
+        header("Location: financial-hub.php?tab=expenses&msg=deleted");
+        exit;
+    }
+    
+    $search   = clean($_GET['search'] ?? '');
+    $category = clean($_GET['category'] ?? '');
+    $dateFrom = clean($_GET['date_from'] ?? '');
+    $dateTo   = clean($_GET['date_to'] ?? '');
+    $page     = max(1, (int)($_GET['page'] ?? 1));
+    $perPage  = 25;
+    
+    $where  = ['1=1'];
+    $params = [];
+    if ($search) { $where[] = "(title LIKE ? OR notes LIKE ?)"; $s="%$search%"; $params=array_merge($params,[$s,$s]); }
+    if ($category) { $where[] = "category = ?"; $params[] = $category; }
+    if ($dateFrom) { $where[] = "expense_date >= ?"; $params[] = $dateFrom; }
+    if ($dateTo)   { $where[] = "expense_date <= ?"; $params[] = $dateTo; }
+    $whereStr = implode(' AND ', $where);
+    
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM expenses WHERE $whereStr");
+    $countStmt->execute($params);
+    $total = (int)$countStmt->fetchColumn();
+    $pager = paginate($total, $perPage, $page);
+    
+    $sumStmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE $whereStr");
+    $sumStmt->execute($params);
+    $totalAmount = (float)$sumStmt->fetchColumn();
+    
+    $stmt = $db->prepare("
+        SELECT e.*, u.full_name as added_by
+        FROM expenses e
+        LEFT JOIN users u ON u.id = e.created_by
+        WHERE $whereStr
+        ORDER BY e.expense_date DESC, e.created_at DESC
+        LIMIT ? OFFSET ?
+    ");
+    $stmt->execute(array_merge($params, [$perPage, $pager['offset']]));
+    $expenses = $stmt->fetchAll();
+    
+    // AJAX handling
+    if (isset($_GET['ajax'])) {
+        header('Content-Type: application/json');
+        ob_start();
+        ?>
+        <?php if (empty($expenses)): ?>
+        <tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><i class="fas fa-file-signature"></i></div><p class="empty-title">لا توجد مصروفات</p></div></td></tr>
+        <?php else: ?>
+        <?php foreach ($expenses as $i => $exp): ?>
+        <tr>
+          <td class="text-muted"><?= $pager['offset']+$i+1 ?></td>
+          <td><?= formatDate($exp['expense_date']) ?></td>
+          <td><strong><?= e($exp['title']) ?></strong></td>
+          <td style="color:var(--danger);font-weight:700;"><?= formatMoney($exp['amount']) ?></td>
+          <td><span class="badge badge-info"><?= e($exp['category']) ?></span></td>
+          <td class="text-muted fs-sm"><?= e($exp['notes'] ?: '—') ?></td>
+          <td class="text-muted fs-sm"><?= e($exp['added_by'] ?? '—') ?></td>
+          <td>
+            <a href="?tab=expenses&delete_expense=<?= $exp['id'] ?>"
+               class="btn btn-sm btn-outline-danger" data-confirm="حذف هذا المصروف؟">
+              <i class="fas fa-trash"></i>
+            </a>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+        <?php endif; ?>
+        <?php
+        $tbodyHtml = ob_get_clean();
+        
+        ob_start();
+        ?>
+        <?php if (!empty($expenses)): ?>
+        <tr style="background:#f8fafc;font-weight:700;">
+          <td colspan="3" style="padding:12px 16px;text-align:right;">المجموع في هذه الصفحة:</td>
+          <td style="padding:12px 16px;color:var(--danger);font-size:15px;">
+            <?= formatMoney(array_sum(array_column($expenses,'amount'))) ?>
+          </td>
+          <td colspan="4"></td>
+        </tr>
+        <?php endif; ?>
+        <?php
+        $tfootHtml = ob_get_clean();
+        
+        ob_start();
+        ?>
+        <?php if ($pager['total_pages'] > 1): ?>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <span class="text-muted fs-sm">
+            عرض <?= $pager['offset'] + 1 ?> - <?= min($pager['offset'] + $perPage, $total) ?>
+            من <?= $total ?> مصروف
+          </span>
+          <div class="pagination">
+            <?php
+            $queryBase = http_build_query(array_filter(['search' => $search, 'category' => $category, 'date_from' => $dateFrom, 'date_to' => $dateTo]));
+            $sep = $queryBase ? '&' : '';
+            ?>
+            <a href="?tab=expenses&<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
+               class="page-btn <?= !$pager['has_prev'] ? 'disabled' : '' ?>" data-page="<?= $pager['current_page'] - 1 ?>">
+              <i class="fas fa-chevron-right"></i>
+            </a>
+            <?php for ($p = 1; $p <= $pager['total_pages']; $p++): ?>
+            <a href="?tab=expenses&<?= $queryBase ?><?= $sep ?>page=<?= $p ?>"
+               class="page-btn <?= $p === $pager['current_page'] ? 'active' : '' ?>" data-page="<?= $p ?>">
+              <?= $p ?>
+            </a>
+            <?php endfor; ?>
+            <a href="?tab=expenses&<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] + 1 ?>"
+               class="page-btn <?= !$pager['has_next'] ? 'disabled' : '' ?>" data-page="<?= $pager['current_page'] + 1 ?>">
+              <i class="fas fa-chevron-left"></i>
+            </a>
+          </div>
+        </div>
+        <?php endif; ?>
+        <?php
+        $paginationHtml = ob_get_clean();
+        
+        echo json_encode([
+            'tbody' => $tbodyHtml,
+            'tfoot' => $tfootHtml,
+            'pagination' => $paginationHtml,
+            'subtitle' => 'إجمالي ' . $total . ' مصروف — مجموع المصروفات: ' . formatMoney($totalAmount)
+        ]);
+        exit;
+    }
 }
 
 $pageTitle  = 'المركز المالي والتقارير';
@@ -306,6 +456,9 @@ require_once INCLUDES_PATH . '/header.php';
   </a>
   <a href="?tab=services" class="tab-btn <?= $tab === 'services' ? 'active' : '' ?>">
     <i class="fas fa-layer-group"></i> ملخص الخدمات
+  </a>
+  <a href="?tab=expenses" class="tab-btn <?= $tab === 'expenses' ? 'active' : '' ?>">
+    <i class="fas fa-file-signature"></i> المصروفات
   </a>
 </div>
 
@@ -1051,6 +1204,367 @@ require_once INCLUDES_PATH . '/header.php';
               }
           });
       }
+  });
+  </script>
+  <?php endif; ?>
+
+  <!-- 5. المصروفات -->
+  <?php if ($tab === 'expenses'): ?>
+  <?php
+  $dateFrom = clean($_GET['date_from'] ?? '');
+  $dateTo   = clean($_GET['date_to'] ?? '');
+  $search   = clean($_GET['search'] ?? '');
+  $category = clean($_GET['category'] ?? '');
+  ?>
+  
+  <?php if (isset($_GET['msg'])): ?>
+    <?php if ($_GET['msg'] === 'added'): ?>
+      <div class="alert alert-success" style="margin-bottom: 16px;"><i class="fas fa-check-circle"></i> تم إضافة المصروف بنجاح.</div>
+    <?php elseif ($_GET['msg'] === 'deleted'): ?>
+      <div class="alert alert-success" style="margin-bottom: 16px;"><i class="fas fa-check-circle"></i> تم حذف المصروف بنجاح.</div>
+    <?php endif; ?>
+  <?php endif; ?>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="filters-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <form method="GET" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;" id="expensesFilterForm">
+        <input type="hidden" name="tab" value="expenses">
+        <div class="search-box">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" name="search" class="form-control" placeholder="بحث في المصروفات..." value="<?= e($search) ?>" autocomplete="off">
+        </div>
+        
+        <select name="category" class="form-control" style="width:auto;">
+          <option value="">كل التصنيفات</option>
+          <option value="دومين" <?= $category === 'دومين' ? 'selected' : '' ?>>دومينات</option>
+          <option value="سيرفر" <?= $category === 'سيرفر' ? 'selected' : '' ?>>سيرفرات واستضافات</option>
+          <option value="إعلانات" <?= $category === 'إعلانات' ? 'selected' : '' ?>>إعلانات وتسويق</option>
+          <option value="موظفين" <?= $category === 'موظفين' ? 'selected' : '' ?>>رواتب وموظفين</option>
+          <option value="أخرى" <?= $category === 'أخرى' ? 'selected' : '' ?>>مصاريف أخرى</option>
+        </select>
+        
+        <!-- أزرار الفلترة السريعة -->
+        <div class="btn-group" id="expensesQuickDateFilters" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:8px;">
+          <button type="button" class="btn btn-sm" data-range="all" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">الكل</button>
+          <button type="button" class="btn btn-sm" data-range="day" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">يوم</button>
+          <button type="button" class="btn btn-sm" data-range="month" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">شهر</button>
+          <button type="button" class="btn btn-sm" data-range="year" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">سنة</button>
+          <button type="button" class="btn btn-sm" data-range="custom" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">مخصص</button>
+        </div>
+
+        <div id="expensesCustomWrapper" style="display:none; gap:12px; align-items:center;">
+          <input type="date" name="date_from" class="form-control" style="width:auto;" value="<?= e($dateFrom) ?>" placeholder="من تاريخ">
+          <input type="date" name="date_to" class="form-control" style="width:auto;" value="<?= e($dateTo) ?>" placeholder="إلى تاريخ">
+        </div>
+        
+        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
+        <a href="?tab=expenses" class="btn btn-outline" id="expensesClearBtn" style="display:none;"><i class="fas fa-times"></i> مسح</a>
+      </form>
+      
+      <?php if (hasPermission('manage_expenses')): ?>
+      <button type="button" class="btn btn-success" onclick="document.getElementById('addExpenseModal').style.display='flex'">
+        <i class="fas fa-plus"></i> إضافة مصروف جديد
+      </button>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>التاريخ</th>
+            <th>بند المصروف</th>
+            <th>القيمة</th>
+            <th>التصنيف</th>
+            <th>ملاحظات</th>
+            <th>أضيف بواسطة</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Dynamic body load -->
+        </tbody>
+        <tfoot class="table-totals">
+          <!-- Dynamic totals load -->
+        </tfoot>
+      </table>
+    </div>
+    <div class="card-footer" id="expensesFooter">
+      <!-- Pagination will be handled dynamically -->
+    </div>
+  </div>
+
+  <!-- Modal إضافة مصروف -->
+  <div class="modal-overlay" id="addExpenseModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    <div class="modal-box card" style="width:100%; max-width:500px; padding:24px; border-radius:12px; background:#fff; position:relative;">
+      <h3 style="margin-top:0; margin-bottom:20px; font-size:18px; font-weight:700; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+        <i class="fas fa-plus" style="margin-left:8px; color:var(--success);"></i>إضافة مصروف جديد
+      </h3>
+      <form method="POST" action="?tab=expenses">
+        <input type="hidden" name="add_expense" value="1">
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">بند المصروف <span style="color:var(--danger)">*</span></label>
+          <input type="text" name="title" class="form-control" required placeholder="مثال: تجديد سيرفر الاستضافة">
+        </div>
+        
+        <div class="row" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+          <div class="form-group">
+            <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">القيمة (بالجنيه) <span style="color:var(--danger)">*</span></label>
+            <input type="number" step="0.01" name="amount" class="form-control" required placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">التاريخ <span style="color:var(--danger)">*</span></label>
+            <input type="date" name="expense_date" class="form-control" required value="<?= date('Y-m-d') ?>">
+          </div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">التصنيف <span style="color:var(--danger)">*</span></label>
+          <select name="category" class="form-control" required>
+            <option value="دومين">دومينات</option>
+            <option value="سيرفر">سيرفرات واستضافات</option>
+            <option value="إعلانات">إعلانات وتسويق</option>
+            <option value="موظفين">رواتب وموظفين</option>
+            <option value="أخرى">مصاريف أخرى</option>
+          </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" style="display:block; margin-bottom:8px; font-weight:700;">ملاحظات إضافية</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="تفاصيل المصروف..."></textarea>
+        </div>
+        
+        <div style="display:flex; justify-content:flex-end; gap:12px; border-top:1px solid #f1f5f9; padding-top:16px;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('addExpenseModal').style.display='none'">إلغاء</button>
+          <button type="submit" class="btn btn-success">حفظ المصروف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      const searchInput = document.querySelector('#expensesFilterForm input[name="search"]');
+      const categorySelect = document.querySelector('#expensesFilterForm select[name="category"]');
+      const dateFromInput = document.querySelector('#expensesFilterForm input[name="date_from"]');
+      const dateToInput = document.querySelector('#expensesFilterForm input[name="date_to"]');
+      const expensesFilterForm = document.getElementById('expensesFilterForm');
+      const tbody = document.querySelector('.data-table tbody');
+      const tfoot = document.querySelector('.table-totals');
+      const cardFooter = document.getElementById('expensesFooter');
+      const subtitle = document.querySelector('.page-subtitle');
+      const clearSearchBtn = document.getElementById('expensesClearBtn');
+      
+      let debounceTimer;
+      let currentPage = 1;
+
+      const quickFilters = document.getElementById('expensesQuickDateFilters');
+      const customWrapper = document.getElementById('expensesCustomWrapper');
+
+      const formatDate = (date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+      };
+
+      function updateActiveFilter(range) {
+          document.querySelectorAll('#expensesQuickDateFilters button').forEach(btn => {
+              if (btn.dataset.range === range) {
+                  btn.style.background = 'var(--primary)';
+                  btn.style.color = '#fff';
+              } else {
+                  btn.style.background = 'transparent';
+                  btn.style.color = 'var(--text-muted)';
+              }
+          });
+          
+          if (range === 'custom') {
+              customWrapper.style.display = 'inline-flex';
+          } else {
+              customWrapper.style.display = 'none';
+          }
+      }
+
+      const todayStr = formatDate(new Date());
+      const firstDayMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+      const lastDayMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+      const firstDayYear = formatDate(new Date(new Date().getFullYear(), 0, 1));
+      const lastDayYear = formatDate(new Date(new Date().getFullYear(), 11, 31));
+
+      const initFrom = dateFromInput.value;
+      const initTo = dateToInput.value;
+      let activeRange = 'all';
+
+      if (initFrom || initTo) {
+          if (initFrom === todayStr && initTo === todayStr) {
+              activeRange = 'day';
+          } else if (initFrom === firstDayMonth && initTo === lastDayMonth) {
+              activeRange = 'month';
+          } else if (initFrom === firstDayYear && initTo === lastDayYear) {
+              activeRange = 'year';
+          } else {
+              activeRange = 'custom';
+          }
+      }
+      updateActiveFilter(activeRange);
+
+      if (quickFilters) {
+          quickFilters.addEventListener('click', function(e) {
+              const btn = e.target.closest('button');
+              if (!btn) return;
+              
+              const range = btn.dataset.range;
+              let fromVal = '';
+              let toVal = '';
+              
+              if (range === 'day') {
+                  fromVal = todayStr;
+                  toVal = todayStr;
+              } else if (range === 'month') {
+                  fromVal = firstDayMonth;
+                  toVal = lastDayMonth;
+              } else if (range === 'year') {
+                  fromVal = firstDayYear;
+                  toVal = lastDayYear;
+              } else if (range === 'custom') {
+                  fromVal = dateFromInput.value;
+                  toVal = dateToInput.value;
+              }
+              
+              if (dateFromInput._flatpickr) {
+                  dateFromInput._flatpickr.setDate(fromVal);
+              } else {
+                  dateFromInput.value = fromVal;
+              }
+              
+              if (dateToInput._flatpickr) {
+                  dateToInput._flatpickr.setDate(toVal);
+              } else {
+                  dateToInput.value = toVal;
+              }
+              
+              updateActiveFilter(range);
+              
+              if (range !== 'custom') {
+                  doSearch(1);
+              }
+          });
+      }
+
+      if (expensesFilterForm) {
+          expensesFilterForm.addEventListener('submit', function(e) {
+              e.preventDefault();
+              doSearch(1);
+          });
+      }
+
+      function doSearch(page = 1) {
+          currentPage = page;
+          const searchQuery = searchInput.value;
+          const catQuery = categorySelect.value;
+          const dateFromQuery = dateFromInput.value;
+          const dateToQuery = dateToInput.value;
+
+          const params = new URLSearchParams({
+              tab: 'expenses',
+              search: searchQuery,
+              category: catQuery,
+              date_from: dateFromQuery,
+              date_to: dateToQuery,
+              page: currentPage,
+              ajax: 1
+          });
+
+          // Update URL
+          const cleanParams = new URLSearchParams({
+              tab: 'expenses',
+              search: searchQuery,
+              category: catQuery,
+              date_from: dateFromQuery,
+              date_to: dateToQuery,
+              page: currentPage
+          });
+          if (!searchQuery) cleanParams.delete('search');
+          if (!catQuery) cleanParams.delete('category');
+          if (!dateFromQuery) cleanParams.delete('date_from');
+          if (!dateToQuery) cleanParams.delete('date_to');
+          if (currentPage === 1) cleanParams.delete('page');
+          
+          const newUrl = window.location.pathname + (cleanParams.toString() ? '?' + cleanParams.toString() : '');
+          window.history.replaceState({path: newUrl}, '', newUrl);
+
+          if (clearSearchBtn) {
+              if (searchQuery || catQuery || dateFromQuery || dateToQuery) {
+                  clearSearchBtn.style.display = 'inline-flex';
+              } else {
+                  clearSearchBtn.style.display = 'none';
+              }
+          }
+
+          fetch('financial-hub.php?' + params.toString())
+              .then(response => response.json())
+              .then(data => {
+                  tbody.innerHTML = data.tbody;
+                  tfoot.innerHTML = data.tfoot;
+                  if (subtitle) subtitle.textContent = data.subtitle;
+
+                  if (data.pagination.trim()) {
+                      cardFooter.innerHTML = data.pagination;
+                      cardFooter.style.display = 'block';
+                  } else {
+                      cardFooter.innerHTML = '';
+                      cardFooter.style.display = 'none';
+                  }
+              })
+              .catch(err => console.error('Error fetching search results:', err));
+      }
+
+      if (searchInput) {
+          searchInput.addEventListener('input', function() {
+              clearTimeout(debounceTimer);
+              debounceTimer = setTimeout(() => doSearch(1), 150);
+          });
+      }
+
+      if (categorySelect) {
+          categorySelect.addEventListener('change', () => doSearch(1));
+      }
+
+      setTimeout(() => {
+          if (dateFromInput && dateFromInput._flatpickr) {
+              dateFromInput._flatpickr.config.onChange.push(() => doSearch(1));
+          } else if (dateFromInput) {
+              dateFromInput.addEventListener('change', () => doSearch(1));
+          }
+
+          if (dateToInput && dateToInput._flatpickr) {
+              dateToInput._flatpickr.config.onChange.push(() => doSearch(1));
+          } else if (dateToInput) {
+              dateToInput.addEventListener('change', () => doSearch(1));
+          }
+      }, 200);
+
+      const card = tbody ? tbody.closest('.card') : null;
+      if (card) {
+          card.addEventListener('click', function(e) {
+              const pageBtn = e.target.closest('.page-btn');
+              if (pageBtn && !pageBtn.classList.contains('disabled') && !pageBtn.classList.contains('active')) {
+                  e.preventDefault();
+                  const page = parseInt(pageBtn.getAttribute('data-page'));
+                  if (page) {
+                      doSearch(page);
+                  }
+              }
+          });
+      }
+      
+      // trigger search initially to load correct pagination footer state
+      doSearch(<?= $page ?>);
   });
   </script>
   <?php endif; ?>

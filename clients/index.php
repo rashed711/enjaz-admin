@@ -11,6 +11,7 @@ $db = getDB();
 // Search & Filter
 $search = clean($_GET['search'] ?? '');
 $status = $_GET['status'] ?? '';
+$filter = $_GET['filter'] ?? '';
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 
@@ -26,10 +27,53 @@ if ($status !== '') {
     $params[] = (int)$status;
 }
 
+if ($filter === 'website') {
+    $where[] = "c.id IN (
+        SELECT DISTINCT cs2.client_id 
+        FROM client_subscriptions cs2 
+        JOIN services s2 ON s2.id = cs2.service_id 
+        WHERE cs2.status != 'cancelled' AND (s2.name LIKE '%تصميم%' OR s2.name LIKE '%موقع%' OR s2.name LIKE '%ويب%' OR s2.name LIKE '%web%')
+    )";
+} elseif ($filter === 'domain_us') {
+    $where[] = "c.id IN (
+        SELECT DISTINCT cs2.client_id 
+        FROM client_subscriptions cs2 
+        JOIN services s2 ON s2.id = cs2.service_id 
+        WHERE cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%')
+    )";
+} elseif ($filter === 'domain_them') {
+    $where[] = "c.domain IS NOT NULL AND c.domain != '' AND c.id NOT IN (
+        SELECT DISTINCT cs2.client_id 
+        FROM client_subscriptions cs2 
+        JOIN services s2 ON s2.id = cs2.service_id 
+        WHERE cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%')
+    )";
+}
+
 $whereStr = implode(' AND ', $where);
 
+$havingStr = "";
+if ($filter === 'debt') {
+    $havingStr = " HAVING (total_services - total_paid) > 0";
+}
+
 // Count
-$countStmt = $db->prepare("SELECT COUNT(*) FROM clients c WHERE $whereStr");
+if ($filter === 'debt') {
+    $countStmt = $db->prepare("
+        SELECT COUNT(*) FROM (
+            SELECT c.id,
+                   COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
+                   COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid
+            FROM clients c
+            LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+            WHERE $whereStr
+            GROUP BY c.id
+            HAVING (total_services - total_paid) > 0
+        ) tmp
+    ");
+} else {
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM clients c WHERE $whereStr");
+}
 $countStmt->execute($params);
 $totalClients = (int)$countStmt->fetchColumn();
 $pager = paginate($totalClients, $perPage, $page);
@@ -44,6 +88,7 @@ $stmt = $db->prepare("
     LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
     WHERE $whereStr
     GROUP BY c.id
+    $havingStr
     ORDER BY c.created_at DESC
     LIMIT ? OFFSET ?
 ");
@@ -151,7 +196,7 @@ if (isset($_GET['ajax'])) {
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -221,8 +266,16 @@ require_once INCLUDES_PATH . '/header.php';
         <option value="0" <?= $status === '0' ? 'selected' : '' ?>>موقوف</option>
       </select>
 
+      <select name="filter" class="form-control" style="width:auto;">
+        <option value="">كل التصنيفات المخصصة</option>
+        <option value="debt" <?= $filter === 'debt' ? 'selected' : '' ?>>عملاء عليهم مديونية</option>
+        <option value="website" <?= $filter === 'website' ? 'selected' : '' ?>>عملاء صممنا لهم مواقع</option>
+        <option value="domain_us" <?= $filter === 'domain_us' ? 'selected' : '' ?>>عملاء حجزنا لهم الدومين</option>
+        <option value="domain_them" <?= $filter === 'domain_them' ? 'selected' : '' ?>>عملاء حجزوا الدومين بأنفسهم</option>
+      </select>
+
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
-      <?php if ($search || $status !== ''): ?>
+      <?php if ($search || $status !== '' || $filter !== ''): ?>
       <a href="index.php" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
       <?php endif; ?>
     </form>
@@ -372,6 +425,7 @@ require_once INCLUDES_PATH . '/header.php';
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const statusSelect = document.querySelector('select[name="status"]');
+    const filterSelect = document.querySelector('select[name="filter"]');
     const searchForm = document.getElementById('searchForm');
     const tbody = document.querySelector('.data-table tbody');
     const subtitle = document.querySelector('.page-subtitle');
@@ -391,10 +445,12 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPage = page;
         const searchQuery = searchInput.value;
         const statusQuery = statusSelect.value;
+        const filterQuery = filterSelect.value;
 
         const params = new URLSearchParams({
             search: searchQuery,
             status: statusQuery,
+            filter: filterQuery,
             page: currentPage,
             ajax: 1
         });
@@ -403,10 +459,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const cleanParams = new URLSearchParams({
             search: searchQuery,
             status: statusQuery,
+            filter: filterQuery,
             page: currentPage
         });
         if (!searchQuery) cleanParams.delete('search');
         if (!statusQuery) cleanParams.delete('status');
+        if (!filterQuery) cleanParams.delete('filter');
         if (currentPage === 1) cleanParams.delete('page');
         
         const newUrl = window.location.pathname + (cleanParams.toString() ? '?' + cleanParams.toString() : '');
@@ -414,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update Clear Button visibility if it exists
         if (clearSearchBtn) {
-            if (searchQuery || statusQuery !== '') {
+            if (searchQuery || statusQuery !== '' || filterQuery !== '') {
                 clearSearchBtn.style.display = 'inline-flex';
             } else {
                 clearSearchBtn.style.display = 'none';
@@ -446,6 +504,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     statusSelect.addEventListener('change', function() {
+        doSearch(1);
+    });
+
+    filterSelect.addEventListener('change', function() {
         doSearch(1);
     });
 

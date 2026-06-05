@@ -41,6 +41,7 @@ define('ALL_PERMISSIONS', [
     'send_whatsapp'      => 'إرسال واتساب',
     'print_invoices'     => 'طباعة الفواتير',
     'manage_users'       => 'إدارة المستخدمين',
+    'manage_expenses'    => 'إدارة المصروفات',
 ]);
 
 // ── تحميل قاعدة البيانات ─────────────────────────────────────────
@@ -96,6 +97,27 @@ try {
         $db->exec("UPDATE services SET sort_order = 3 WHERE name LIKE '%تصميم%' OR name LIKE '%موقع%' OR name LIKE '%web%';");
         $db->exec("UPDATE services SET sort_order = 99 WHERE sort_order = 0;");
     }
+} catch (Exception $e) {}
+
+// التأكد من إنشاء جدول المصروفات
+try {
+    $db = getDB();
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS `expenses` (
+          `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          `title` VARCHAR(255) NOT NULL,
+          `amount` DECIMAL(10,2) NOT NULL,
+          `expense_date` DATE NOT NULL,
+          `category` VARCHAR(100) NOT NULL DEFAULT 'أخرى',
+          `notes` TEXT NULL,
+          `created_by` INT UNSIGNED NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          KEY `idx_expense_date` (`expense_date`),
+          KEY `idx_category` (`category`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
 } catch (Exception $e) {}
 
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
