@@ -105,6 +105,9 @@ function loginUser(string $username, string $password): array {
         $_SESSION['user_permissions'] = json_decode($user['permissions'] ?? '[]', true) ?? [];
         $_SESSION['last_activity']    = time();
 
+        // حماية Session Fixation — توليد معرّف جلسة جديد بعد تسجيل الدخول
+        session_regenerate_id(true);
+
         return ['success' => true];
     } catch (Exception $e) {
         return ['success' => false, 'message' => 'خطأ في الخادم'];

@@ -3,9 +3,17 @@
  * إعدادات التطبيق العامة - نظام إنجاز للحلول الذكية
  */
 
-// ── إعدادات الجلسة ──────────────────────────────────────────────
-session_name('enjaz_session');
+// ── إعدادات الجلسة الآمنة ─────────────────────────────────────────
+session_name('enjaz_sess');
 if (session_status() === PHP_SESSION_NONE) {
+    // أعلى مستوى أمان للجلسة
+    ini_set('session.cookie_httponly', '1');      // يمنع الوصول عبر JavaScript
+    ini_set('session.cookie_samesite', 'Strict'); // يمنع CSRF عبر cross-site
+    ini_set('session.use_strict_mode', '1');      // يرفض Session IDs غير معتمدة
+    ini_set('session.use_only_cookies', '1');     // الجلسة عبر الكوكيز فقط
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        ini_set('session.cookie_secure', '1');    // HTTPS فقط إن كان متاحاً
+    }
     session_start();
 }
 

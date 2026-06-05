@@ -4,8 +4,8 @@
  */
 
 define('DB_HOST',    'localhost');
-define('DB_USER',    'enjaz_admin');         
-define('DB_PASS',    'Aa@01028855');             
+define('DB_USER',    'enjaz_admin');
+define('DB_PASS',    'Aa@01028855');
 define('DB_NAME',    'enjaz_admin');
 define('DB_CHARSET', 'utf8mb4');
 
@@ -25,11 +25,15 @@ function getDB(): PDO {
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
+            // لا تكشف تفاصيل الاتصال للمستخدم — سجّلها داخلياً فقط
+            error_log('[DB Error] ' . $e->getMessage());
+            http_response_code(503);
             die(json_encode([
                 'error'   => true,
-                'message' => 'خطأ في الاتصال بقاعدة البيانات: ' . $e->getMessage()
+                'message' => 'خدمة قاعدة البيانات غير متاحة حالياً. يرجى المحاولة لاحقاً.'
             ]));
         }
     }
     return $pdo;
 }
+
