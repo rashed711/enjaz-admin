@@ -192,6 +192,25 @@ elseif ($tab === 'monthly') {
         GROUP BY s.id ORDER BY total DESC LIMIT 5
     ")->fetchAll();
 
+    // تفصيل الإيرادات حسب الخدمات لكل شهر
+    $allServices = $db->query("SELECT id, name FROM services ORDER BY sort_order ASC, name ASC")->fetchAll();
+    $serviceMonthlyRevenue = [];
+    foreach (range(1, 12) as $m) {
+        $serviceMonthlyRevenue[$m] = [];
+        foreach ($allServices as $srv) {
+            $stmt = $db->prepare("
+                SELECT COALESCE(SUM(p.amount),0) 
+                FROM payments p
+                JOIN client_subscriptions cs ON cs.id = p.subscription_id
+                WHERE cs.service_id = ? 
+                  AND YEAR(p.payment_date) = ? 
+                  AND MONTH(p.payment_date) = ?
+            ");
+            $stmt->execute([$srv['id'], $year, $m]);
+            $serviceMonthlyRevenue[$m][$srv['id']] = (float)$stmt->fetchColumn();
+        }
+    }
+
     $arabicMonths = ['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 }
 
@@ -199,16 +218,32 @@ elseif ($tab === 'monthly') {
 elseif ($tab === 'services') {
     requirePermission('view_reports');
     
-    $services = $db->query("
+    $dateFrom = clean($_GET['date_from'] ?? '');
+    $dateTo   = clean($_GET['date_to'] ?? '');
+    
+    $payWhere = ["1=1"];
+    $payParams = [];
+    if ($dateFrom) { $payWhere[] = "p.payment_date >= ?"; $payParams[] = $dateFrom; }
+    if ($dateTo)   { $payWhere[] = "p.payment_date <= ?"; $payParams[] = $dateTo; }
+    $payWhereStr = implode(' AND ', $payWhere);
+    
+    $services = $db->prepare("
         SELECT s.name, s.default_price,
                COUNT(DISTINCT CASE WHEN cs.status='active' THEN cs.client_id END) as active_clients,
                COUNT(DISTINCT cs.client_id) as total_clients,
-               COALESCE(SUM(CASE WHEN cs.status!='cancelled' THEN cs.price ELSE 0 END),0) as total_revenue,
+               COALESCE((
+                   SELECT SUM(p.amount)
+                   FROM payments p
+                   JOIN client_subscriptions cs2 ON cs2.id = p.subscription_id
+                   WHERE cs2.service_id = s.id AND $payWhereStr
+               ), 0) as total_revenue,
                COUNT(CASE WHEN cs.status='active' AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(),INTERVAL 30 DAY) THEN 1 END) as expiring_soon
         FROM services s
         LEFT JOIN client_subscriptions cs ON cs.service_id=s.id
         GROUP BY s.id ORDER BY total_revenue DESC
-    ")->fetchAll();
+    ");
+    $services->execute($payParams);
+    $services = $services->fetchAll();
 }
 
 $pageTitle  = 'المركز المالي والتقارير';
@@ -760,6 +795,62 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
   </div>
 
+  <!-- تفصيل الإيرادات حسب الخدمات -->
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-header">
+      <span class="card-title"><i class="fas fa-table"></i> تفصيل الإيرادات حسب الخدمات لعام <?= $year ?></span>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>الشهر</th>
+            <?php foreach ($allServices as $srv): ?>
+            <th><?= e($srv['name']) ?></th>
+            <?php endforeach; ?>
+            <th>إجمالي الشهر</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach (range(1, 12) as $m): ?>
+          <tr>
+            <td>
+              <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="font-weight:700;color:var(--primary);">
+                <?= $arabicMonths[$m] ?>
+              </a>
+            </td>
+            <?php 
+            $rowTotal = 0;
+            foreach ($allServices as $srv): 
+              $srvAmt = $serviceMonthlyRevenue[$m][$srv['id']] ?? 0;
+              $rowTotal += $srvAmt;
+            ?>
+            <td class="<?= $srvAmt > 0 ? 'fw-bold' : 'text-muted' ?>" style="<?= $srvAmt > 0 ? 'color:var(--success);' : '' ?>">
+              <?= $srvAmt > 0 ? formatMoney($srvAmt) : '—' ?>
+            </td>
+            <?php endforeach; ?>
+            <td class="fw-bold" style="color:var(--primary-light); background:rgba(36,86,164,0.02);"><?= formatMoney($rowTotal) ?></td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+        <tfoot class="table-totals">
+          <tr style="background:#f8fafc;font-weight:800;border-top:2px solid #e2e8f0;">
+            <td style="padding:12px 16px;">الإجمالي السنوي</td>
+            <?php 
+            $grandTotal = 0;
+            foreach ($allServices as $srv): 
+              $srvColTotal = array_sum(array_column($serviceMonthlyRevenue, $srv['id']));
+              $grandTotal += $srvColTotal;
+            ?>
+            <td style="padding:12px 16px;color:var(--primary-light);"><?= formatMoney($srvColTotal) ?></td>
+            <?php endforeach; ?>
+            <td style="padding:12px 16px;color:var(--success);font-size:15px;"><?= formatMoney($grandTotal) ?></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
   <script>
   document.addEventListener('DOMContentLoaded', function() {
       const ctx = document.getElementById('monthlyChart');
@@ -790,11 +881,42 @@ require_once INCLUDES_PATH . '/header.php';
 
   <!-- 4. ملخص الخدمات -->
   <?php if ($tab === 'services'): ?>
+  <?php
+  $dateFrom = clean($_GET['date_from'] ?? '');
+  $dateTo   = clean($_GET['date_to'] ?? '');
+  ?>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="filters-bar">
+      <form method="GET" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;width:100%;" id="servicesFilterForm">
+        <input type="hidden" name="tab" value="services">
+        <span style="font-weight:700;color:var(--text-primary);margin-left:8px;">فلترة إيرادات الخدمات:</span>
+        
+        <!-- أزرار الفلترة السريعة -->
+        <div class="btn-group" id="servicesQuickDateFilters" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:8px;">
+          <button type="button" class="btn btn-sm" data-range="all" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">الكل</button>
+          <button type="button" class="btn btn-sm" data-range="day" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">يوم</button>
+          <button type="button" class="btn btn-sm" data-range="month" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">شهر</button>
+          <button type="button" class="btn btn-sm" data-range="year" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">سنة</button>
+          <button type="button" class="btn btn-sm" data-range="custom" style="border:none;padding:6px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.2s;">مخصص</button>
+        </div>
+
+        <div id="servicesCustomWrapper" style="display:none; gap:12px; align-items:center;">
+          <input type="date" name="date_from" class="form-control" style="width:auto;" value="<?= e($dateFrom) ?>" placeholder="من تاريخ">
+          <input type="date" name="date_to" class="form-control" style="width:auto;" value="<?= e($dateTo) ?>" placeholder="إلى تاريخ">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> فلترة</button>
+        <?php if ($dateFrom || $dateTo): ?>
+        <a href="?tab=services" class="btn btn-outline"><i class="fas fa-times"></i> إلغاء</a>
+        <?php endif; ?>
+      </form>
+    </div>
+  </div>
+
   <div class="card">
     <div class="table-wrapper">
       <table class="data-table">
         <thead>
-          <tr><th>#</th><th>الخدمة</th><th>السعر الافتراضي</th><th>إجمالي العملاء</th><th>العملاء النشطين</th><th>تنتهي قريباً</th><th>إجمالي الإيرادات</th></tr>
+          <tr><th>#</th><th>الخدمة</th><th>السعر الافتراضي</th><th>إجمالي العملاء</th><th>العملاء النشطين</th><th>تنتهي قريباً</th><th>الإيرادات في هذه الفترة</th></tr>
         </thead>
         <tbody>
           <?php if (empty($services)): ?>
@@ -819,9 +941,118 @@ require_once INCLUDES_PATH . '/header.php';
           <?php endforeach; ?>
           <?php endif; ?>
         </tbody>
+        <tfoot class="table-totals">
+          <tr style="background:#f8fafc;font-weight:700;">
+            <td colspan="6" style="padding:12px 16px;text-align:right;">إجمالي الإيرادات للفترة المحددة:</td>
+            <td style="padding:12px 16px;color:var(--success);font-size:15px;">
+              <?= formatMoney(array_sum(array_column($services,'total_revenue'))) ?>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+      const dateFromInput = document.querySelector('#servicesFilterForm input[name="date_from"]');
+      const dateToInput = document.querySelector('#servicesFilterForm input[name="date_to"]');
+      const servicesFilterForm = document.getElementById('servicesFilterForm');
+      const quickFilters = document.getElementById('servicesQuickDateFilters');
+      const customWrapper = document.getElementById('servicesCustomWrapper');
+
+      const formatDate = (date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+      };
+
+      function updateActiveFilter(range) {
+          document.querySelectorAll('#servicesQuickDateFilters button').forEach(btn => {
+              if (btn.dataset.range === range) {
+                  btn.style.background = 'var(--primary)';
+                  btn.style.color = '#fff';
+              } else {
+                  btn.style.background = 'transparent';
+                  btn.style.color = 'var(--text-muted)';
+              }
+          });
+          
+          if (range === 'custom') {
+              customWrapper.style.display = 'inline-flex';
+          } else {
+              customWrapper.style.display = 'none';
+          }
+      }
+
+      const todayStr = formatDate(new Date());
+      const firstDayMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+      const lastDayMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+      const firstDayYear = formatDate(new Date(new Date().getFullYear(), 0, 1));
+      const lastDayYear = formatDate(new Date(new Date().getFullYear(), 11, 31));
+
+      const initFrom = dateFromInput.value;
+      const initTo = dateToInput.value;
+      let activeRange = 'all';
+
+      if (initFrom || initTo) {
+          if (initFrom === todayStr && initTo === todayStr) {
+              activeRange = 'day';
+          } else if (initFrom === firstDayMonth && initTo === lastDayMonth) {
+              activeRange = 'month';
+          } else if (initFrom === firstDayYear && initTo === lastDayYear) {
+              activeRange = 'year';
+          } else {
+              activeRange = 'custom';
+          }
+      }
+      updateActiveFilter(activeRange);
+
+      if (quickFilters) {
+          quickFilters.addEventListener('click', function(e) {
+              const btn = e.target.closest('button');
+              if (!btn) return;
+              
+              const range = btn.dataset.range;
+              let fromVal = '';
+              let toVal = '';
+              
+              if (range === 'day') {
+                  fromVal = todayStr;
+                  toVal = todayStr;
+              } else if (range === 'month') {
+                  fromVal = firstDayMonth;
+                  toVal = lastDayMonth;
+              } else if (range === 'year') {
+                  fromVal = firstDayYear;
+                  toVal = lastDayYear;
+              } else if (range === 'custom') {
+                  fromVal = dateFromInput.value;
+                  toVal = dateToInput.value;
+              }
+              
+              if (dateFromInput._flatpickr) {
+                  dateFromInput._flatpickr.setDate(fromVal);
+              } else {
+                  dateFromInput.value = fromVal;
+              }
+              
+              if (dateToInput._flatpickr) {
+                  dateToInput._flatpickr.setDate(toVal);
+              } else {
+                  dateToInput.value = toVal;
+              }
+              
+              updateActiveFilter(range);
+              
+              if (range !== 'custom') {
+                  servicesFilterForm.submit();
+              }
+          });
+      }
+  });
+  </script>
   <?php endif; ?>
 
 </div>
