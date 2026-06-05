@@ -7,6 +7,7 @@ requireLogin();
 requirePermission('view_clients');
 
 $db = getDB();
+$warningDays = (int)getSetting('renewal_warning_days','60');
 
 // Search & Filter
 $search = clean($_GET['search'] ?? '');
@@ -14,6 +15,38 @@ $status = $_GET['status'] ?? '';
 $filter = $_GET['filter'] ?? '';
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
+
+// Stats calculations for cards
+$totalClientsCount = (int)$db->query("SELECT COUNT(*) FROM clients")->fetchColumn();
+
+$debtClientsCount = (int)$db->query("
+    SELECT COUNT(*) FROM (
+        SELECT c.id,
+               COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
+               COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid
+        FROM clients c
+        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+        GROUP BY c.id
+        HAVING (total_services - total_paid) > 0
+    ) tmp
+")->fetchColumn();
+
+$stmtExp = $db->prepare("
+    SELECT COUNT(DISTINCT client_id) FROM client_subscriptions
+    WHERE status = 'active'
+      AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+");
+$stmtExp->execute([$warningDays]);
+$expiringClientsCount = (int)$stmtExp->fetchColumn();
+
+$totalDebtsAmount = (float)$db->query("
+    SELECT SUM(remaining) FROM (
+        SELECT (COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0)) AS remaining
+        FROM clients c
+        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+        GROUP BY c.id
+    ) tmp WHERE remaining > 0
+")->fetchColumn();
 
 $where  = ['1=1'];
 $params = [];
@@ -47,6 +80,13 @@ if ($filter === 'website') {
         FROM client_subscriptions cs2 
         JOIN services s2 ON s2.id = cs2.service_id 
         WHERE cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%')
+    )";
+} elseif ($filter === 'expiring') {
+    $where[] = "c.id IN (
+        SELECT DISTINCT cs2.client_id 
+        FROM client_subscriptions cs2 
+        WHERE cs2.status = 'active' 
+          AND cs2.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL $warningDays DAY)
     )";
 }
 
@@ -233,6 +273,22 @@ $depth      = 1;
 require_once INCLUDES_PATH . '/header.php';
 ?>
 
+<style>
+.stat-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.06) !important;
+  border-color: var(--primary) !important;
+}
+.stat-card.active {
+  border-color: var(--primary) !important;
+  background-color: rgba(var(--primary-rgb, 36, 86, 164), 0.02) !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.06) !important;
+}
+</style>
+
 <div class="page-header">
   <div class="page-header-text">
     <h1 class="page-title"><i class="fas fa-users" style="color:var(--primary-light);margin-left:8px;"></i>العملاء</h1>
@@ -245,6 +301,53 @@ require_once INCLUDES_PATH . '/header.php';
       إضافة عميل
     </a>
     <?php endif; ?>
+  </div>
+</div>
+
+<!-- Quick Stats Cards -->
+<div class="stats-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+  <!-- Total Clients Card -->
+  <div class="stat-card <?= $filter === '' ? 'active' : '' ?>" onclick="applyStatsFilter('')" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+    <div>
+      <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">إجمالي العملاء</div>
+      <div style="font-size: 22px; font-weight: 800; color: var(--primary);"><?= $totalClientsCount ?></div>
+    </div>
+    <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(36, 86, 164, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+      <i class="fas fa-users" style="font-size: 18px;"></i>
+    </div>
+  </div>
+
+  <!-- Debt Clients Card -->
+  <div class="stat-card <?= $filter === 'debt' ? 'active' : '' ?>" onclick="applyStatsFilter('debt')" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+    <div>
+      <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">عملاء عليهم مديونية</div>
+      <div style="font-size: 22px; font-weight: 800; color: var(--danger);"><?= $debtClientsCount ?></div>
+    </div>
+    <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center; color: var(--danger);">
+      <i class="fas fa-hand-holding-dollar" style="font-size: 18px;"></i>
+    </div>
+  </div>
+
+  <!-- Expiring Soon Card -->
+  <div class="stat-card <?= $filter === 'expiring' ? 'active' : '' ?>" onclick="applyStatsFilter('expiring')" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+    <div>
+      <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">تجديدات قريبة</div>
+      <div style="font-size: 22px; font-weight: 800; color: var(--warning);"><?= $expiringClientsCount ?></div>
+    </div>
+    <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(240, 165, 0, 0.1); display: flex; align-items: center; justify-content: center; color: var(--warning);">
+      <i class="fas fa-calendar-exclamation" style="font-size: 18px;"></i>
+    </div>
+  </div>
+
+  <!-- Total Debts Amount Card -->
+  <div class="stat-card" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+    <div>
+      <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">إجمالي المديونيات</div>
+      <div style="font-size: 18px; font-weight: 800; color: var(--success);"><?= formatMoney($totalDebtsAmount) ?></div>
+    </div>
+    <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; color: var(--success);">
+      <i class="fas fa-money-bill-trend-up" style="font-size: 18px;"></i>
+    </div>
   </div>
 </div>
 
@@ -269,6 +372,7 @@ require_once INCLUDES_PATH . '/header.php';
       <select name="filter" class="form-control" style="width:auto;">
         <option value="">كل التصنيفات المخصصة</option>
         <option value="debt" <?= $filter === 'debt' ? 'selected' : '' ?>>عملاء عليهم مديونية</option>
+        <option value="expiring" <?= $filter === 'expiring' ? 'selected' : '' ?>>عملاء لديهم تجديدات قريبة</option>
         <option value="website" <?= $filter === 'website' ? 'selected' : '' ?>>عملاء صممنا لهم مواقع</option>
         <option value="domain_us" <?= $filter === 'domain_us' ? 'selected' : '' ?>>عملاء حجزنا لهم الدومين</option>
         <option value="domain_them" <?= $filter === 'domain_them' ? 'selected' : '' ?>>عملاء حجزوا الدومين بأنفسهم</option>
@@ -398,7 +502,7 @@ require_once INCLUDES_PATH . '/header.php';
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -422,6 +526,33 @@ require_once INCLUDES_PATH . '/header.php';
 </div>
 
 <script>
+function applyStatsFilter(filterVal) {
+    const filterSelect = document.querySelector('select[name="filter"]');
+    if (filterSelect) {
+        filterSelect.value = filterVal;
+        
+        // Highlight active card
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        
+        const clickedCard = event.currentTarget;
+        if (clickedCard) {
+            clickedCard.classList.add('active');
+        }
+        
+        // Clear search inputs to make card click clean
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.value = '';
+        
+        const statusSelect = document.querySelector('select[name="status"]');
+        if (statusSelect) statusSelect.value = '';
+
+        // Trigger search
+        window.doSearchGlobal(1);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const statusSelect = document.querySelector('select[name="status"]');
@@ -496,18 +627,45 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => console.error('Error fetching search results:', err));
     }
 
+    // Expose search function to global scope for card clicks
+    window.doSearchGlobal = doSearch;
+
     searchInput.addEventListener('input', function() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
+            // Remove active card indicators if user manually types search
+            document.querySelectorAll('.stat-card').forEach(card => {
+                card.classList.remove('active');
+            });
             doSearch(1);
         }, 150);
     });
 
     statusSelect.addEventListener('change', function() {
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.classList.remove('active');
+        });
         doSearch(1);
     });
 
     filterSelect.addEventListener('change', function() {
+        const filterVal = filterSelect.value;
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        
+        let targetCard = null;
+        if (filterVal === '') {
+            targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'\')"]');
+        } else if (filterVal === 'debt') {
+            targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'debt\')"]');
+        } else if (filterVal === 'expiring') {
+            targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'expiring\')"]');
+        }
+        if (targetCard) {
+            targetCard.classList.add('active');
+        }
+        
         doSearch(1);
     });
 
