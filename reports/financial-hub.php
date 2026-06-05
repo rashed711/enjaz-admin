@@ -1435,7 +1435,14 @@ require_once INCLUDES_PATH . '/header.php';
       document.getElementById('edit_expense_id').value = exp.id;
       document.getElementById('edit_expense_title').value = exp.title;
       document.getElementById('edit_expense_amount').value = exp.amount;
-      document.getElementById('edit_expense_date').value = exp.expense_date;
+      
+      const dateEl = document.getElementById('edit_expense_date');
+      if (dateEl._flatpickr) {
+          dateEl._flatpickr.setDate(exp.expense_date);
+      } else {
+          dateEl.value = exp.expense_date;
+      }
+      
       document.getElementById('edit_expense_category').value = exp.category;
       document.getElementById('edit_expense_notes').value = exp.notes || '';
       document.getElementById('editExpenseModal').style.display = 'flex';
