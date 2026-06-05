@@ -30,8 +30,12 @@ $formData = $sub;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
+        $isDomainService = (mb_strpos($sub['service_name'], 'دومين') !== false || mb_strpos(strtolower($sub['service_name']), 'domain') !== false);
+        
         $planName = clean($_POST['plan_name'] ?? '');
-        if ($planName === 'custom') {
+        if ($isDomainService) {
+            $planName = clean($_POST['domain'] ?? '');
+        } else if ($planName === 'custom') {
             $planName = clean($_POST['custom_plan_name'] ?? '');
         }
         $formData['plan_name']  = $planName;
@@ -69,10 +73,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // تحديث بيانات الدومين للعميل إذا كانت الخدمة تخص حجز الدومين
             $isDomainService = (mb_strpos($sub['service_name'], 'دومين') !== false || mb_strpos(strtolower($sub['service_name']), 'domain') !== false);
             if ($isDomainService) {
-                $domain = clean($_POST['domain'] ?? '');
-                $domainProvider = clean($_POST['domain_provider'] ?? '');
+                $postedDomain = clean($_POST['domain'] ?? '');
+                $postedProvider = clean($_POST['domain_provider'] ?? '');
+
+                $oldPlan = trim($sub['plan_name']);
+                $newPlan = trim($formData['plan_name']);
+                
+                // تحليل الدومينات المرسلة وتصفيتها للتأكد من أنها أسماء نطاقات صالحة فقط
+                $domainsList = array_map('trim', explode(',', $postedDomain));
+                
+                // إذا تغير اسم الخطة وكان عبارة عن دومين صالح، نقوم بتحديثه في القائمة
+                if ($oldPlan !== $newPlan && preg_match('/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,18}$/', $newPlan)) {
+                    $key = array_search($oldPlan, $domainsList);
+                    if ($key !== false) {
+                        $domainsList[$key] = $newPlan;
+                    } else if (!in_array($newPlan, $domainsList)) {
+                        $domainsList[] = $newPlan;
+                    }
+                }
+                
+                // تصفية القائمة النهائية لمنع الكلمات العشوائية مثل "دومين"
+                $cleanDomains = [];
+                foreach ($domainsList as $d) {
+                    $d = trim($d);
+                    if (preg_match('/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,18}$/', $d)) {
+                        $cleanDomains[] = $d;
+                    }
+                }
+                $finalDomains = implode(', ', array_unique($cleanDomains));
+
+                // تحديث بيانات مزود الخدمة
+                $stmt = $db->prepare("SELECT domain_provider FROM clients WHERE id = ?");
+                $stmt->execute([$sub['client_id']]);
+                $existingProvider = trim($stmt->fetchColumn() ?? '');
+
+                $providersList = $existingProvider ? array_map('trim', explode(',', $existingProvider)) : [];
+                if ($postedProvider && !in_array($postedProvider, $providersList)) {
+                    $providersList[] = $postedProvider;
+                }
+                $newProviders = implode(', ', array_unique(array_filter($providersList)));
+                
                 $db->prepare("UPDATE clients SET domain = ?, domain_provider = ? WHERE id = ?")
-                   ->execute([$domain, $domainProvider, $sub['client_id']]);
+                   ->execute([$finalDomains, $newProviders, $sub['client_id']]);
             }
 
             setFlash('success','تم تحديث الاشتراك بنجاح.');
@@ -109,7 +151,7 @@ require_once INCLUDES_PATH . '/header.php';
           <label class="form-label">الخدمة</label>
           <input type="text" class="form-control" value="<?= e($sub['service_name']) ?>" readonly>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="<?= $isDomainService ? 'display:none;' : '' ?>">
           <label class="form-label" for="plan_name">الخطة</label>
           <?php if (!empty($plans)): 
               $planNames = array_column($plans, 'name');
@@ -182,8 +224,8 @@ require_once INCLUDES_PATH . '/header.php';
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label" for="sub_domain">اسم الدومين</label>
-              <input type="text" id="sub_domain" name="domain" class="form-control" placeholder="example.com" value="<?= e($sub['domain']) ?>" dir="ltr">
+              <label class="form-label" for="sub_domain">اسم الدومين <span class="required">*</span></label>
+              <input type="text" id="sub_domain" name="domain" class="form-control" placeholder="example.com" value="<?= e($sub['plan_name']) ?>" dir="ltr" required>
             </div>
             <div class="form-group">
               <label class="form-label" for="sub_domain_provider_select">مزود الخدمة</label>
