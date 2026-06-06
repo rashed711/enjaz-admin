@@ -63,11 +63,14 @@ require_once INCLUDES_PATH . '/header.php';
 ?>
 
 <!-- Client Header -->
-<div class="client-header-card">
+<div class="client-header-card" <?= !$client['status'] ? 'style="background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);"' : '' ?>>
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;position:relative;z-index:1;">
     <div>
       <div class="client-avatar-lg"><?= e(mb_substr($client['name'], 0, 1, 'UTF-8')) ?></div>
-      <h1 style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;"><?= e($client['name']) ?></h1>
+      <h1 style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:10px;">
+        <?= e($client['name']) ?>
+        <?= !$client['status'] ? '<span class="badge badge-danger" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4);font-size:11.5px;padding:3px 10px;border-radius:20px;">موقوف</span>' : '' ?>
+      </h1>
       <?php if ($client['company_name']): ?>
       <p style="color:rgba(255,255,255,.75);font-size:14px;margin-bottom:4px;">
         <i class="fas fa-building" style="margin-left:6px;opacity:.7;"></i><?= e($client['company_name']) ?>
