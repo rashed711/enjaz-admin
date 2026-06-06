@@ -106,6 +106,15 @@ require_once INCLUDES_PATH . '/header.php';
         <i class="fab fa-whatsapp"></i> إرسال واتساب
       </button>
       <?php endif; ?>
+      <?php if (hasPermission('delete_clients')): ?>
+      <a href="delete.php?id=<?= $client['id'] ?>"
+         class="btn btn-sm btn-outline-danger"
+         style="background:rgba(239, 68, 68, 0.15);border-color:rgba(239, 68, 68, 0.35);color:#ff9e9e;"
+         data-confirm="هل أنت متأكد من حذف عميل «<?= e($client['name']) ?>»؟ سيتم حذف كل بياناته وخدماته."
+         title="حذف العميل">
+        <i class="fas fa-trash"></i> حذف العميل
+      </a>
+      <?php endif; ?>
     </div>
   </div>
 

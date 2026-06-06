@@ -123,7 +123,10 @@ $stmt = $db->prepare("
     SELECT c.*,
            COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
            COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
-           COUNT(DISTINCT cs.id) AS subs_count
+           COUNT(DISTINCT cs.id) AS subs_count,
+           (SELECT cs2.start_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
+           (SELECT cs2.end_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
+           (SELECT cs2.status FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status
     FROM clients c
     LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
     WHERE $whereStr
@@ -201,24 +204,34 @@ if (isset($_GET['ajax'])) {
           : '<span class="badge badge-danger">موقوف</span>' ?>
       </td>
       <td>
-        <div class="table-actions">
-          <a href="view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-primary" title="عرض الملف">
-            <i class="fas fa-eye"></i>
-          </a>
-          <?php if (hasPermission('edit_clients')): ?>
-          <a href="edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline" title="تعديل">
-            <i class="fas fa-edit"></i>
-          </a>
-          <?php endif; ?>
-          <?php if (hasPermission('delete_clients')): ?>
-          <a href="delete.php?id=<?= $client['id'] ?>"
-             class="btn btn-sm btn-outline-danger"
-             data-confirm="هل أنت متأكد من حذف عميل «<?= e($client['name']) ?>»؟ سيتم حذف كل بياناته وخدماته."
-             title="حذف">
-            <i class="fas fa-trash"></i>
-          </a>
-          <?php endif; ?>
-        </div>
+        <?php 
+        if ($client['sub_start']) {
+            $startDate = new DateTime($client['sub_start']);
+            $today = new DateTime('today');
+            $diffStart = $startDate->diff($today);
+            $daysSubscribed = $diffStart->invert ? -$diffStart->days : $diffStart->days;
+
+            if ($daysSubscribed >= 0) {
+                echo '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;"><i class="fas fa-calendar-alt" style="margin-left:4px;"></i>اشترك بقاله: <strong style="color:var(--text-primary);">' . $daysSubscribed . ' يوم</strong></div>';
+            } else {
+                echo '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;"><i class="fas fa-calendar-alt" style="margin-left:4px;"></i>يبدأ بعد: <strong style="color:var(--text-primary);">' . abs($daysSubscribed) . ' يوم</strong></div>';
+            }
+
+            if ($client['sub_end']) {
+                $daysLeft = daysUntilExpiry($client['sub_end']);
+                if ($daysLeft >= 0) {
+                    $color = $daysLeft <= 30 ? 'var(--warning)' : 'var(--success)';
+                    echo '<div style="font-size:12px;color:' . $color . ';font-weight:700;"><i class="fas fa-hourglass-half" style="margin-left:4px;"></i>باقي له: ' . $daysLeft . ' يوم</div>';
+                } else {
+                    echo '<div style="font-size:12px;color:var(--danger);font-weight:700;"><i class="fas fa-exclamation-circle" style="margin-left:4px;"></i>منتهي منذ: ' . abs($daysLeft) . ' يوم</div>';
+                }
+            } else {
+                echo '<div style="font-size:12px;color:var(--success);font-weight:700;"><i class="fas fa-infinity" style="margin-left:4px;"></i>مفتوح بدون انتهاء</div>';
+            }
+        } else {
+            echo '<span class="text-muted fs-sm">— لا يوجد اشتراك —</span>';
+        }
+        ?>
       </td>
     </tr>
     <?php endforeach; ?>
@@ -401,7 +414,7 @@ require_once INCLUDES_PATH . '/header.php';
           <th>المدفوع</th>
           <th>المتبقي</th>
           <th>الحالة</th>
-          <th>الإجراءات</th>
+          <th>الاشتراك / المتبقي</th>
         </tr>
       </thead>
       <tbody>
@@ -466,24 +479,34 @@ require_once INCLUDES_PATH . '/header.php';
               : '<span class="badge badge-danger">موقوف</span>' ?>
           </td>
           <td>
-            <div class="table-actions">
-              <a href="view.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-primary" title="عرض الملف">
-                <i class="fas fa-eye"></i>
-              </a>
-              <?php if (hasPermission('edit_clients')): ?>
-              <a href="edit.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline" title="تعديل">
-                <i class="fas fa-edit"></i>
-              </a>
-              <?php endif; ?>
-              <?php if (hasPermission('delete_clients')): ?>
-              <a href="delete.php?id=<?= $client['id'] ?>"
-                 class="btn btn-sm btn-outline-danger"
-                 data-confirm="هل أنت متأكد من حذف عميل «<?= e($client['name']) ?>»؟ سيتم حذف كل بياناته وخدماته."
-                 title="حذف">
-                <i class="fas fa-trash"></i>
-              </a>
-              <?php endif; ?>
-            </div>
+            <?php 
+            if ($client['sub_start']) {
+                $startDate = new DateTime($client['sub_start']);
+                $today = new DateTime('today');
+                $diffStart = $startDate->diff($today);
+                $daysSubscribed = $diffStart->invert ? -$diffStart->days : $diffStart->days;
+
+                if ($daysSubscribed >= 0) {
+                    echo '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;"><i class="fas fa-calendar-alt" style="margin-left:4px;"></i>اشترك بقاله: <strong style="color:var(--text-primary);">' . $daysSubscribed . ' يوم</strong></div>';
+                } else {
+                    echo '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;"><i class="fas fa-calendar-alt" style="margin-left:4px;"></i>يبدأ بعد: <strong style="color:var(--text-primary);">' . abs($daysSubscribed) . ' يوم</strong></div>';
+                }
+
+                if ($client['sub_end']) {
+                    $daysLeft = daysUntilExpiry($client['sub_end']);
+                    if ($daysLeft >= 0) {
+                        $color = $daysLeft <= 30 ? 'var(--warning)' : 'var(--success)';
+                        echo '<div style="font-size:12px;color:' . $color . ';font-weight:700;"><i class="fas fa-hourglass-half" style="margin-left:4px;"></i>باقي له: ' . $daysLeft . ' يوم</div>';
+                    } else {
+                        echo '<div style="font-size:12px;color:var(--danger);font-weight:700;"><i class="fas fa-exclamation-circle" style="margin-left:4px;"></i>منتهي منذ: ' . abs($daysLeft) . ' يوم</div>';
+                    }
+                } else {
+                    echo '<div style="font-size:12px;color:var(--success);font-weight:700;"><i class="fas fa-infinity" style="margin-left:4px;"></i>مفتوح بدون انتهاء</div>';
+                }
+            } else {
+                echo '<span class="text-muted fs-sm">— لا يوجد اشتراك —</span>';
+            }
+            ?>
           </td>
         </tr>
         <?php endforeach; ?>
