@@ -77,11 +77,15 @@ require_once INCLUDES_PATH . '/header.php';
           <td>
             <?php
             $targetLabels = [
-                'all'       => '<span class="badge badge-primary">كل العملاء</span>',
-                'active'    => '<span class="badge badge-success">العملاء النشطين</span>',
-                'suspended' => '<span class="badge badge-danger">العملاء الموقوفين</span>',
-                'debt'      => '<span class="badge badge-warning">عملاء عليهم مديونية</span>',
-                'expiring'  => '<span class="badge badge-warning">تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
+                'all'             => '<span class="badge badge-primary">كل العملاء</span>',
+                'active'          => '<span class="badge badge-success">العملاء النشطين فقط</span>',
+                'suspended'       => '<span class="badge badge-danger">العملاء الموقوفين فقط</span>',
+                'debt'            => '<span class="badge badge-warning">عملاء عليهم مديونية</span>',
+                'active_debt'     => '<span class="badge badge-warning">العملاء النشطين الذين عليهم مديونية</span>',
+                'all_debt'        => '<span class="badge badge-warning">كل العملاء الذين عليهم مديونية</span>',
+                'expiring'        => '<span class="badge badge-info">تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
+                'active_expiring' => '<span class="badge badge-info">النشطين - تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
+                'all_expiring'    => '<span class="badge badge-info">الكل - تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
             ];
             echo $targetLabels[$sch['target_type']] ?? $sch['target_type'];
             ?>
@@ -162,11 +166,13 @@ require_once INCLUDES_PATH . '/header.php';
           <div class="form-group">
             <label class="form-label" for="sch_target_type">المجموعة المستهدفة</label>
             <select id="sch_target_type" name="target_type" class="form-control" onchange="onTargetTypeChange(this)">
-              <option value="all">كل العملاء</option>
+              <option value="all">كل العملاء (النشطين والموقوفين)</option>
               <option value="active">العملاء النشطين فقط</option>
               <option value="suspended">العملاء الموقوفين فقط</option>
-              <option value="debt">العملاء الذين عليهم مديونية فقط</option>
-              <option value="expiring">العملاء الذين لديهم اشتراكات تنتهي قريباً</option>
+              <option value="active_debt">العملاء النشطين الذين عليهم مديونية فقط</option>
+              <option value="all_debt">كل العملاء الذين عليهم مديونية (نشط وموقوف)</option>
+              <option value="active_expiring">العملاء النشطين الذين لديهم اشتراكات تنتهي قريباً</option>
+              <option value="all_expiring">كل العملاء الذين لديهم اشتراكات تنتهي قريباً (نشط وموقوف)</option>
             </select>
           </div>
           
@@ -210,7 +216,7 @@ require_once INCLUDES_PATH . '/header.php';
 <script>
 function onTargetTypeChange(sel) {
     const warningDaysGroup = document.getElementById('warning_days_group');
-    if (sel.value === 'expiring') {
+    if (sel.value === 'expiring' || sel.value === 'active_expiring' || sel.value === 'all_expiring') {
         warningDaysGroup.style.display = 'block';
         document.getElementById('sch_warning_days').required = true;
     } else {

@@ -38,21 +38,46 @@ foreach ($schedules as $sch) {
     // تحديد العملاء المستهدفين
     $clients = [];
     if ($sch['target_type'] === 'all') {
-        $clients = $db->query("SELECT id, name, mobile, company_name FROM clients WHERE status = 1 AND mobile IS NOT NULL AND mobile != ''")->fetchAll();
+        $clients = $db->query("SELECT id, name, mobile, company_name FROM clients WHERE mobile IS NOT NULL AND mobile != ''")->fetchAll();
     } elseif ($sch['target_type'] === 'active') {
         $clients = $db->query("SELECT id, name, mobile, company_name FROM clients WHERE status = 1 AND mobile IS NOT NULL AND mobile != ''")->fetchAll();
     } elseif ($sch['target_type'] === 'suspended') {
         $clients = $db->query("SELECT id, name, mobile, company_name FROM clients WHERE status = 0 AND mobile IS NOT NULL AND mobile != ''")->fetchAll();
-    } elseif ($sch['target_type'] === 'debt') {
+    } elseif ($sch['target_type'] === 'active_debt' || $sch['target_type'] === 'debt') {
+        // active_debt (or legacy debt)
+        $statusCondition = ($sch['target_type'] === 'active_debt') ? "c.status = 1 AND" : "";
         $clients = $db->query("
             SELECT c.id, c.name, c.mobile, c.company_name
             FROM clients c
             LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+            WHERE {$statusCondition} c.mobile IS NOT NULL AND c.mobile != ''
             GROUP BY c.id
             HAVING (COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0)) > 0
-               AND c.mobile IS NOT NULL AND c.mobile != ''
         ")->fetchAll();
-    } elseif ($sch['target_type'] === 'expiring') {
+    } elseif ($sch['target_type'] === 'all_debt') {
+        $clients = $db->query("
+            SELECT c.id, c.name, c.mobile, c.company_name
+            FROM clients c
+            LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+            WHERE c.mobile IS NOT NULL AND c.mobile != ''
+            GROUP BY c.id
+            HAVING (COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0)) > 0
+        ")->fetchAll();
+    } elseif ($sch['target_type'] === 'active_expiring' || $sch['target_type'] === 'expiring') {
+        // active_expiring (or legacy expiring)
+        $statusCondition = ($sch['target_type'] === 'active_expiring' || $sch['target_type'] === 'expiring') ? "AND c.status = 1" : "";
+        $stmt = $db->prepare("
+            SELECT DISTINCT c.id, c.name, c.mobile, c.company_name
+            FROM client_subscriptions cs
+            JOIN clients c ON c.id = cs.client_id
+            WHERE cs.status = 'active'
+              {$statusCondition}
+              AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+              AND c.mobile IS NOT NULL AND c.mobile != ''
+        ");
+        $stmt->execute([$sch['warning_days']]);
+        $clients = $stmt->fetchAll();
+    } elseif ($sch['target_type'] === 'all_expiring') {
         $stmt = $db->prepare("
             SELECT DISTINCT c.id, c.name, c.mobile, c.company_name
             FROM client_subscriptions cs
