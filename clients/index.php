@@ -16,38 +16,6 @@ $filter = $_GET['filter'] ?? '';
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 
-// Stats calculations for cards
-$totalClientsCount = (int)$db->query("SELECT COUNT(*) FROM clients")->fetchColumn();
-
-$debtClientsCount = (int)$db->query("
-    SELECT COUNT(*) FROM (
-        SELECT c.id,
-               COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
-               COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid
-        FROM clients c
-        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
-        GROUP BY c.id
-        HAVING (total_services - total_paid) > 0
-    ) tmp
-")->fetchColumn();
-
-$stmtExp = $db->prepare("
-    SELECT COUNT(DISTINCT client_id) FROM client_subscriptions
-    WHERE status = 'active'
-      AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
-");
-$stmtExp->execute([$warningDays]);
-$expiringClientsCount = (int)$stmtExp->fetchColumn();
-
-$totalDebtsAmount = (float)$db->query("
-    SELECT SUM(remaining) FROM (
-        SELECT (COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0)) AS remaining
-        FROM clients c
-        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
-        GROUP BY c.id
-    ) tmp WHERE remaining > 0
-")->fetchColumn();
-
 $where  = ['1=1'];
 $params = [];
 if ($search) {
@@ -91,6 +59,49 @@ if ($filter === 'website') {
 }
 
 $whereStr = implode(' AND ', $where);
+
+// Dynamic stats calculations based on applied filters
+$totalClientsCountStmt = $db->prepare("SELECT COUNT(*) FROM clients c WHERE $whereStr");
+$totalClientsCountStmt->execute($params);
+$totalClientsCount = (int)$totalClientsCountStmt->fetchColumn();
+
+$debtClientsCountStmt = $db->prepare("
+    SELECT COUNT(*) FROM (
+        SELECT c.id,
+               COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
+               COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid
+        FROM clients c
+        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+        WHERE $whereStr
+        GROUP BY c.id
+        HAVING (total_services - total_paid) > 0
+    ) tmp
+");
+$debtClientsCountStmt->execute($params);
+$debtClientsCount = (int)$debtClientsCountStmt->fetchColumn();
+
+$stmtExp = $db->prepare("
+    SELECT COUNT(DISTINCT c.id) 
+    FROM clients c
+    JOIN client_subscriptions cs ON cs.client_id = c.id
+    WHERE $whereStr
+      AND cs.status = 'active'
+      AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+");
+$stmtExp->execute(array_merge($params, [$warningDays]));
+$expiringClientsCount = (int)$stmtExp->fetchColumn();
+
+$totalDebtsAmountStmt = $db->prepare("
+    SELECT SUM(remaining) FROM (
+        SELECT (COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0)) AS remaining
+        FROM clients c
+        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+        WHERE $whereStr
+        GROUP BY c.id
+    ) tmp WHERE remaining > 0
+");
+$totalDebtsAmountStmt->execute($params);
+$totalDebtsAmount = (float)$totalDebtsAmountStmt->fetchColumn();
 
 $havingStr = "";
 if ($filter === 'debt') {
@@ -275,7 +286,13 @@ if (isset($_GET['ajax'])) {
     echo json_encode([
         'tbody' => $tbodyHtml,
         'pagination' => $paginationHtml,
-        'subtitle' => 'إجمالي ' . $totalClients . ' عميل مسجّل في النظام'
+        'subtitle' => 'إجمالي ' . $totalClients . ' عميل مسجّل في النظام',
+        'stats' => [
+            'total_clients' => $totalClientsCount,
+            'debt_clients' => $debtClientsCount,
+            'expiring_clients' => $expiringClientsCount,
+            'total_debts' => formatMoney($totalDebtsAmount)
+        ]
     ]);
     exit;
 }
@@ -323,7 +340,7 @@ require_once INCLUDES_PATH . '/header.php';
   <div class="stat-card <?= $filter === '' ? 'active' : '' ?>" onclick="applyStatsFilter('')" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
     <div>
       <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">إجمالي العملاء</div>
-      <div style="font-size: 22px; font-weight: 800; color: var(--primary);"><?= $totalClientsCount ?></div>
+      <div id="stat-total-clients" style="font-size: 22px; font-weight: 800; color: var(--primary);"><?= $totalClientsCount ?></div>
     </div>
     <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(36, 86, 164, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary);">
       <i class="fas fa-users" style="font-size: 18px;"></i>
@@ -334,7 +351,7 @@ require_once INCLUDES_PATH . '/header.php';
   <div class="stat-card <?= $filter === 'debt' ? 'active' : '' ?>" onclick="applyStatsFilter('debt')" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
     <div>
       <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">عملاء عليهم مديونية</div>
-      <div style="font-size: 22px; font-weight: 800; color: var(--danger);"><?= $debtClientsCount ?></div>
+      <div id="stat-debt-clients" style="font-size: 22px; font-weight: 800; color: var(--danger);"><?= $debtClientsCount ?></div>
     </div>
     <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center; color: var(--danger);">
       <i class="fas fa-hand-holding-dollar" style="font-size: 18px;"></i>
@@ -345,7 +362,7 @@ require_once INCLUDES_PATH . '/header.php';
   <div class="stat-card <?= $filter === 'expiring' ? 'active' : '' ?>" onclick="applyStatsFilter('expiring')" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
     <div>
       <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">تجديدات قريبة</div>
-      <div style="font-size: 22px; font-weight: 800; color: var(--warning);"><?= $expiringClientsCount ?></div>
+      <div id="stat-expiring-clients" style="font-size: 22px; font-weight: 800; color: var(--warning);"><?= $expiringClientsCount ?></div>
     </div>
     <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(240, 165, 0, 0.1); display: flex; align-items: center; justify-content: center; color: var(--warning);">
       <i class="fas fa-calendar-exclamation" style="font-size: 18px;"></i>
@@ -356,7 +373,7 @@ require_once INCLUDES_PATH . '/header.php';
   <div class="stat-card" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
     <div>
       <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">إجمالي المديونيات</div>
-      <div style="font-size: 18px; font-weight: 800; color: var(--success);"><?= formatMoney($totalDebtsAmount) ?></div>
+      <div id="stat-total-debts" style="font-size: 18px; font-weight: 800; color: var(--success);"><?= formatMoney($totalDebtsAmount) ?></div>
     </div>
     <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; color: var(--success);">
       <i class="fas fa-money-bill-trend-up" style="font-size: 18px;"></i>
@@ -638,6 +655,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 tbody.innerHTML = data.tbody;
                 subtitle.textContent = data.subtitle;
+                
+                if (data.stats) {
+                    const totalEl = document.getElementById('stat-total-clients');
+                    const debtEl = document.getElementById('stat-debt-clients');
+                    const expiringEl = document.getElementById('stat-expiring-clients');
+                    const debtsEl = document.getElementById('stat-total-debts');
+                    
+                    if (totalEl) totalEl.textContent = data.stats.total_clients;
+                    if (debtEl) debtEl.textContent = data.stats.debt_clients;
+                    if (expiringEl) expiringEl.textContent = data.stats.expiring_clients;
+                    if (debtsEl) debtsEl.textContent = data.stats.total_debts;
+                }
                 
                 if (data.pagination.trim()) {
                     cardFooter.innerHTML = data.pagination;
