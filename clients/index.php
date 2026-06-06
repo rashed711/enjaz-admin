@@ -149,6 +149,24 @@ $stmt = $db->prepare("
 $stmt->execute(array_merge($params, [$perPage, $pager['offset']]));
 $clients = $stmt->fetchAll();
 
+// AJAX get all IDs/names/mobiles for bulk actions matching current filters
+if (isset($_GET['get_all_ids'])) {
+    header('Content-Type: application/json');
+    $stmtAll = $db->prepare("
+        SELECT c.id, c.name, c.mobile, c.company_name
+        FROM clients c
+        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+        WHERE $whereStr
+        $havingStr
+        GROUP BY c.id
+        ORDER BY c.created_at DESC
+    ");
+    $stmtAll->execute($params);
+    $allFilteredClients = $stmtAll->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode($allFilteredClients);
+    exit;
+}
+
 // AJAX live search handler
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
@@ -289,6 +307,7 @@ if (isset($_GET['ajax'])) {
     echo json_encode([
         'tbody' => $tbodyHtml,
         'pagination' => $paginationHtml,
+        'total_filtered_clients' => $totalClients,
         'subtitle' => 'إجمالي ' . $totalClients . ' عميل مسجّل في النظام',
         'stats' => [
             'total_clients' => $totalClientsCount,
@@ -427,6 +446,17 @@ require_once INCLUDES_PATH . '/header.php';
 
 <!-- Table -->
 <div class="card">
+  <!-- Select All Filtered Banner -->
+  <div id="select-all-filtered-banner" style="display:none; background:rgba(36, 86, 164, 0.08); border-bottom:1.5px solid var(--border-color); padding:10px 15px; font-size:13px; color:var(--text-primary); text-align:center; align-items:center; justify-content:center; gap:8px;">
+    <span id="banner-text">تم تحديد <strong id="visible-checked-count">0</strong> عميل في هذه الصفحة.</span>
+    <button type="button" id="btn-select-all-filtered" class="btn btn-sm" style="background:var(--primary);color:#fff;padding:4px 12px;font-size:11.5px;margin-right:8px;border-radius:4px;border:none;cursor:pointer;font-weight:700;">
+      تحديد جميع العملاء الـ (<span id="total-filtered-count-val">0</span>) المطابقين للفلترة الحالية
+    </button>
+    <button type="button" id="btn-clear-filtered-selection" class="btn btn-sm btn-outline-danger" style="padding:4px 12px;font-size:11.5px;margin-right:8px;border-radius:4px;cursor:pointer;font-weight:700;">
+      إلغاء التحديد
+    </button>
+  </div>
+
   <div class="table-wrapper">
     <table class="data-table">
       <thead>
@@ -668,6 +698,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 tbody.innerHTML = data.tbody;
                 subtitle.textContent = data.subtitle;
+                totalFilteredClients = parseInt(data.total_filtered_clients) || 0;
+                selectAllFiltered = false;
+                if (selectAllCheckbox) selectAllCheckbox.checked = false;
+                updateSelectionState();
                 
                 if (data.stats) {
                     const totalEl = document.getElementById('stat-total-clients');
@@ -752,6 +786,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const bulkButton = document.getElementById('btn-bulk-whatsapp');
     const selectedCountSpan = document.getElementById('selected-count');
 
+    // Banner elements
+    const selectAllBanner = document.getElementById('select-all-filtered-banner');
+    const visibleCheckedCount = document.getElementById('visible-checked-count');
+    const totalFilteredCountVal = document.getElementById('total-filtered-count-val');
+    const btnSelectAllFiltered = document.getElementById('btn-select-all-filtered');
+    const btnClearFilteredSelection = document.getElementById('btn-clear-filtered-selection');
+    const bannerText = document.getElementById('banner-text');
+
     function updateSelectionState() {
         const checkboxes = document.querySelectorAll('.client-checkbox');
         const checked = document.querySelectorAll('.client-checkbox:checked');
@@ -760,8 +802,25 @@ document.addEventListener('DOMContentLoaded', function() {
             selectAllCheckbox.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
         }
         
+        if (selectAllCheckbox && selectAllCheckbox.checked && totalFilteredClients > checked.length && !selectAllFiltered) {
+            selectAllBanner.style.display = 'flex';
+            visibleCheckedCount.textContent = checked.length;
+            totalFilteredCountVal.textContent = totalFilteredClients;
+            btnSelectAllFiltered.style.display = 'inline-block';
+            bannerText.innerHTML = `تم تحديد <strong>${checked.length}</strong> عميل في هذه الصفحة.`;
+        } else if (selectAllFiltered) {
+            selectAllBanner.style.display = 'flex';
+            btnSelectAllFiltered.style.display = 'none';
+            bannerText.innerHTML = `تم تحديد جميع العملاء الـ <strong>${totalFilteredClients}</strong> المطابقين للفلترة الحالية.`;
+        } else {
+            selectAllBanner.style.display = 'none';
+        }
+        
         if (bulkButton) {
-            if (checked.length > 0) {
+            if (selectAllFiltered) {
+                selectedCountSpan.textContent = totalFilteredClients;
+                bulkButton.style.display = 'inline-flex';
+            } else if (checked.length > 0) {
                 selectedCountSpan.textContent = checked.length;
                 bulkButton.style.display = 'inline-flex';
             } else {
@@ -770,17 +829,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    if (btnSelectAllFiltered) {
+        btnSelectAllFiltered.addEventListener('click', function() {
+            selectAllFiltered = true;
+            updateSelectionState();
+        });
+    }
+
+    if (btnClearFilteredSelection) {
+        btnClearFilteredSelection.addEventListener('click', function() {
+            selectAllFiltered = false;
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            document.querySelectorAll('.client-checkbox').forEach(cb => {
+                cb.checked = false;
+            });
+            updateSelectionState();
+        });
+    }
+
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
             document.querySelectorAll('.client-checkbox').forEach(cb => {
                 cb.checked = selectAllCheckbox.checked;
             });
+            if (!selectAllCheckbox.checked) {
+                selectAllFiltered = false;
+            }
             updateSelectionState();
         });
     }
 
     tbody.addEventListener('change', function(e) {
         if (e.target.classList.contains('client-checkbox')) {
+            if (!e.target.checked && selectAllFiltered) {
+                selectAllFiltered = false;
+            }
             updateSelectionState();
         }
     });
@@ -788,18 +871,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // We also hook into search/filter requests to reset checkboxes
     const originalDoSearch = window.doSearchGlobal;
     window.doSearchGlobal = function(page) {
+        selectAllFiltered = false;
         if (selectAllCheckbox) selectAllCheckbox.checked = false;
         if (bulkButton) bulkButton.style.display = 'none';
         originalDoSearch(page);
     };
 });
 
-// Bulk send logic
+// Global selection state
+let selectAllFiltered = false;
+let totalFilteredClients = <?= (int)$totalClients ?>;
 let bulkSendCancelled = false;
 
 function openBulkWhatsappModal() {
     const checked = document.querySelectorAll('.client-checkbox:checked');
-    document.getElementById('bulk-selected-count').textContent = checked.length;
+    document.getElementById('bulk-selected-count').textContent = selectAllFiltered ? totalFilteredClients : checked.length;
     
     // Reset modal UI
     document.getElementById('bulkWhatsappMessage').value = '';
@@ -834,8 +920,8 @@ async function startBulkSending() {
         return;
     }
 
-    const checkedBoxes = Array.from(document.querySelectorAll('.client-checkbox:checked'));
-    if (checkedBoxes.length === 0) return;
+    let clientsList = [];
+    const logList = document.getElementById('bulk-log-list');
 
     bulkSendCancelled = false;
     document.getElementById('bulk-send-form-inputs').style.display = 'none';
@@ -843,10 +929,56 @@ async function startBulkSending() {
     document.getElementById('btn-cancel-bulk').style.display = 'inline-flex';
     document.getElementById('bulk-progress-section').style.display = 'block';
 
-    const logList = document.getElementById('bulk-log-list');
+    if (selectAllFiltered) {
+        const fetchLog = document.createElement('div');
+        fetchLog.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-left:5px;color:var(--primary);"></i>جاري جلب بيانات جميع العملاء المحددين من السيرفر...';
+        logList.appendChild(fetchLog);
+        
+        const searchQuery = document.getElementById('searchInput').value;
+        const statusQuery = document.querySelector('select[name="status"]').value;
+        const filterQuery = document.querySelector('select[name="filter"]').value;
+        
+        const params = new URLSearchParams({
+            search: searchQuery,
+            status: statusQuery,
+            filter: filterQuery,
+            get_all_ids: 1
+        });
+        
+        try {
+            const res = await fetch('index.php?' + params.toString());
+            clientsList = await res.json();
+            fetchLog.style.color = 'var(--success)';
+            fetchLog.innerHTML = '<i class="fas fa-check-circle" style="margin-left:5px;"></i>تم جلب بيانات العملاء بنجاح.';
+        } catch (err) {
+            fetchLog.style.color = 'var(--danger)';
+            fetchLog.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-left:5px;"></i>فشل جلب بيانات العملاء من السيرفر.';
+            document.getElementById('btn-cancel-bulk').style.display = 'none';
+            document.getElementById('btn-start-bulk').style.display = 'inline-flex';
+            document.getElementById('bulk-send-form-inputs').style.display = 'block';
+            return;
+        }
+    } else {
+        const checkedBoxes = Array.from(document.querySelectorAll('.client-checkbox:checked'));
+        clientsList = checkedBoxes.map(box => ({
+            id: box.value,
+            name: box.dataset.name,
+            company_name: box.dataset.company || '',
+            mobile: box.dataset.mobile
+        }));
+    }
+
+    if (clientsList.length === 0) {
+        alert('لا يوجد عملاء محددين للإرسال.');
+        document.getElementById('btn-cancel-bulk').style.display = 'none';
+        document.getElementById('btn-start-bulk').style.display = 'inline-flex';
+        document.getElementById('bulk-send-form-inputs').style.display = 'block';
+        return;
+    }
+
     const progressBar = document.getElementById('bulk-progress-bar');
     const progressText = document.getElementById('bulk-progress-text');
-    const total = checkedBoxes.length;
+    const total = clientsList.length;
 
     let sentCount = 0;
 
@@ -861,11 +993,11 @@ async function startBulkSending() {
             break;
         }
 
-        const box = checkedBoxes[i];
-        const clientId = box.value;
-        const clientName = box.dataset.name;
-        const clientCompany = box.dataset.company || '';
-        const rawMobile = box.dataset.mobile;
+        const client = clientsList[i];
+        const clientId = client.id;
+        const clientName = client.name;
+        const clientCompany = client.company_name || '';
+        const rawMobile = client.mobile;
 
         // Replace placeholders
         let personalizedMsg = messageTemplate
