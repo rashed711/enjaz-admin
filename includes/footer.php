@@ -24,6 +24,18 @@ $companyName = getSetting('company_name', APP_NAME);
 <!-- Main JS -->
 <script src="<?= str_repeat('../', $depth ?? 0) ?>assets/js/main.js"></script>
 
+<script>
+// Background trigger for scheduled messages (with delay to not block rendering)
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        const cronPath = '<?= str_repeat('../', $depth ?? 0) ?>whatsapp/cron.php';
+        fetch(cronPath).catch(function(e) {
+            console.log('Cron trigger error:', e);
+        });
+    }, 2000);
+});
+</script>
+
 <?php if (!empty($extraJs)): ?>
   <?= $extraJs ?>
 <?php endif; ?>

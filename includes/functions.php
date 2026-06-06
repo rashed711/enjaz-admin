@@ -281,3 +281,30 @@ function paginate(int $total, int $perPage, int $currentPage): array {
         'has_next'     => $currentPage < $totalPages,
     ];
 }
+
+/**
+ * توحيد صيغة أرقام الهواتف لتتوافق مع نظام الواتساب الدولي
+ */
+function normalizeMobile(string $mobile): string {
+    // إزالة أي رموز أو مسافات، والاحتفاظ بالأرقام فقط
+    $mobile = preg_replace('/\D/', '', $mobile);
+    
+    // إزالة أصفار البداية المزدوجة (مثال: 00966 -> 966)
+    if (str_starts_with($mobile, '00')) {
+        $mobile = substr($mobile, 2);
+    }
+    
+    // إذا كان الرقم يبدأ بصفر واحد
+    if (str_starts_with($mobile, '0')) {
+        // حالة مصر: يبدأ بـ 01 وطوله 11 رقم (مثال: 01028855779 -> 201028855779)
+        if (strlen($mobile) === 11 && str_starts_with($mobile, '01')) {
+            return '2' . $mobile;
+        }
+        // حالة السعودية: يبدأ بـ 05 وطوله 10 أرقام (مثال: 0598012129 -> 966598012129)
+        if (strlen($mobile) === 10 && str_starts_with($mobile, '05')) {
+            return '966' . substr($mobile, 1);
+        }
+    }
+    
+    return $mobile;
+}

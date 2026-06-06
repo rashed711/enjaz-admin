@@ -84,10 +84,7 @@ $apiToken  = getSetting('whatsapp_api_token', '');
 $sessionId = getSetting('whatsapp_sender', '');
 
 foreach ($clientsData as $cl) {
-    $mobile = preg_replace('/\D/', '', $cl['mobile']);
-    if (strlen($mobile) === 11 && $mobile[0] === '0') {
-        $mobile = '2' . $mobile;
-    }
+    $mobile = normalizeMobile($cl['mobile']);
 
     // صياغة قائمة الخدمات والتنبيهات للعميل
     $servicesText = "";

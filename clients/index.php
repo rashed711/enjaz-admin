@@ -156,7 +156,7 @@ if (isset($_GET['ajax'])) {
     ?>
     <?php if (empty($clients)): ?>
     <tr>
-      <td colspan="10">
+      <td colspan="11">
         <div class="empty-state">
           <div class="empty-icon"><i class="fas fa-users-slash"></i></div>
           <p class="empty-title">لا يوجد عملاء</p>
@@ -171,7 +171,10 @@ if (isset($_GET['ajax'])) {
     <?php foreach ($clients as $i => $client):
       $remaining = $client['total_services'] - $client['total_paid'];
     ?>
-    <tr onclick="if(!event.target.closest('a') && !event.target.closest('button')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
+    <tr onclick="if(!event.target.closest('a') && !event.target.closest('button') && !event.target.closest('input')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
+      <td style="text-align: center;" onclick="event.stopPropagation();">
+        <input type="checkbox" class="client-checkbox" value="<?= $client['id'] ?>" data-name="<?= e($client['name']) ?>" data-mobile="<?= e($client['mobile']) ?>" data-company="<?= e($client['company_name']) ?>" style="width: 17px; height: 17px; cursor: pointer;">
+      </td>
       <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -324,7 +327,13 @@ require_once INCLUDES_PATH . '/header.php';
     <h1 class="page-title"><i class="fas fa-users" style="color:var(--primary-light);margin-left:8px;"></i>العملاء</h1>
     <p class="page-subtitle">إجمالي <?= $totalClients ?> عميل مسجّل في النظام</p>
   </div>
-  <div class="page-actions">
+  <div class="page-actions" style="display:flex;gap:10px;align-items:center;">
+    <?php if (hasPermission('send_whatsapp')): ?>
+    <button type="button" class="btn btn-success" id="btn-bulk-whatsapp" style="display:none;" onclick="openBulkWhatsappModal()">
+      <i class="fab fa-whatsapp"></i>
+      إرسال رسالة جماعية (<span id="selected-count">0</span>)
+    </button>
+    <?php endif; ?>
     <?php if (hasPermission('add_clients')): ?>
     <a href="add.php" class="btn btn-primary" id="btn-add-client">
       <i class="fas fa-user-plus"></i>
@@ -422,6 +431,7 @@ require_once INCLUDES_PATH . '/header.php';
     <table class="data-table">
       <thead>
         <tr>
+          <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllClients" style="width: 17px; height: 17px; cursor: pointer;"></th>
           <th>#</th>
           <th>العميل</th>
           <th>الموبايل</th>
@@ -437,7 +447,7 @@ require_once INCLUDES_PATH . '/header.php';
       <tbody>
         <?php if (empty($clients)): ?>
         <tr>
-          <td colspan="10">
+          <td colspan="11">
             <div class="empty-state">
               <div class="empty-icon"><i class="fas fa-users-slash"></i></div>
               <p class="empty-title">لا يوجد عملاء</p>
@@ -452,7 +462,10 @@ require_once INCLUDES_PATH . '/header.php';
         <?php foreach ($clients as $i => $client):
           $remaining = $client['total_services'] - $client['total_paid'];
         ?>
-        <tr onclick="if(!event.target.closest('a') && !event.target.closest('button')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
+        <tr onclick="if(!event.target.closest('a') && !event.target.closest('button') && !event.target.closest('input')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
+          <td style="text-align: center;" onclick="event.stopPropagation();">
+            <input type="checkbox" class="client-checkbox" value="<?= $client['id'] ?>" data-name="<?= e($client['name']) ?>" data-mobile="<?= e($client['mobile']) ?>" data-company="<?= e($client['company_name']) ?>" style="width: 17px; height: 17px; cursor: pointer;">
+          </td>
           <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -733,7 +746,250 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Checkbox selections management
+    const selectAllCheckbox = document.getElementById('selectAllClients');
+    const bulkButton = document.getElementById('btn-bulk-whatsapp');
+    const selectedCountSpan = document.getElementById('selected-count');
+
+    function updateSelectionState() {
+        const checkboxes = document.querySelectorAll('.client-checkbox');
+        const checked = document.querySelectorAll('.client-checkbox:checked');
+        
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+        }
+        
+        if (bulkButton) {
+            if (checked.length > 0) {
+                selectedCountSpan.textContent = checked.length;
+                bulkButton.style.display = 'inline-flex';
+            } else {
+                bulkButton.style.display = 'none';
+            }
+        }
+    }
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            document.querySelectorAll('.client-checkbox').forEach(cb => {
+                cb.checked = selectAllCheckbox.checked;
+            });
+            updateSelectionState();
+        });
+    }
+
+    tbody.addEventListener('change', function(e) {
+        if (e.target.classList.contains('client-checkbox')) {
+            updateSelectionState();
+        }
+    });
+
+    // We also hook into search/filter requests to reset checkboxes
+    const originalDoSearch = window.doSearchGlobal;
+    window.doSearchGlobal = function(page) {
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        if (bulkButton) bulkButton.style.display = 'none';
+        originalDoSearch(page);
+    };
 });
+
+// Bulk send logic
+let bulkSendCancelled = false;
+
+function openBulkWhatsappModal() {
+    const checked = document.querySelectorAll('.client-checkbox:checked');
+    document.getElementById('bulk-selected-count').textContent = checked.length;
+    
+    // Reset modal UI
+    document.getElementById('bulkWhatsappMessage').value = '';
+    document.getElementById('bulk-progress-section').style.display = 'none';
+    document.getElementById('bulk-send-form-inputs').style.display = 'block';
+    document.getElementById('btn-start-bulk').style.display = 'inline-flex';
+    document.getElementById('btn-cancel-bulk').style.display = 'none';
+    document.getElementById('bulk-progress-bar').style.width = '0%';
+    document.getElementById('bulk-progress-text').textContent = '0%';
+    document.getElementById('bulk-log-list').innerHTML = '';
+    
+    openModal('bulkWaModal');
+}
+
+function closeBulkWaModal() {
+    bulkSendCancelled = true;
+    closeModal('bulkWaModal');
+}
+
+async function startBulkSending() {
+    const messageTemplate = document.getElementById('bulkWhatsappMessage').value.trim();
+    if (!messageTemplate) {
+        alert('يرجى كتابة نص الرسالة.');
+        return;
+    }
+
+    const minDelay = parseInt(document.getElementById('bulkMinDelay').value) || 3;
+    const maxDelay = parseInt(document.getElementById('bulkMaxDelay').value) || 15;
+
+    if (minDelay < 1 || maxDelay < minDelay) {
+        alert('يرجى تحديد قيم صحيحة لفارق التوقيت.');
+        return;
+    }
+
+    const checkedBoxes = Array.from(document.querySelectorAll('.client-checkbox:checked'));
+    if (checkedBoxes.length === 0) return;
+
+    bulkSendCancelled = false;
+    document.getElementById('bulk-send-form-inputs').style.display = 'none';
+    document.getElementById('btn-start-bulk').style.display = 'none';
+    document.getElementById('btn-cancel-bulk').style.display = 'inline-flex';
+    document.getElementById('bulk-progress-section').style.display = 'block';
+
+    const logList = document.getElementById('bulk-log-list');
+    const progressBar = document.getElementById('bulk-progress-bar');
+    const progressText = document.getElementById('bulk-progress-text');
+    const total = checkedBoxes.length;
+
+    let sentCount = 0;
+
+    for (let i = 0; i < total; i++) {
+        if (bulkSendCancelled) {
+            const logItem = document.createElement('div');
+            logItem.style.color = 'var(--danger)';
+            logItem.style.fontWeight = '700';
+            logItem.innerHTML = '<i class="fas fa-ban" style="margin-left:5px;"></i>تم إيقاف عملية الإرسال من قبل المستخدم.';
+            logList.appendChild(logItem);
+            logList.scrollTop = logList.scrollHeight;
+            break;
+        }
+
+        const box = checkedBoxes[i];
+        const clientId = box.value;
+        const clientName = box.dataset.name;
+        const clientCompany = box.dataset.company || '';
+        const rawMobile = box.dataset.mobile;
+
+        // Replace placeholders
+        let personalizedMsg = messageTemplate
+            .replace(/{name}/g, clientName)
+            .replace(/{company}/g, clientCompany);
+
+        // Add log entry: "sending to..."
+        const currentLog = document.createElement('div');
+        currentLog.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-left:5px;color:var(--primary);"></i>جاري الإرسال إلى ${clientName}...`;
+        logList.appendChild(currentLog);
+        logList.scrollTop = logList.scrollHeight;
+
+        try {
+            // Build Form Data matching api/whatsapp.php requirements
+            const formData = new FormData();
+            formData.append('client_id', clientId);
+            formData.append('mobile', rawMobile);
+            formData.append('message', personalizedMsg);
+            formData.append('msg_type', 'bulk');
+            formData.append('csrf_token', '<?= csrfToken() ?>');
+
+            const response = await fetch('../api/whatsapp.php', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                currentLog.style.color = 'var(--success)';
+                currentLog.innerHTML = `<i class="fas fa-check-circle" style="margin-left:5px;"></i>تم الإرسال بنجاح إلى ${clientName} ✓`;
+            } else {
+                currentLog.style.color = 'var(--danger)';
+                currentLog.innerHTML = `<i class="fas fa-times-circle" style="margin-left:5px;"></i>فشل الإرسال لـ ${clientName}: ${result.message}`;
+            }
+        } catch (err) {
+            currentLog.style.color = 'var(--danger)';
+            currentLog.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-left:5px;"></i>خطأ اتصال أثناء الإرسال لـ ${clientName}`;
+        }
+
+        sentCount++;
+        const pct = Math.round((sentCount / total) * 100);
+        progressBar.style.width = pct + '%';
+        progressText.textContent = pct + '%';
+
+        // Delay before next message if not the last one
+        if (i < total - 1 && !bulkSendCancelled) {
+            const delaySec = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+            
+            const delayLog = document.createElement('div');
+            delayLog.style.color = 'var(--text-muted)';
+            delayLog.style.fontSize = '12px';
+            delayLog.innerHTML = `<i class="fas fa-clock" style="margin-left:5px;"></i>انتظار فارق توقيت عشوائي مدته ${delaySec} ثانية...`;
+            logList.appendChild(delayLog);
+            logList.scrollTop = logList.scrollHeight;
+
+            await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
+        }
+    }
+
+    document.getElementById('btn-cancel-bulk').style.display = 'none';
+    const completionLog = document.createElement('div');
+    completionLog.style.fontWeight = 'bold';
+    completionLog.style.marginTop = '10px';
+    completionLog.style.color = 'var(--primary)';
+    completionLog.innerHTML = `<i class="fas fa-flag-checkered" style="margin-left:5px;"></i>اكتملت العملية. تم معالجة ${sentCount} من إجمالي ${total} عميل.`;
+    logList.appendChild(completionLog);
+    logList.scrollTop = logList.scrollHeight;
+}
 </script>
+
+<!-- ══ Modal: إرسال واتساب جماعي ════════════════════════════════ -->
+<div class="modal-overlay" id="bulkWaModal" style="display:none;">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <span class="modal-title"><i class="fab fa-whatsapp" style="color:var(--success);"></i> إرسال رسالة واتساب جماعية</span>
+      <button class="modal-close" onclick="closeBulkWaModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(34,197,94,.08);border-right:4px solid var(--success);border-radius:8px;padding:12px;margin-bottom:18px;">
+        <span style="font-size:13px;color:#166534;font-weight:700;">عدد العملاء المحددين: <strong id="bulk-selected-count">0</strong> عميل</span>
+      </div>
+
+      <!-- Inputs Section -->
+      <div id="bulk-send-form-inputs">
+        <div class="form-group">
+          <label class="form-label" for="bulkWhatsappMessage">نص الرسالة <span class="required">*</span></label>
+          <textarea id="bulkWhatsappMessage" class="form-control" rows="5" placeholder="اكتب رسالتك الجماعية هنا..." required></textarea>
+          <span class="form-hint">يمكنك استخدام المتغيرات التلقائية: <strong>{name}</strong> لاسم العميل، و <strong>{company}</strong> لاسم الشركة.</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="bulkMinDelay">أقل انتظار (بالثواني)</label>
+            <input type="number" id="bulkMinDelay" class="form-control" value="3" min="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bulkMaxDelay">أقصى انتظار (بالثواني)</label>
+            <input type="number" id="bulkMaxDelay" class="form-control" value="15" min="2">
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div id="bulk-progress-section" style="display:none;margin-top:10px;">
+        <label class="form-label">حالة تقدم عملية الإرسال:</label>
+        <div style="width:100%;height:14px;background:#e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:6px;position:relative;">
+          <div id="bulk-progress-bar" style="width:0%;height:100%;background:linear-gradient(135deg, #22c55e, #16a34a);transition:width .3s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:14px;">
+          <span>نسبة التقدم</span>
+          <span id="bulk-progress-text">0%</span>
+        </div>
+        
+        <label class="form-label">تفاصيل العملية (السجل):</label>
+        <div id="bulk-log-list" style="max-height:200px;overflow-y:auto;background:var(--content-bg);border:1.5px solid var(--border-color);border-radius:8px;padding:12px;font-size:13px;line-height:1.7;display:flex;flex-direction:column;gap:6px;">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeBulkWaModal()">إلغاء / إغلاق</button>
+      <button type="button" class="btn btn-primary" id="btn-start-bulk" onclick="startBulkSending()"><i class="fas fa-paper-plane"></i> بدء الإرسال الآن</button>
+      <button type="button" class="btn btn-danger" id="btn-cancel-bulk" style="display:none;" onclick="bulkSendCancelled = true; this.disabled = true; this.textContent='جاري الإيقاف...';"><i class="fas fa-stop"></i> إيقاف العملية</button>
+    </div>
+  </div>
+</div>
 
 <?php require_once INCLUDES_PATH . '/footer.php'; ?>

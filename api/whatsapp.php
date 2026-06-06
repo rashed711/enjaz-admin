@@ -33,11 +33,8 @@ if (empty($message)) {
     exit;
 }
 
-// Normalize mobile (remove non-digits, add country code if needed)
-$mobile = preg_replace('/\D/', '', $mobile);
-if (strlen($mobile) === 11 && $mobile[0] === '0') {
-    $mobile = '2' . $mobile; // Egypt: 0 → 20
-}
+// Normalize mobile number using the global helper function
+$mobile = normalizeMobile($mobile);
 
 $apiUrl    = getSetting('whatsapp_api_url', '');
 $apiToken  = getSetting('whatsapp_api_token', '');

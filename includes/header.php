@@ -128,6 +128,16 @@ try {
           </a>
         </li>
         <?php endif; ?>
+        <?php if (hasPermission('send_whatsapp')): ?>
+        <li class="nav-item">
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>whatsapp/schedules.php"
+             class="nav-link <?= ($activePage ?? '') === 'whatsapp-schedules' ? 'active' : '' ?>"
+             id="nav-whatsapp-schedules">
+            <i class="fas fa-clock nav-icon"></i>
+            <span>جدولة الرسائل</span>
+          </a>
+        </li>
+        <?php endif; ?>
       </ul>
       <?php endif; ?>
 
