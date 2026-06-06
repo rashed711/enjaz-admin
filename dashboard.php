@@ -95,9 +95,12 @@ $monthlyTrend = $db->query("
 
 // ── 6. توزيع الاشتراكات حسب الباقات والخدمات ────────────────────────
 $packageDist = $db->query("
-    SELECT COALESCE(plan_name, 'بدون باقة مخصصة') as plan, COUNT(*) as count 
-    FROM client_subscriptions 
-    WHERE status != 'cancelled'
+    SELECT COALESCE(cs.plan_name, 'بدون باقة مخصصة') as plan, COUNT(*) as count 
+    FROM client_subscriptions cs
+    JOIN services s ON s.id = cs.service_id
+    WHERE cs.status != 'cancelled'
+      AND (s.name NOT LIKE '%دومين%' AND s.name NOT LIKE '%domain%')
+      AND cs.plan_name IS NOT NULL AND cs.plan_name != ''
     GROUP BY plan 
     ORDER BY count DESC
 ")->fetchAll();
@@ -378,9 +381,13 @@ require_once INCLUDES_PATH . '/header.php';
           </tr>
         </thead>
         <tbody>
-          <?php foreach (array_slice($packageDist, 0, 5) as $pd): ?>
-          <tr>
-            <td><strong><?= e($pd['plan']) ?></strong></td>
+          <?php foreach ($packageDist as $pd): ?>
+          <tr onclick="window.location='clients/index.php?plan=<?= urlencode($pd['plan']) ?>';" style="cursor:pointer;" onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
+            <td>
+              <a href="clients/index.php?plan=<?= urlencode($pd['plan']) ?>" style="font-weight: 700; color: var(--primary);">
+                <?= e($pd['plan']) ?>
+              </a>
+            </td>
             <td style="text-align: center;"><span class="badge badge-info"><?= $pd['count'] ?> عميل</span></td>
           </tr>
           <?php endforeach; ?>

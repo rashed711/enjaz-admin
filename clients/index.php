@@ -13,6 +13,7 @@ $warningDays = (int)getSetting('renewal_warning_days','60');
 $search = clean($_GET['search'] ?? '');
 $status = $_GET['status'] ?? '';
 $filter = $_GET['filter'] ?? '';
+$plan   = clean($_GET['plan'] ?? '');
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 
@@ -56,6 +57,15 @@ if ($filter === 'website') {
         WHERE cs2.status = 'active' 
           AND cs2.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL $warningDays DAY)
     )";
+}
+
+if ($plan !== '') {
+    $where[] = "c.id IN (
+        SELECT DISTINCT cs2.client_id 
+        FROM client_subscriptions cs2 
+        WHERE cs2.status != 'cancelled' AND cs2.plan_name = ?
+    )";
+    $params[] = $plan;
 }
 
 $whereStr = implode(' AND ', $where);
@@ -281,7 +291,7 @@ if (isset($_GET['ajax'])) {
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -437,7 +447,7 @@ require_once INCLUDES_PATH . '/header.php';
       </select>
 
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
-      <?php if ($search || $status !== '' || $filter !== ''): ?>
+      <?php if ($search || $status !== '' || $filter !== '' || $plan !== ''): ?>
       <a href="index.php" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
       <?php endif; ?>
     </form>
@@ -585,7 +595,7 @@ require_once INCLUDES_PATH . '/header.php';
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -661,6 +671,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const statusQuery = statusSelect.value;
         const filterQuery = filterSelect.value;
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const planQuery = urlParams.get('plan') || '';
+
         const params = new URLSearchParams({
             search: searchQuery,
             status: statusQuery,
@@ -668,6 +681,7 @@ document.addEventListener('DOMContentLoaded', function() {
             page: currentPage,
             ajax: 1
         });
+        if (planQuery) params.append('plan', planQuery);
 
         // Update URL
         const cleanParams = new URLSearchParams({
@@ -676,6 +690,7 @@ document.addEventListener('DOMContentLoaded', function() {
             filter: filterQuery,
             page: currentPage
         });
+        if (planQuery) cleanParams.append('plan', planQuery);
         if (!searchQuery) cleanParams.delete('search');
         if (!statusQuery) cleanParams.delete('status');
         if (!filterQuery) cleanParams.delete('filter');
