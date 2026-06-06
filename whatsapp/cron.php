@@ -88,6 +88,33 @@ foreach ($schedules as $sch) {
         ");
         $stmt->execute([$sch['warning_days']]);
         $clients = $stmt->fetchAll();
+    } elseif ($sch['target_type'] === 'active_expired') {
+        $clients = $db->query("
+            SELECT DISTINCT c.id, c.name, c.mobile, c.company_name
+            FROM client_subscriptions cs
+            JOIN clients c ON c.id = cs.client_id
+            WHERE c.status = 1
+              AND cs.end_date < CURDATE()
+              AND cs.status = 'active'
+              AND c.mobile IS NOT NULL AND c.mobile != ''
+        ")->fetchAll();
+    } elseif ($sch['target_type'] === 'new_clients') {
+        $clients = $db->query("
+            SELECT id, name, mobile, company_name
+            FROM clients
+            WHERE status = 1
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              AND mobile IS NOT NULL AND mobile != ''
+        ")->fetchAll();
+    } elseif ($sch['target_type'] === 'no_subscriptions') {
+        $clients = $db->query("
+            SELECT c.id, c.name, c.mobile, c.company_name
+            FROM clients c
+            LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+            WHERE c.status = 1
+              AND cs.id IS NULL
+              AND c.mobile IS NOT NULL AND c.mobile != ''
+        ")->fetchAll();
     }
 
     if (empty($clients)) {

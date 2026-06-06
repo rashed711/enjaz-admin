@@ -86,6 +86,9 @@ require_once INCLUDES_PATH . '/header.php';
                 'expiring'        => '<span class="badge badge-info">تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
                 'active_expiring' => '<span class="badge badge-info">النشطين - تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
                 'all_expiring'    => '<span class="badge badge-info">الكل - تجديدات قريبة (' . $sch['warning_days'] . ' يوم)</span>',
+                'active_expired'  => '<span class="badge badge-danger">النشطين - اشتراكات منتهية بالفعل</span>',
+                'new_clients'     => '<span class="badge badge-success">العملاء الجدد (آخر 30 يوم)</span>',
+                'no_subscriptions'=> '<span class="badge badge-secondary">عملاء بدون أي اشتراكات</span>',
             ];
             echo $targetLabels[$sch['target_type']] ?? $sch['target_type'];
             ?>
@@ -173,6 +176,9 @@ require_once INCLUDES_PATH . '/header.php';
               <option value="all_debt">كل العملاء الذين عليهم مديونية (نشط وموقوف)</option>
               <option value="active_expiring">العملاء النشطين الذين لديهم اشتراكات تنتهي قريباً</option>
               <option value="all_expiring">كل العملاء الذين لديهم اشتراكات تنتهي قريباً (نشط وموقوف)</option>
+              <option value="active_expired">العملاء النشطين الذين لديهم اشتراكات منتهية بالفعل</option>
+              <option value="new_clients">العملاء الجدد المسجلين خلال (آخر 30 يوم)</option>
+              <option value="no_subscriptions">العملاء النشطين الذين ليس لديهم أي اشتراكات</option>
             </select>
           </div>
           

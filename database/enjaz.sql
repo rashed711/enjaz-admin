@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jun 05, 2026 at 01:48 AM
+-- Generation Time: Jun 06, 2026 at 02:15 PM
 -- Server version: 8.0.46-0ubuntu0.22.04.2
 -- PHP Version: 8.3.30
 
@@ -64,8 +64,8 @@ INSERT INTO `clients` (`id`, `name`, `company_name`, `mobile`, `mobile_2`, `acti
 (11, 'م / رفعت كريم', 'Alauma Contracting', '201111130655', '', 'Contracting', 'alauma.com', 'GoDaddy', 'alauma', '', '', '', 1, 1, '2026-06-04 15:11:18', '2026-06-04 15:11:18'),
 (12, 'د / محمد الجميعي', 'Onboarding 4u', '201003939499', '', 'قطاع الصيدليات', 'onboarding4u.com', 'GoDaddy', 'onboarding4u', '', '', '', 1, 1, '2026-06-04 15:14:13', '2026-06-04 15:14:13'),
 (13, 'م / اسلام الشريف', 'Alsherif Group', '201119589121', '', 'Contracting', 'alsherifgroup.net', 'GoDaddy', 'alsherifgroup', '', '', '', 1, 1, '2026-06-04 15:18:47', '2026-06-04 15:18:47'),
-(14, 'م / عاطف صلاح', 'التحدي تريد', '201000002267', '', 'استيراد وتصدير', 'eltahady-trade.com', 'GoDaddy', 'eltahadytrade', '', '', '', 1, 1, '2026-06-04 15:22:39', '2026-06-04 15:22:39'),
-(15, 'م / عمار بهنس', 'Arab House Vent', '201143638874', '', 'Mep - HVAC', 'arabhousevent.com', 'GoDaddy', 'arabhousevent', '', '', '', 1, 1, '2026-06-04 15:24:54', '2026-06-04 15:24:54'),
+(14, 'م / عاطف صلاح', 'التحدي تريد', '201000002267', '', 'استيراد وتصدير', 'eltahady-trade.com', 'GoDaddy', 'eltahadytrade', '', '', '', 0, 1, '2026-06-04 15:22:39', '2026-06-06 14:07:22'),
+(15, 'م / عمار بهنس', 'Arab House Vent', '201143638874', '', 'Mep - HVAC', 'arabhousevent.com', 'GoDaddy', 'arabhousevent', '', '', '', 0, 1, '2026-06-04 15:24:54', '2026-06-06 13:09:55'),
 (16, 'م / علي محمد', 'Blue Sea Metal', '201013982131', '', 'تشكيل المعان', 'bluesea-metal.com', 'GoDaddy', 'blueseametal', '', '', '', 1, 1, '2026-06-04 15:37:02', '2026-06-04 15:37:02'),
 (17, 'م / بيشوي رأفت', 'innova Egypt', '201288333348', '', 'برمجيات', 'innova-egypt.com', 'GoDaddy', 'innova-egypt', '', '', '', 1, 1, '2026-06-04 15:42:10', '2026-06-04 15:42:10'),
 (18, 'DR. Aya A Ahmed', 'Admissions Office', '201044929476', '', 'قطاع التعليم', 'admissions-office-eg.com', 'GoDaddy', 'admissions-office', '', '', '', 1, 1, '2026-06-04 15:44:49', '2026-06-04 15:44:49'),
@@ -76,18 +76,18 @@ INSERT INTO `clients` (`id`, `name`, `company_name`, `mobile`, `mobile_2`, `acti
 (23, 'م / اسلام البلتاجي', 'Gladious Scape', '201207575483', '', 'Landscaping', 'gladiousscape.com', '', 'gladiousscape', '', '', '', 1, 1, '2026-06-04 15:59:19', '2026-06-04 15:59:19'),
 (24, 'م / احمد يوسف', 'Dimec', '201028071308', '', 'التوريدات', 'dimec-eg.com', 'GoDaddy', 'dimec-eg', '', '', '', 1, 1, '2026-06-04 16:01:46', '2026-06-04 16:01:46'),
 (25, 'م / نانسي', 'Vera Agency', '201206671454', '', 'Agency', 'veraagency-eg.com', 'GoDaddy', 'veraagency', '', '', '', 1, 1, '2026-06-04 16:05:19', '2026-06-04 16:05:19'),
-(26, 'د / عبد الرحمن', 'Advanced Tech', '201274432551', '', 'Tech', 'advancedtech-eg.com', 'GoDaddy', 'advancedtech', '', '', '', 1, 1, '2026-06-04 16:08:40', '2026-06-04 16:08:40'),
+(26, 'د / عبد الرحمن', 'Advanced Tech', '201274432551', '', 'Tech', 'advancedtech-eg.com', 'GoDaddy', 'advancedtech', '', '', '', 0, 1, '2026-06-04 16:08:40', '2026-06-06 13:08:55'),
 (27, 'م / محمود نور الدين', 'Valve Link', '201018067511', '', 'PLUMBING', 'valvelink.co', 'Hostinger', 'valvelink', '', '', '', 1, 1, '2026-06-04 16:12:11', '2026-06-04 22:33:50'),
 (28, 'م / عمرو محمد', 'Alex Air', '201226178167', '', 'HVAC', 'alexair-eg.com', 'GoDaddy', 'alexair', '', '', '', 1, 1, '2026-06-04 16:16:15', '2026-06-04 16:16:15'),
-(29, 'م / رامي عبد اللطيف', 'First Air', '201067996402', '', 'Mep - HVAC', 'first-air-eg.com', 'GoDaddy', 'firstair', '', '', '', 1, 1, '2026-06-04 16:19:46', '2026-06-05 01:06:15'),
+(29, 'م / رامي عبد اللطيف', 'First Air', '201067996402', '', 'Mep - HVAC', 'firstair-eg.com', 'GoDaddy', 'firstair', '', '', '', 1, 1, '2026-06-04 16:19:46', '2026-06-05 20:05:39'),
 (30, 'م / صابر مكي', 'shariha', '966561036181', '', 'telecom', 'shariha.net', 'GoDaddy', 'shariha', '', '', '', 1, 1, '2026-06-04 16:34:00', '2026-06-04 16:34:00'),
 (31, 'م / محمد', 'Metal Power', '201090416807', '', 'Contracting', 'metalpwr.com', 'GoDaddy', 'metalpwr', '', '', '', 1, 1, '2026-06-04 18:40:00', '2026-06-04 18:40:00'),
 (32, 'م / احمد نجم', 'Oxyva Capital', '201555115296', '', 'consulting learning', 'oxyva-eg.com', 'GoDaddy', 'oxyva', '', '', '', 1, 1, '2026-06-04 18:44:16', '2026-06-04 18:44:16'),
-(33, 'م / محمود محمد', 'Ovo Way', '201025500011', '', '', 'ovo-way.com', 'Hostinger', 'ovoway', '', '', '', 1, 1, '2026-06-04 18:46:52', '2026-06-04 22:33:15'),
+(33, 'م / محمود محمد', 'Ovo Way', '201025500011', '', '', 'ovo-way.com', 'Hostinger', 'ovoway', '', '', '', 0, 1, '2026-06-04 18:46:52', '2026-06-06 13:11:19'),
 (34, 'م / احمد عبد العال', 'Sedra Oman', '201005151818', '', 'cosmetics', 'sedra-om.com', 'GoDaddy', 'sedraom', '', '', '', 1, 1, '2026-06-04 18:53:18', '2026-06-04 18:53:18'),
 (35, 'م / عبد الرحمن فرغلي', 'Exception CO', '201006829244', '', 'construction', 'exception-co.com', 'GoDaddy', 'exceptionco', '', '', '', 1, 1, '2026-06-04 18:56:03', '2026-06-04 18:56:03'),
-(36, 'م / احمد ابراهيم', 'Elhassan P S', '201068500268', '', 'Printing Supply', 'elhassan-ps.com', 'GoDaddy', 'elhassan', '', '', '', 1, 1, '2026-06-04 19:03:55', '2026-06-04 19:03:55'),
-(37, 'م / احمد ابراهيم', 'Makkah EST', '201068500268', '', 'construction', 'makkahest.com', 'GoDaddy', 'makkahest', '', '', '', 1, 1, '2026-06-04 19:05:57', '2026-06-04 19:05:57'),
+(36, 'م / احمد ابراهيم', 'Elhassan P S', '201068500268', '', 'Printing Supply', 'elhassan-ps.com', 'GoDaddy', 'elhassan', '', '', '', 0, 1, '2026-06-04 19:03:55', '2026-06-06 13:07:37'),
+(37, 'م / احمد ابراهيم', 'Makkah EST', '201068500268', '', 'construction', 'makkahest.com', 'GoDaddy', 'makkahest', '', '', '', 0, 1, '2026-06-04 19:05:57', '2026-06-06 13:07:05'),
 (38, 'م / يوسف هشام', 'reelify', '201505588416', '', 'videos Converter', 'reelify.cc', 'dynadot', 'reelify', '', '', '', 1, 1, '2026-06-04 19:09:16', '2026-06-04 19:10:08'),
 (39, 'م / احمد رؤوف', 'Nour Tiba', '201028085860', '', 'مكتب محاسبة', 'nourtiba-eg.com', 'GoDaddy', 'nourtiba', '', '', '', 1, 1, '2026-06-04 19:11:56', '2026-06-04 19:11:56'),
 (40, 'م / عمرو عبد الموجود', 'AB Pro Medical', '201091166448', '', 'Medical', 'abpromedical.com', 'GoDaddy', 'abpromedical', '', '', '', 1, 1, '2026-06-04 19:15:39', '2026-06-04 19:15:39'),
@@ -122,8 +122,9 @@ INSERT INTO `clients` (`id`, `name`, `company_name`, `mobile`, `mobile_2`, `acti
 (69, 'م / عبد اللطيف محمد', 'infinity Logistic', '201080146149', NULL, 'Logistic', 'infinity-logistic.net', 'Godady', 'infinity-logistic', NULL, NULL, NULL, 1, 1, '2026-06-04 20:15:15', '2026-06-04 20:15:15'),
 (70, 'م / تامر', 'Alkayan Logistics', '201040405470', '', '', 'alkayanlogistics.com', 'GoDaddy', 'alkayanlogistics', '', '', '', 1, 1, '2026-06-04 20:16:28', '2026-06-04 20:16:28'),
 (71, 'م / محمد عبد الله', 'Madar MEP', '201060565785', '', 'MEP', 'MadarMEP.com', 'GoDaddy', 'madarmep', '', '', '', 1, 1, '2026-06-04 20:17:20', '2026-06-04 20:17:20'),
-(72, 'م / محمد المنشاوي', 'Menshawy Group', '201013881148', '', 'Contracting', 'menshawy-group.com', 'GoDaddy', 'menshawy-group', '', '', '', 1, 1, '2026-06-04 20:40:54', '2026-06-04 20:40:54'),
-(73, 'Rashed', 'Enjaz', '201225251888', '', 'Enjaz', 'Enjaz.app', 'GoDaddy', 'enjaz', '', '', '', 1, 1, '2026-06-04 20:43:32', '2026-06-04 20:43:32');
+(72, 'م / محمد المنشاوي', 'Menshawy Group', '201013881148', '', 'Contracting', 'menshawy-group.com', 'GoDaddy', 'menshawy-group', '', '', '', 0, 1, '2026-06-04 20:40:54', '2026-06-06 13:06:07'),
+(73, 'Rashed', 'Enjaz', '01028855779', '01028855779', 'Enjaz', 'Enjaz.app', 'GoDaddy', 'enjaz', '', '', '', 1, 1, '2026-06-04 20:43:32', '2026-06-05 19:20:42'),
+(74, 'م / محمد', 'Blue Nile', '201001300092', '', 'مقاولات', 'bluenile-group.net', 'GoDaddy', 'bluenile', '', '', '', 1, 1, '2026-06-05 16:22:42', '2026-06-05 16:22:42');
 
 -- --------------------------------------------------------
 
@@ -257,8 +258,6 @@ INSERT INTO `client_subscriptions` (`id`, `client_id`, `service_id`, `plan_name`
 (112, 70, 3, 'موقع تعريفي', 0.00, '2026-03-30', NULL, 'active', '', 1, '2026-06-04 20:36:41', '2026-06-04 20:36:41'),
 (113, 72, 2, 'دومين', 750.00, '2026-03-16', '2027-03-15', 'active', '', 1, '2026-06-04 20:41:11', '2026-06-04 20:41:11'),
 (114, 72, 1, '01-1G-800EG', 800.00, '2026-03-16', '2027-03-15', 'active', '', 1, '2026-06-04 20:41:25', '2026-06-04 20:41:25'),
-(115, 72, 3, 'موقع تعريفي', 0.00, '2026-03-16', NULL, 'active', '', 1, '2026-06-04 20:41:43', '2026-06-04 20:41:43'),
-(116, 73, 2, 'دومين', 0.00, '2025-11-07', '2026-11-06', 'active', '', 1, '2026-06-04 20:43:57', '2026-06-04 20:44:13'),
 (117, 52, 1, '01-3G-800EG-Offer', 800.00, '2026-03-26', '2027-03-25', 'active', '', 1, '2026-06-04 20:47:32', '2026-06-04 20:47:32'),
 (118, 53, 2, 'دومين', 750.00, '2026-03-28', '2027-03-27', 'active', '', 1, '2026-06-04 20:50:39', '2026-06-04 20:50:39'),
 (119, 53, 1, '01-1G-800EG', 800.00, '2026-03-28', '2027-03-27', 'active', '', 1, '2026-06-04 20:51:02', '2026-06-04 20:51:02'),
@@ -296,7 +295,11 @@ INSERT INTO `client_subscriptions` (`id`, `client_id`, `service_id`, `plan_name`
 (154, 1, 2, 'دومين', 1000.00, '2025-07-04', '2026-07-03', 'active', '', 1, '2026-06-04 22:20:07', '2026-06-04 22:20:24'),
 (155, 29, 2, 'firstair-eg.com', 1495.00, '2026-04-30', '2027-04-29', 'active', 'firstair-eg.com', 1, '2026-06-05 00:57:37', '2026-06-05 01:05:03'),
 (156, 29, 2, 'firstair-sa.com', 1495.00, '2026-01-17', '2027-01-16', 'active', 'firstair-sa.com', 1, '2026-06-05 00:58:46', '2026-06-05 01:02:23'),
-(157, 29, 2, 'first-air-eg.com', 1495.00, '2026-01-12', '2027-01-11', 'active', 'first-air-eg.com', 1, '2026-06-05 01:06:00', '2026-06-05 01:06:15');
+(157, 29, 2, 'first-air-eg.com', 1495.00, '2026-01-12', '2027-01-11', 'active', 'first-air-eg.com', 1, '2026-06-05 01:06:00', '2026-06-05 01:06:15'),
+(158, 74, 2, 'دومين', 800.00, '2026-06-05', '2027-06-04', 'active', '', 1, '2026-06-05 16:42:00', '2026-06-05 16:42:00'),
+(159, 74, 1, '01-1G-800EG', 800.00, '2026-06-05', '2027-06-04', 'active', '', 1, '2026-06-05 16:42:08', '2026-06-05 16:42:08'),
+(160, 73, 2, 'enjaz.cloud', 0.00, '2025-11-04', '2026-11-03', 'active', '', 1, '2026-06-05 22:59:16', '2026-06-05 22:59:29'),
+(161, 73, 2, 'enjaz.app', 0.00, '2025-10-08', '2026-10-07', 'active', '', 1, '2026-06-05 23:00:14', '2026-06-05 23:00:14');
 
 -- --------------------------------------------------------
 
@@ -373,7 +376,8 @@ INSERT INTO `expenses` (`id`, `title`, `amount`, `expense_date`, `category`, `no
 (50, 'حجز دومين  plus-adv.com', 720.00, '2026-05-03', 'دومين', '', 1, '2026-06-05 01:44:07', '2026-06-05 01:44:07'),
 (51, 'حجز دومين  alfa-petroleum.com', 760.00, '2026-06-02', 'دومين', '', 1, '2026-06-05 01:44:07', '2026-06-05 01:44:07'),
 (52, 'حجز دومين eldewanya.com', 760.00, '2026-06-03', 'دومين', '', 1, '2026-06-05 01:44:07', '2026-06-05 01:44:07'),
-(53, 'حجز دومين infinity-logistic.net', 760.00, '2026-06-04', 'دومين', '', 1, '2026-06-05 01:44:07', '2026-06-05 01:44:07');
+(53, 'حجز دومين infinity-logistic.net', 760.00, '2026-06-04', 'دومين', '', 1, '2026-06-05 01:44:07', '2026-06-05 01:44:07'),
+(54, 'حجز دومين bluenile-group.net', 865.00, '2026-06-05', 'دومين', 'تم تحصيل 800 جنيه فقط من العميل', 1, '2026-06-05 20:31:53', '2026-06-05 20:31:53');
 
 -- --------------------------------------------------------
 
@@ -539,7 +543,8 @@ INSERT INTO `payments` (`id`, `client_id`, `subscription_id`, `amount`, `payment
 (119, 29, 60, 7000.00, '2026-01-29', 'انستا باي', '', '', NULL, 1, '2026-06-04 23:20:10'),
 (120, 29, 156, 1495.00, '2026-01-17', 'انستا باي', '', '', NULL, 1, '2026-06-05 01:09:51'),
 (121, 29, 157, 1495.00, '2026-01-12', 'انستا باي', '', '', NULL, 1, '2026-06-05 01:10:14'),
-(122, 29, 155, 1495.00, '2026-04-30', 'انستا باي', '', '', NULL, 1, '2026-06-05 01:10:32');
+(122, 29, 155, 1495.00, '2026-04-30', 'انستا باي', '', '', NULL, 1, '2026-06-05 01:10:32'),
+(123, 74, 158, 800.00, '2026-06-05', 'فودافون كاش', '', '', 'uploads/receipts/1780677764_6a22fc84b7539.jpeg', 1, '2026-06-05 16:42:44');
 
 -- --------------------------------------------------------
 
@@ -621,11 +626,11 @@ INSERT INTO `settings` (`id`, `key`, `value`, `updated_at`) VALUES
 (1, 'company_name', 'إنجاز للحلول الذكية', '2026-06-04 12:49:30'),
 (2, 'company_phone', '201225251888', '2026-06-04 13:39:11'),
 (3, 'company_email', 'info@enjaz.app', '2026-06-04 13:39:11'),
-(4, 'company_address', '', '2026-06-04 12:49:30'),
+(4, 'company_address', 'Bearer Token\r\n\r\nBearer ak_de6fe9510afd4967e0046ea921e81007a56e259d7e428dad', '2026-06-05 19:07:43'),
 (5, 'invoice_prefix', 'INV', '2026-06-04 12:49:30'),
 (6, 'invoice_counter', '1', '2026-06-04 12:49:30'),
 (7, 'whatsapp_api_url', 'https://whatsapp.enjaz.cloud/api/sessions/sess_1780352265229/messages', '2026-06-04 22:14:06'),
-(8, 'whatsapp_api_token', 'ak_de6fe9510afd4967e0046ea921e81007a56e259d7e428dad', '2026-06-04 22:14:06'),
+(8, 'whatsapp_api_token', 'ak_de6fe9510afd4967e0046ea921e81007a56e259d7e428dad', '2026-06-05 19:19:48'),
 (9, 'whatsapp_sender', '201225251888', '2026-06-04 22:14:06'),
 (10, 'currency', 'جنيه', '2026-06-04 12:49:30'),
 (11, 'renewal_warning_days', '30', '2026-06-04 12:49:30'),
@@ -655,7 +660,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `full_name`, `role`, `permissions`, `status`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin', '$2y$10$HMgtq.XGLFO2GvH.eXtLku86XWVJPJnv9sFEfgU29.yq0SfF1BN0W', 'مدير النظام', 'admin', NULL, 1, '2026-06-04 23:09:40', '2026-06-04 12:49:30', '2026-06-04 23:09:40');
+(1, 'admin', '$2y$10$HMgtq.XGLFO2GvH.eXtLku86XWVJPJnv9sFEfgU29.yq0SfF1BN0W', 'مدير النظام', 'admin', NULL, 1, '2026-06-06 12:56:58', '2026-06-04 12:49:30', '2026-06-06 12:56:58');
 
 -- --------------------------------------------------------
 
@@ -680,7 +685,43 @@ CREATE TABLE `whatsapp_logs` (
 --
 
 INSERT INTO `whatsapp_logs` (`id`, `client_id`, `mobile`, `message`, `msg_type`, `status`, `response`, `sent_by`, `sent_at`) VALUES
-(1, 73, '201225251888', 'السادة / Rashed\r\n\r\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\r\nيرجى التواصل معنا لتجديد الاشتراك.\r\n\r\nشكراً لثقتكم 🌟', 'renewal', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-04 22:14:25');
+(1, 73, '201225251888', 'السادة / Rashed\r\n\r\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\r\nيرجى التواصل معنا لتجديد الاشتراك.\r\n\r\nشكراً لثقتكم 🌟', 'renewal', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-04 22:14:25'),
+(2, 73, '201225251888', 'السادة / Rashed\r\n\r\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\r\nيرجى التواصل معنا لتجديد الاشتراك.\r\n\r\nشكراً لثقتكم 🌟', 'renewal', 'failed', 'Forbidden', 1, '2026-06-05 19:08:03'),
+(3, 73, '201225251888', 'السادة / Rashed\r\n\r\nنشكركم على سداد دفعتكم.\r\nنتطلع دائماً لخدمتكم.\r\n\r\nإنجاز للحلول الذكية ✅', 'payment', 'failed', 'Forbidden', 1, '2026-06-05 19:08:27'),
+(4, 73, '201028855779', 'السادة / Rashed\r\n\r\nنشكركم على سداد دفعتكم.\r\nنتطلع دائماً لخدمتكم.\r\n\r\nإنجاز للحلول الذكية ✅', 'payment', 'failed', 'Forbidden', 1, '2026-06-05 19:08:55'),
+(5, 73, '201028855779', 'السادة / Rashed\r\n\r\nإجمالي خدماتكم: 0.00 جنيه\r\nالمسدّد: 0.00 جنيه\r\nالمتبقي: 0.00 جنيه\r\n\r\nللاستفسار تواصلوا معنا.', 'statement', 'failed', 'Forbidden', 1, '2026-06-05 19:09:04'),
+(6, 73, '201028855779', 'السادة / Rashed\r\n\r\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\r\nيرجى التواصل معنا لتجديد الاشتراك.\r\n\r\nشكراً لثقتكم 🌟', 'renewal', 'failed', 'Forbidden', 1, '2026-06-05 19:09:10'),
+(7, 73, '201028855779', 'السادة / Rashed\r\n\r\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\r\nيرجى التواصل معنا لتجديد الاشتراك.\r\n\r\nشكراً لثقتكم 🌟', 'renewal', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-05 19:10:24'),
+(8, 73, '201028855779', 'jeeff', 'custom', 'failed', 'Forbidden', 1, '2026-06-05 19:11:31'),
+(9, 73, '201028855779', 'السادة / Rashed\r\n\r\nنشكركم على سداد دفعتكم.\r\nنتطلع دائماً لخدمتكم.\r\n\r\nإنجاز للحلول الذكية ✅', 'payment', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-05 19:20:06'),
+(10, 73, '201028855779', 'السادة / Rashed\r\n\r\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\r\nيرجى التواصل معنا لتجديد الاشتراك.\r\n\r\nشكراً لثقتكم 🌟', 'renewal', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-05 19:20:26'),
+(11, 73, '201028855779', 'السادة / Rashed\r\n\r\nنشكركم على سداد دفعتكم.\r\nنتطلع دائماً لخدمتكم.\r\n\r\nإنجاز للحلول الذكية ✅', 'payment', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-05 19:20:47'),
+(12, 73, '201028855779', 'hpl]', 'custom', 'failed', '{\"success\":false,\"error_code\":\"EMPTY_MESSAGE\",\"message\":\"Message must contain text, media_url, or media_id.\"}', 1, '2026-06-05 19:35:47'),
+(13, 73, '201028855779', 'السلام عليكم', 'custom', 'sent', '{\"success\":true,\"message_id\":\"msg_1780689448341_8eu0h\",\"status\":\"queued\"}', 1, '2026-06-05 19:57:28'),
+(14, 73, '201028855779', 'السادة / Rashed\r\n\r\nإجمالي خدماتكم: 0.00 جنيه\r\nالمسدّد: 0.00 جنيه\r\nالمتبقي: 0.00 جنيه\r\n\r\nللاستفسار تواصلوا معنا.', 'statement', 'sent', '{\"success\":true,\"message_id\":\"msg_1780689482229_cda4a\",\"status\":\"queued\"}', 1, '2026-06-05 19:58:02'),
+(15, 73, '201028855779', 'السادة شركة Rashed\r\nاهلا بكم معنا', 'bulk', 'sent', '{\"success\":true,\"message_id\":\"msg_1780752956812_7xx8c\",\"status\":\"queued\"}', 1, '2026-06-06 13:35:56'),
+(16, 73, '201028855779', 'السادة شركة Enjaz\r\n\r\n*شكراً لثقتكم.* 🙏', 'bulk', 'sent', '{\"success\":true,\"message_id\":\"msg_1780753035867_yz004\",\"status\":\"queued\"}', 1, '2026-06-06 13:37:15');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `whatsapp_schedules`
+--
+
+CREATE TABLE `whatsapp_schedules` (
+  `id` int UNSIGNED NOT NULL,
+  `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'all' COMMENT 'all, active, suspended, debt, expiring',
+  `warning_days` int NOT NULL DEFAULT '30',
+  `frequency` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'daily' COMMENT 'daily, weekly, monthly, interval',
+  `custom_interval_days` int NOT NULL DEFAULT '1',
+  `send_at_time` time NOT NULL DEFAULT '10:00:00',
+  `last_run` datetime DEFAULT NULL,
+  `next_run` datetime NOT NULL,
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=active, 0=paused',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Indexes for dumped tables
@@ -765,6 +806,13 @@ ALTER TABLE `whatsapp_logs`
   ADD KEY `sent_by` (`sent_by`);
 
 --
+-- Indexes for table `whatsapp_schedules`
+--
+ALTER TABLE `whatsapp_schedules`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_status_next_run` (`status`,`next_run`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -772,19 +820,19 @@ ALTER TABLE `whatsapp_logs`
 -- AUTO_INCREMENT for table `clients`
 --
 ALTER TABLE `clients`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
 
 --
 -- AUTO_INCREMENT for table `client_subscriptions`
 --
 ALTER TABLE `client_subscriptions`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=158;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=162;
 
 --
 -- AUTO_INCREMENT for table `expenses`
 --
 ALTER TABLE `expenses`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=55;
 
 --
 -- AUTO_INCREMENT for table `invoices`
@@ -796,7 +844,7 @@ ALTER TABLE `invoices`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=123;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=124;
 
 --
 -- AUTO_INCREMENT for table `services`
@@ -826,7 +874,13 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `whatsapp_logs`
 --
 ALTER TABLE `whatsapp_logs`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+
+--
+-- AUTO_INCREMENT for table `whatsapp_schedules`
+--
+ALTER TABLE `whatsapp_schedules`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
