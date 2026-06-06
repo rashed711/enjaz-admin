@@ -31,10 +31,9 @@ $activeSubs = (int)$db->query("SELECT COUNT(*) FROM client_subscriptions WHERE s
 
 // عدد الدومينات المحجوزة من خلالنا (العملاء الذين لديهم دومين واشتروا خدمة حجز دومين)
 $ourDomainsCount = (int)$db->query("
-    SELECT COUNT(DISTINCT c.id) FROM clients c
-    JOIN client_subscriptions cs ON cs.client_id = c.id
+    SELECT COUNT(*) FROM client_subscriptions cs
     JOIN services s ON s.id = cs.service_id
-    WHERE c.domain IS NOT NULL AND c.domain != ''
+    WHERE cs.status != 'cancelled'
       AND (s.name LIKE '%دومين%' OR s.name LIKE '%domain%')
 ")->fetchColumn();
 
@@ -114,11 +113,12 @@ $serviceDist = $db->query("
 
 // ── 7. قائمة العملاء الذين حجزنا الدومين لهم ───────────────────────
 $ourDomainsClients = $db->query("
-    SELECT DISTINCT c.id, c.name, c.company_name, c.domain, c.domain_provider 
-    FROM clients c 
-    JOIN client_subscriptions cs ON cs.client_id = c.id
+    SELECT cs.id AS sub_id, c.id, c.name, c.company_name, c.domain AS client_domain, c.domain_provider,
+           cs.plan_name AS sub_plan_name, cs.notes AS sub_notes
+    FROM client_subscriptions cs
+    JOIN clients c ON c.id = cs.client_id
     JOIN services s ON s.id = cs.service_id
-    WHERE c.domain IS NOT NULL AND c.domain != ''
+    WHERE cs.status != 'cancelled'
       AND (s.name LIKE '%دومين%' OR s.name LIKE '%domain%')
     ORDER BY c.name ASC
 ")->fetchAll();
@@ -394,7 +394,7 @@ require_once INCLUDES_PATH . '/header.php';
 <!-- Hosted Domains Client List -->
 <div class="card" style="margin-bottom: 24px;">
   <div class="card-header">
-    <span class="card-title"><i class="fas fa-globe-americas"></i> العملاء الذين تم حجز النطاق (الدومين) لهم من خلالنا (إجمالي: <?= count($ourDomainsClients) ?> عميل)</span>
+    <span class="card-title"><i class="fas fa-globe-americas"></i> العملاء الذين تم حجز النطاق (الدومين) لهم من خلالنا (إجمالي: <?= count($ourDomainsClients) ?> نطاق/دومين)</span>
   </div>
   <div class="table-wrapper">
     <table class="data-table">
@@ -411,7 +411,16 @@ require_once INCLUDES_PATH . '/header.php';
         <?php if (empty($ourDomainsClients)): ?>
         <tr><td colspan="5"><div class="empty-state">لا يوجد عملاء لديهم دومينات محجوزة من طرفنا حالياً</div></td></tr>
         <?php else: ?>
-        <?php foreach ($ourDomainsClients as $index => $c): ?>
+        <?php foreach ($ourDomainsClients as $index => $c): 
+          $domainToDisplay = '';
+          if (strpos($c['sub_plan_name'], '.') !== false) {
+              $domainToDisplay = $c['sub_plan_name'];
+          } elseif (strpos($c['sub_notes'], '.') !== false) {
+              $domainToDisplay = $c['sub_notes'];
+          } else {
+              $domainToDisplay = $c['client_domain'];
+          }
+        ?>
         <tr>
           <td class="text-muted"><?= $index + 1 ?></td>
           <td>
@@ -421,12 +430,16 @@ require_once INCLUDES_PATH . '/header.php';
           </td>
           <td><?= e($c['company_name'] ?: '—') ?></td>
           <td>
-            <a href="http://<?= e($c['domain']) ?>" target="_blank" style="color: var(--primary); font-weight: 600;">
+            <?php if ($domainToDisplay): ?>
+            <a href="http://<?= e($domainToDisplay) ?>" target="_blank" style="color: var(--primary); font-weight: 600;">
               <i class="fas fa-external-link-alt" style="font-size: 11px; margin-left: 4px;"></i>
-              <?= e($c['domain']) ?>
+              <?= e($domainToDisplay) ?>
             </a>
+            <?php else: ?>
+            <span class="text-muted">—</span>
+            <?php endif; ?>
           </td>
-          <td><span class="badge badge-success"><?= e($c['domain_provider']) ?></span></td>
+          <td><span class="badge badge-success"><?= e($c['domain_provider'] ?: '—') ?></span></td>
         </tr>
         <?php endforeach; ?>
         <?php endif; ?>
