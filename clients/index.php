@@ -153,7 +153,11 @@ $stmt = $db->prepare("
     WHERE $whereStr
     GROUP BY c.id
     $havingStr
-    ORDER BY c.created_at DESC
+    ORDER BY COALESCE(
+        (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%') ORDER BY cs2.start_date DESC LIMIT 1),
+        (SELECT cs3.start_date FROM client_subscriptions cs3 JOIN services s3 ON s3.id = cs3.service_id WHERE cs3.client_id = c.id AND cs3.status != 'cancelled' AND (s3.name LIKE '%بريد%' OR s3.name LIKE '%mail%' OR s3.name LIKE '%email%') ORDER BY cs3.start_date DESC LIMIT 1),
+        c.created_at
+    ) DESC, c.id DESC
     LIMIT ? OFFSET ?
 ");
 $stmt->execute(array_merge($params, [$perPage, $pager['offset']]));
@@ -169,7 +173,11 @@ if (isset($_GET['get_all_ids'])) {
         WHERE $whereStr
         $havingStr
         GROUP BY c.id
-        ORDER BY c.created_at DESC
+        ORDER BY COALESCE(
+            (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%') ORDER BY cs2.start_date DESC LIMIT 1),
+            (SELECT cs3.start_date FROM client_subscriptions cs3 JOIN services s3 ON s3.id = cs3.service_id WHERE cs3.client_id = c.id AND cs3.status != 'cancelled' AND (s3.name LIKE '%بريد%' OR s3.name LIKE '%mail%' OR s3.name LIKE '%email%') ORDER BY cs3.start_date DESC LIMIT 1),
+            c.created_at
+        ) DESC, c.id DESC
     ");
     $stmtAll->execute($params);
     $allFilteredClients = $stmtAll->fetchAll(PDO::FETCH_ASSOC);
