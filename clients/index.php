@@ -11,7 +11,7 @@ $warningDays = (int)getSetting('renewal_warning_days','60');
 
 // Search & Filter
 $search = clean($_GET['search'] ?? '');
-$status = $_GET['status'] ?? '';
+$status = isset($_GET['status']) ? $_GET['status'] : '1';
 $filter = $_GET['filter'] ?? '';
 $plan   = clean($_GET['plan'] ?? '');
 $page   = max(1, (int)($_GET['page'] ?? 1));
@@ -455,7 +455,7 @@ require_once INCLUDES_PATH . '/header.php';
       </select>
 
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
-      <?php if ($search || $status !== '' || $filter !== '' || $plan !== ''): ?>
+      <?php if ($search || $status !== '1' || $filter !== '' || $plan !== ''): ?>
       <a href="index.php" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
       <?php endif; ?>
     </form>
@@ -647,7 +647,7 @@ function applyStatsFilter(filterVal) {
         if (searchInput) searchInput.value = '';
         
         const statusSelect = document.querySelector('select[name="status"]');
-        if (statusSelect) statusSelect.value = '';
+        if (statusSelect) statusSelect.value = '1';
 
         // Trigger search
         window.doSearchGlobal(1);
@@ -700,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         if (planQuery) cleanParams.append('plan', planQuery);
         if (!searchQuery) cleanParams.delete('search');
-        if (!statusQuery) cleanParams.delete('status');
+        if (statusQuery === '1') cleanParams.delete('status');
         if (!filterQuery) cleanParams.delete('filter');
         if (currentPage === 1) cleanParams.delete('page');
         
@@ -709,7 +709,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update Clear Button visibility if it exists
         if (clearSearchBtn) {
-            if (searchQuery || statusQuery !== '' || filterQuery !== '') {
+            if (searchQuery || statusQuery !== '1' || filterQuery !== '') {
                 clearSearchBtn.style.display = 'inline-flex';
             } else {
                 clearSearchBtn.style.display = 'none';
