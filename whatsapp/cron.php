@@ -14,17 +14,20 @@ if (php_sapi_name() !== 'cli') {
 require_once dirname(__DIR__) . '/config/app.php';
 
 $db = getDB();
+$phpNow = date('Y-m-d H:i:s');
 
 // ── معالجة قائمة انتظار الرسائل المجدولة (whatsapp_queue) ────────
 echo "Processing WhatsApp Queue...\n";
-$pendingMessages = $db->query("
+$stmtQueue = $db->prepare("
     SELECT q.*, c.name as client_name, c.company_name
     FROM whatsapp_queue q
     LEFT JOIN clients c ON c.id = q.client_id
     WHERE q.status = 'pending' 
-      AND q.send_at <= NOW()
+      AND q.send_at <= ?
     ORDER BY q.send_at ASC, q.id ASC
-")->fetchAll();
+");
+$stmtQueue->execute([$phpNow]);
+$pendingMessages = $stmtQueue->fetchAll();
 
 if (!empty($pendingMessages)) {
     $apiUrl    = getSetting('whatsapp_api_url', '');
@@ -91,11 +94,13 @@ if (!empty($pendingMessages)) {
 }
 
 // جلب الجدولة المستحقة للتشغيل حالياً
-$schedules = $db->query("
+$stmtSch = $db->prepare("
     SELECT * FROM whatsapp_schedules 
     WHERE status = 1 
-      AND next_run <= NOW()
-")->fetchAll();
+      AND next_run <= ?
+");
+$stmtSch->execute([$phpNow]);
+$schedules = $stmtSch->fetchAll();
 
 if (empty($schedules)) {
     echo "No pending schedules to run.\n";
@@ -271,8 +276,8 @@ foreach ($schedules as $sch) {
     }
 
     $nextRunStr = $next->format('Y-m-d H:i:s');
-    $db->prepare("UPDATE whatsapp_schedules SET last_run = NOW(), next_run = ? WHERE id = ?")
-       ->execute([$nextRunStr, $sch['id']]);
+    $db->prepare("UPDATE whatsapp_schedules SET last_run = ?, next_run = ? WHERE id = ?")
+       ->execute([$phpNow, $nextRunStr, $sch['id']]);
        
     echo "Schedule ID {$sch['id']} updated next run to {$nextRunStr}\n\n";
 }
