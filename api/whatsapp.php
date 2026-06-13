@@ -23,6 +23,10 @@ $clientId  = (int)($_POST['client_id'] ?? 0);
 $mobile    = clean($_POST['mobile'] ?? '');
 $message   = trim($_POST['message'] ?? '');
 $msgType   = clean($_POST['msg_type'] ?? 'custom');
+$sendType  = clean($_POST['send_type'] ?? 'now');
+$sendAt    = clean($_POST['send_at'] ?? '');
+$minDelay  = (int)($_POST['min_delay'] ?? 3);
+$maxDelay  = (int)($_POST['max_delay'] ?? 15);
 
 if (empty($mobile)) {
     echo json_encode(['success' => false, 'message' => 'رقم الموبايل مطلوب.']);
@@ -35,6 +39,25 @@ if (empty($message)) {
 
 // Normalize mobile number using the global helper function
 $mobile = normalizeMobile($mobile);
+
+if ($sendType === 'schedule') {
+    if (empty($sendAt)) {
+        echo json_encode(['success' => false, 'message' => 'تاريخ ووقت الإرسال مطلوب للجدولة.']);
+        exit;
+    }
+    
+    $sendAtFormatted = date('Y-m-d H:i:s', strtotime($sendAt));
+    
+    try {
+        $stmt = $db->prepare("INSERT INTO whatsapp_queue (client_id, mobile, message, send_at, min_delay, max_delay, status, sent_by) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)");
+        $stmt->execute([$clientId ?: null, $mobile, $message, $sendAtFormatted, $minDelay, $maxDelay, currentUserId()]);
+        echo json_encode(['success' => true, 'message' => 'تم جدولة الرسالة بنجاح في قائمة الانتظار.']);
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'حدث خطأ أثناء جدولة الرسالة: ' . $e->getMessage()]);
+        exit;
+    }
+}
 
 $apiUrl    = getSetting('whatsapp_api_url', '');
 $apiToken  = getSetting('whatsapp_api_token', '');

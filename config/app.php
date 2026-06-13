@@ -128,6 +128,28 @@ try {
     ");
 } catch (Exception $e) {}
 
+// التأكد من إنشاء جدول قائمة انتظار رسائل الواتساب المجدولة
+try {
+    $db = getDB();
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS `whatsapp_queue` (
+          `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          `client_id` INT UNSIGNED NULL,
+          `mobile` VARCHAR(50) NOT NULL,
+          `message` TEXT NOT NULL,
+          `send_at` DATETIME NOT NULL,
+          `min_delay` INT UNSIGNED NOT NULL DEFAULT 3,
+          `max_delay` INT UNSIGNED NOT NULL DEFAULT 15,
+          `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending, sending, sent, failed',
+          `response` TEXT NULL,
+          `sent_by` INT UNSIGNED NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          KEY `idx_status_send_at` (`status`, `send_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+} catch (Exception $e) {}
+
+
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
 require_once INCLUDES_PATH . '/functions.php';
 require_once INCLUDES_PATH . '/auth.php';

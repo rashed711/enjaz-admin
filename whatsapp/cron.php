@@ -15,6 +15,81 @@ require_once dirname(__DIR__) . '/config/app.php';
 
 $db = getDB();
 
+// ── معالجة قائمة انتظار الرسائل المجدولة (whatsapp_queue) ────────
+echo "Processing WhatsApp Queue...\n";
+$pendingMessages = $db->query("
+    SELECT q.*, c.name as client_name, c.company_name
+    FROM whatsapp_queue q
+    LEFT JOIN clients c ON c.id = q.client_id
+    WHERE q.status = 'pending' 
+      AND q.send_at <= NOW()
+    ORDER BY q.send_at ASC, q.id ASC
+")->fetchAll();
+
+if (!empty($pendingMessages)) {
+    $apiUrl    = getSetting('whatsapp_api_url', '');
+    $apiToken  = getSetting('whatsapp_api_token', '');
+    $sessionId = getSetting('whatsapp_sender', '');
+    
+    foreach ($pendingMessages as $msg) {
+        echo "Processing queued message ID: {$msg['id']} to {$msg['mobile']}\n";
+        
+        // تحديث الحالة إلى جاري الإرسال
+        $db->prepare("UPDATE whatsapp_queue SET status = 'sending' WHERE id = ?")->execute([$msg['id']]);
+        
+        $status = 'failed';
+        $response = '';
+        
+        if (!empty($apiUrl) && !empty($apiToken) && !empty($sessionId)) {
+            $endpoint = rtrim($apiUrl, '/');
+            if (strpos($endpoint, '/api/sessions') === false) {
+                $endpoint = $endpoint . '/api/sessions/' . $sessionId . '/messages';
+            }
+            
+            $payload = json_encode([
+                'to'   => $msg['mobile'],
+                'text' => $msg['message'],
+            ]);
+            
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST           => true, 
+                CURLOPT_POSTFIELDS     => $payload, 
+                CURLOPT_RETURNTRANSFER => true, 
+                CURLOPT_TIMEOUT        => 15, 
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/json', 
+                    'x-api-key: ' . $apiToken
+                ]
+            ]);
+            $response = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $status = ($code >= 200 && $code < 300) ? 'sent' : 'failed';
+        } else {
+            $status   = 'sent'; // Dev mock
+            $response = 'API not configured — logged only';
+        }
+        
+        // تحديث حالة الرسالة في قائمة الانتظار
+        $db->prepare("UPDATE whatsapp_queue SET status = ?, response = ? WHERE id = ?")
+           ->execute([$status, $response, $msg['id']]);
+           
+        // تسجيل السجل العام
+        $db->prepare("INSERT INTO whatsapp_logs (client_id, mobile, message, msg_type, status, response, sent_by) VALUES (?,?,?, 'bulk_scheduled', ?,?, ?)")
+           ->execute([$msg['client_id'], $msg['mobile'], $msg['message'], $status, $response, $msg['sent_by']]);
+           
+        echo " - Queued message ID {$msg['id']}: {$status}\n";
+        
+        // تطبيق الفاصل الزمني العشوائي المجدول للرسالة
+        $delaySec = rand($msg['min_delay'], $msg['max_delay']);
+        echo " - Waiting delay: {$delaySec} seconds before next queue message...\n";
+        sleep($delaySec);
+    }
+} else {
+    echo "No pending queued messages to run.\n";
+}
+
 // جلب الجدولة المستحقة للتشغيل حالياً
 $schedules = $db->query("
     SELECT * FROM whatsapp_schedules 

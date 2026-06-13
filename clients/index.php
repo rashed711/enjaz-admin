@@ -920,7 +920,30 @@ function openBulkWhatsappModal() {
     document.getElementById('bulk-progress-text').textContent = '0%';
     document.getElementById('bulk-log-list').innerHTML = '';
     
+    // Set default schedule time to current time + 1 hour, formatted for datetime-local (YYYY-MM-DDTHH:MM)
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(now - tzOffset)).toISOString().slice(0, 16);
+    document.getElementById('bulkSendAt').value = localISOTime;
+    
+    // Reset Send Type radio buttons
+    document.querySelector('input[name="bulkSendType"][value="now"]').checked = true;
+    toggleBulkScheduleFields('now');
+    
     openModal('bulkWaModal');
+}
+
+function toggleBulkScheduleFields(val) {
+    const timeGroup = document.getElementById('bulk-schedule-time-group');
+    const btnStart = document.getElementById('btn-start-bulk');
+    if (val === 'schedule') {
+        timeGroup.style.display = 'block';
+        btnStart.innerHTML = '<i class="fas fa-calendar-alt"></i> جدولة الإرسال لاحقاً';
+    } else {
+        timeGroup.style.display = 'none';
+        btnStart.innerHTML = '<i class="fas fa-paper-plane"></i> بدء الإرسال الآن';
+    }
 }
 
 function closeBulkWaModal() {
@@ -941,6 +964,16 @@ async function startBulkSending() {
     if (minDelay < 1 || maxDelay < minDelay) {
         alert('يرجى تحديد قيم صحيحة لفارق التوقيت.');
         return;
+    }
+
+    const sendType = document.querySelector('input[name="bulkSendType"]:checked').value;
+    let sendAt = '';
+    if (sendType === 'schedule') {
+        sendAt = document.getElementById('bulkSendAt').value;
+        if (!sendAt) {
+            alert('يرجى تحديد وقت وتاريخ الإرسال.');
+            return;
+        }
     }
 
     let clientsList = [];
@@ -1010,7 +1043,7 @@ async function startBulkSending() {
             const logItem = document.createElement('div');
             logItem.style.color = 'var(--danger)';
             logItem.style.fontWeight = '700';
-            logItem.innerHTML = '<i class="fas fa-ban" style="margin-left:5px;"></i>تم إيقاف عملية الإرسال من قبل المستخدم.';
+            logItem.innerHTML = '<i class="fas fa-ban" style="margin-left:5px;"></i>تم إيقاف العملية من قبل المستخدم.';
             logList.appendChild(logItem);
             logList.scrollTop = logList.scrollHeight;
             break;
@@ -1027,9 +1060,10 @@ async function startBulkSending() {
             .replace(/{name}/g, clientName)
             .replace(/{company}/g, clientCompany);
 
-        // Add log entry: "sending to..."
+        // Add log entry
         const currentLog = document.createElement('div');
-        currentLog.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-left:5px;color:var(--primary);"></i>جاري الإرسال إلى ${clientName}...`;
+        const verb = (sendType === 'schedule') ? 'جدولة الرسالة لـ' : 'الإرسال إلى';
+        currentLog.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-left:5px;color:var(--primary);"></i>جاري ${verb} ${clientName}...`;
         logList.appendChild(currentLog);
         logList.scrollTop = logList.scrollHeight;
 
@@ -1040,6 +1074,12 @@ async function startBulkSending() {
             formData.append('mobile', rawMobile);
             formData.append('message', personalizedMsg);
             formData.append('msg_type', 'bulk');
+            formData.append('send_type', sendType);
+            if (sendType === 'schedule') {
+                formData.append('send_at', sendAt);
+                formData.append('min_delay', minDelay);
+                formData.append('max_delay', maxDelay);
+            }
             formData.append('csrf_token', '<?= csrfToken() ?>');
 
             const response = await fetch('../api/whatsapp.php', {
@@ -1050,14 +1090,17 @@ async function startBulkSending() {
 
             if (result.success) {
                 currentLog.style.color = 'var(--success)';
-                currentLog.innerHTML = `<i class="fas fa-check-circle" style="margin-left:5px;"></i>تم الإرسال بنجاح إلى ${clientName} ✓`;
+                const successVerb = (sendType === 'schedule') ? 'تمت الجدولة بنجاح لـ' : 'تم الإرسال بنجاح إلى';
+                currentLog.innerHTML = `<i class="fas fa-check-circle" style="margin-left:5px;"></i>${successVerb} ${clientName} ✓`;
             } else {
                 currentLog.style.color = 'var(--danger)';
-                currentLog.innerHTML = `<i class="fas fa-times-circle" style="margin-left:5px;"></i>فشل الإرسال لـ ${clientName}: ${result.message}`;
+                const failVerb = (sendType === 'schedule') ? 'فشلت جدولة الرسالة لـ' : 'فشل الإرسال لـ';
+                currentLog.innerHTML = `<i class="fas fa-times-circle" style="margin-left:5px;"></i>${failVerb} ${clientName}: ${result.message}`;
             }
         } catch (err) {
             currentLog.style.color = 'var(--danger)';
-            currentLog.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-left:5px;"></i>خطأ اتصال أثناء الإرسال لـ ${clientName}`;
+            const errorVerb = (sendType === 'schedule') ? 'خطأ اتصال أثناء جدولة الرسالة لـ' : 'خطأ اتصال أثناء الإرسال لـ';
+            currentLog.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-left:5px;"></i>${errorVerb} ${clientName}`;
         }
 
         sentCount++;
@@ -1065,8 +1108,8 @@ async function startBulkSending() {
         progressBar.style.width = pct + '%';
         progressText.textContent = pct + '%';
 
-        // Delay before next message if not the last one
-        if (i < total - 1 && !bulkSendCancelled) {
+        // Delay before next message if not the last one and not scheduling
+        if (i < total - 1 && !bulkSendCancelled && sendType !== 'schedule') {
             const delaySec = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
             
             const delayLog = document.createElement('div');
@@ -1085,11 +1128,13 @@ async function startBulkSending() {
     completionLog.style.fontWeight = 'bold';
     completionLog.style.marginTop = '10px';
     completionLog.style.color = 'var(--primary)';
-    completionLog.innerHTML = `<i class="fas fa-flag-checkered" style="margin-left:5px;"></i>اكتملت العملية. تم معالجة ${sentCount} من إجمالي ${total} عميل.`;
+    const complVerb = (sendType === 'schedule') ? 'جدولة' : 'معالجة';
+    completionLog.innerHTML = `<i class="fas fa-flag-checkered" style="margin-left:5px;"></i>اكتملت العملية. تم ${complVerb} ${sentCount} من إجمالي ${total} عميل.`;
     logList.appendChild(completionLog);
     logList.scrollTop = logList.scrollHeight;
 }
 </script>
+
 
 <!-- ══ Modal: إرسال واتساب جماعي ════════════════════════════════ -->
 <div class="modal-overlay" id="bulkWaModal" style="display:none;">
@@ -1109,6 +1154,25 @@ async function startBulkSending() {
           <label class="form-label" for="bulkWhatsappMessage">نص الرسالة <span class="required">*</span></label>
           <textarea id="bulkWhatsappMessage" class="form-control" rows="5" placeholder="اكتب رسالتك الجماعية هنا..." required></textarea>
           <span class="form-hint">يمكنك استخدام المتغيرات التلقائية: <strong>{name}</strong> لاسم العميل، و <strong>{company}</strong> لاسم الشركة.</span>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label class="form-label">توقيت الإرسال</label>
+          <div style="display:flex; gap:20px; align-items:center; margin-top:5px; margin-bottom:10px;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:normal; cursor:pointer;">
+              <input type="radio" name="bulkSendType" value="now" checked onchange="toggleBulkScheduleFields(this.value)">
+              إرسال الآن (عبر المتصفح)
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:normal; cursor:pointer;">
+              <input type="radio" name="bulkSendType" value="schedule" onchange="toggleBulkScheduleFields(this.value)">
+              جدولة الإرسال لاحقاً (عبر السيرفر)
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="bulk-schedule-time-group" style="display:none; margin-bottom: 15px;">
+          <label class="form-label" for="bulkSendAt">تاريخ ووقت الإرسال <span class="required">*</span></label>
+          <input type="datetime-local" id="bulkSendAt" class="form-control">
         </div>
 
         <div class="form-row">
