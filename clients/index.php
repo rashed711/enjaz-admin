@@ -147,7 +147,8 @@ $stmt = $db->prepare("
            COUNT(DISTINCT cs.id) AS subs_count,
            (SELECT cs2.start_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
            (SELECT cs2.end_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
-           (SELECT cs2.status FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status
+           (SELECT cs2.status FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status,
+           (SELECT COUNT(*) FROM client_subscriptions cs3 JOIN services s3 ON s3.id = cs3.service_id WHERE cs3.client_id = c.id AND cs3.status != 'cancelled' AND (s3.name LIKE '%دومين%' OR s3.name LIKE '%domain%')) AS has_our_domain
     FROM clients c
     LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
     WHERE $whereStr
@@ -223,7 +224,7 @@ if (isset($_GET['ajax'])) {
               <?= e($client['name']) ?>
             </a>
             <?php if ($client['company_name']): ?>
-            <span style="font-size:12px;color:var(--text-muted);"><?= e($client['company_name']) ?></span>
+            <span style="font-size:12px;color:var(--text-muted);display:block;"><?= e($client['company_name']) ?></span>
             <?php endif; ?>
           </div>
         </div>
@@ -235,7 +236,25 @@ if (isset($_GET['ajax'])) {
           <?= e($client['mobile']) ?>
         </a>
       </td>
-      <td class="text-muted"><?= e($client['activity'] ?: '—') ?></td>
+      <td class="text-muted">
+        <div style="font-weight:600;color:var(--text-primary);"><?= e($client['activity'] ?: '—') ?></div>
+        <?php if (!empty($client['domain'])): ?>
+        <div style="margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <a href="http://<?= e($client['domain']) ?>" target="_blank" style="font-size:11px;color:var(--primary);word-break:break-all;font-weight:600;">
+            <i class="fas fa-link" style="font-size:9px;margin-left:2px;"></i><?= e($client['domain']) ?>
+          </a>
+          <?php if ($client['has_our_domain'] > 0): ?>
+            <span class="badge badge-success" style="font-size:9px;padding:1px 5px;border-radius:4px;">دومين من خلالنا</span>
+          <?php else: ?>
+            <span class="badge badge-info" style="font-size:9px;padding:1px 5px;border-radius:4px;">دومين من العميل</span>
+          <?php endif; ?>
+        </div>
+        <?php else: ?>
+          <div style="margin-top:4px;">
+            <span class="badge badge-secondary" style="font-size:9px;padding:1px 5px;border-radius:4px;"><i class="fas fa-globe-slash" style="margin-left:3px;"></i>بدون دومين</span>
+          </div>
+        <?php endif; ?>
+      </td>
       <td>
         <?php if ($client['subs_count'] > 0): ?>
         <span class="badge badge-primary"><?= $client['subs_count'] ?> خدمة</span>
@@ -526,7 +545,7 @@ require_once INCLUDES_PATH . '/header.php';
                   <?= e($client['name']) ?>
                 </a>
                 <?php if ($client['company_name']): ?>
-                <span style="font-size:12px;color:var(--text-muted);"><?= e($client['company_name']) ?></span>
+                <span style="font-size:12px;color:var(--text-muted);display:block;"><?= e($client['company_name']) ?></span>
                 <?php endif; ?>
               </div>
             </div>
@@ -538,7 +557,25 @@ require_once INCLUDES_PATH . '/header.php';
               <?= e($client['mobile']) ?>
             </a>
           </td>
-          <td class="text-muted"><?= e($client['activity'] ?: '—') ?></td>
+          <td class="text-muted">
+            <div style="font-weight:600;color:var(--text-primary);"><?= e($client['activity'] ?: '—') ?></div>
+            <?php if (!empty($client['domain'])): ?>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <a href="http://<?= e($client['domain']) ?>" target="_blank" style="font-size:11px;color:var(--primary);word-break:break-all;font-weight:600;">
+                <i class="fas fa-link" style="font-size:9px;margin-left:2px;"></i><?= e($client['domain']) ?>
+              </a>
+              <?php if ($client['has_our_domain'] > 0): ?>
+                <span class="badge badge-success" style="font-size:9px;padding:1px 5px;border-radius:4px;">دومين من خلالنا</span>
+              <?php else: ?>
+                <span class="badge badge-info" style="font-size:9px;padding:1px 5px;border-radius:4px;">دومين من العميل</span>
+              <?php endif; ?>
+            </div>
+            <?php else: ?>
+              <div style="margin-top:4px;">
+                <span class="badge badge-secondary" style="font-size:9px;padding:1px 5px;border-radius:4px;"><i class="fas fa-globe-slash" style="margin-left:3px;"></i>بدون دومين</span>
+              </div>
+            <?php endif; ?>
+          </td>
           <td>
             <?php if ($client['subs_count'] > 0): ?>
             <span class="badge badge-primary"><?= $client['subs_count'] ?> خدمة</span>
