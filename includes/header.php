@@ -37,6 +37,11 @@ try {
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+  <script>
+    if (localStorage.getItem('darkMode') === 'enabled') {
+      document.documentElement.classList.add('dark-mode');
+    }
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= e($pageTitle ?? 'لوحة التحكم') ?> — <?= e($companyName) ?></title>
@@ -254,6 +259,9 @@ try {
           <?= $renewalCount ?> تجديد
         </a>
         <?php endif; ?>
+        <button id="darkModeToggle" class="btn btn-sm btn-outline" style="border-radius:50%; width:34px; height:34px; padding:0; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); border-color:var(--border-color); cursor:pointer;" title="تبديل الوضع الليلي">
+          <i class="fas fa-moon"></i>
+        </button>
         <div class="topbar-time" id="liveClock"></div>
       </div>
     </header>

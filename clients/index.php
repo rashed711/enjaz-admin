@@ -390,6 +390,10 @@ require_once INCLUDES_PATH . '/header.php';
       إرسال رسالة جماعية (<span id="selected-count">0</span>)
     </button>
     <?php endif; ?>
+    <button type="button" class="btn btn-outline" onclick="exportTableToExcel('table.data-table', 'قائمة_العملاء_إنجاز')">
+      <i class="fas fa-file-excel" style="color:#217346;"></i>
+      تصدير Excel
+    </button>
     <?php if (hasPermission('add_clients')): ?>
     <a href="add.php" class="btn btn-primary" id="btn-add-client">
       <i class="fas fa-user-plus"></i>

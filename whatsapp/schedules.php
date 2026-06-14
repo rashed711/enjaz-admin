@@ -35,6 +35,16 @@ if ($tab === 'recurring') {
     $total = (int)$countStmt->fetchColumn();
     $pager = paginate($total, $perPage, $page);
 
+    // Fetch queue stats
+    $statsStmt = $db->query("
+        SELECT 
+            COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending_count,
+            COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) as sent_count,
+            COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed_count
+        FROM whatsapp_queue
+    ");
+    $queueStats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
     // Fetch queue items
     $queueItems = $db->prepare("
         SELECT q.*, c.name as client_name, c.company_name
@@ -225,6 +235,43 @@ require_once INCLUDES_PATH . '/header.php';
 
   <!-- 2. تبويب قائمة الانتظار للرسائل المجدولة -->
   <?php if ($tab === 'queue'): ?>
+    
+    <!-- Quick Stats for Queue -->
+    <div class="stats-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+      <!-- Pending Messages -->
+      <div class="stat-card" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+        <div>
+          <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">قيد الانتظار</div>
+          <div style="font-size: 22px; font-weight: 800; color: var(--warning);"><?= $queueStats['pending_count'] ?></div>
+        </div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(245, 158, 11, 0.1); display: flex; align-items: center; justify-content: center; color: var(--warning);">
+          <i class="fas fa-clock" style="font-size: 18px;"></i>
+        </div>
+      </div>
+
+      <!-- Sent Messages -->
+      <div class="stat-card" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+        <div>
+          <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">تم الإرسال</div>
+          <div style="font-size: 22px; font-weight: 800; color: var(--success);"><?= $queueStats['sent_count'] ?></div>
+        </div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(34, 197, 94, 0.1); display: flex; align-items: center; justify-content: center; color: var(--success);">
+          <i class="fas fa-check-circle" style="font-size: 18px;"></i>
+        </div>
+      </div>
+
+      <!-- Failed Messages -->
+      <div class="stat-card" style="background: var(--card-bg); border-radius: 12px; padding: 18px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.01);">
+        <div>
+          <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">فشل الإرسال</div>
+          <div style="font-size: 22px; font-weight: 800; color: var(--danger);"><?= $queueStats['failed_count'] ?></div>
+        </div>
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center; color: var(--danger);">
+          <i class="fas fa-times-circle" style="font-size: 18px;"></i>
+        </div>
+      </div>
+    </div>
+
     <?php if (empty($queue)): ?>
     <div class="card">
       <div class="empty-state" style="padding:60px;">

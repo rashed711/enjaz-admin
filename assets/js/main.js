@@ -67,15 +67,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-  // ── Auto-dismiss Alerts ──────────────────────────────────────
-  document.querySelectorAll('.alert[data-auto-dismiss]').forEach(alert => {
-    const delay = parseInt(alert.dataset.autoDismiss) || 4000;
+  // ── Dark Mode Toggle ─────────────────────────────────────────
+  const darkModeToggle = document.getElementById('darkModeToggle');
+  const updateToggleIcon = () => {
+    if (darkModeToggle) {
+      const isDark = document.documentElement.classList.contains('dark-mode');
+      darkModeToggle.innerHTML = isDark ? '<i class="fas fa-sun" style="color:#f5c442;"></i>' : '<i class="fas fa-moon"></i>';
+    }
+  };
+  
+  if (darkModeToggle) {
+    updateToggleIcon();
+    darkModeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark-mode');
+      const enabled = document.documentElement.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', enabled ? 'enabled' : 'disabled');
+      updateToggleIcon();
+    });
+  }
+
+  // ── Auto-dismiss Alerts & Convert to Toast ──────────────────
+  document.querySelectorAll('.alert').forEach(alert => {
+    const msg = alert.textContent.trim();
+    let type = 'success';
+    if (alert.classList.contains('alert-error') || alert.classList.contains('alert-danger')) {
+      type = 'error';
+    } else if (alert.classList.contains('alert-warning')) {
+      type = 'warning';
+    } else if (alert.classList.contains('alert-info')) {
+      type = 'info';
+    }
+    // Delay toast slightly to ensure container is fully ready
     setTimeout(() => {
-      alert.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-      alert.style.opacity    = '0';
-      alert.style.transform  = 'translateY(-8px)';
-      setTimeout(() => alert.remove(), 400);
-    }, delay);
+      showToast(msg, type);
+    }, 100);
+    alert.remove();
   });
 
   // ── Confirm Delete ───────────────────────────────────────────
@@ -314,4 +340,57 @@ function formatMoney(amount, currency = window.CURRENCY || 'جنيه') {
   return parseFloat(amount).toLocaleString('en-US', {
     minimumFractionDigits: 2, maximumFractionDigits: 2
   }) + ' ' + currency;
+}
+
+/**
+ * Export HTML Table data to Excel compatible CSV file
+ */
+function exportTableToExcel(tableSelector, filename = 'export') {
+  const table = document.querySelector(tableSelector);
+  if (!table) {
+    showToast('لم يتم العثور على الجدول المطلوب لتصديره', 'error');
+    return;
+  }
+
+  let csv = [];
+  const rows = table.querySelectorAll('tr');
+
+  for (let i = 0; i < rows.length; i++) {
+    // Skip hidden rows (filtered out)
+    if (rows[i].style.display === 'none') continue;
+
+    let row = [];
+    const cols = rows[i].querySelectorAll('td, th');
+
+    for (let j = 0; j < cols.length; j++) {
+      // Skip selection checkbox column
+      if (cols[j].querySelector('input[type="checkbox"]') || (i === 0 && j === 0 && cols[j].textContent.trim() === '')) {
+        continue;
+      }
+      
+      let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/\s+/g, ' ').trim();
+      // Escape quotes
+      data = data.replace(/"/g, '""');
+      row.push('"' + data + '"');
+    }
+    
+    if (row.length > 0) {
+      csv.push(row.join(','));
+    }
+  }
+
+  const csvString = '\uFEFF' + csv.join('\n'); // Add UTF-8 BOM for Arabic compatibility in Excel
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+  
+  const link = document.createElement('a');
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename + '.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('تم تصدير البيانات إلى Excel بنجاح');
+  }
 }
