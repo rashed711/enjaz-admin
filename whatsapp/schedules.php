@@ -98,6 +98,12 @@ require_once INCLUDES_PATH . '/header.php';
       <i class="fas fa-plus"></i> إنشاء جدولة جديدة
     </button>
   </div>
+  <?php elseif ($tab === 'queue'): ?>
+  <div class="page-actions">
+    <a href="delete_queue.php?clear_sent=1" class="btn btn-danger" data-confirm="هل أنت متأكد من رغبتك في حذف جميع الرسائل التي تم إرسالها بنجاح؟">
+      <i class="fas fa-trash-alt"></i> حذف الرسائل المرسلة
+    </a>
+  </div>
   <?php endif; ?>
 </div>
 
@@ -261,11 +267,42 @@ require_once INCLUDES_PATH . '/header.php';
                 </a>
               </td>
               <td>
-                <div style="font-size:13px; max-width: 320px; white-space: normal; line-height: 1.5;" title="<?= e($item['message']) ?>">
-                  <?= nl2br(e($item['message'])) ?>
+                <div style="font-size:13px; max-width: 320px; white-space: normal; line-height: 1.5;">
+                  <?php 
+                  $msg = e($item['message']);
+                  if (mb_strlen($msg) > 60) {
+                      echo nl2br(mb_substr($msg, 0, 60)) . '...';
+                      echo ' <button type="button" class="btn-link" style="padding:0;font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;text-decoration:underline;" onclick="viewFullMessage(' . htmlspecialchars(json_encode($item['message']), ENT_QUOTES) . ')">عرض المزيد</button>';
+                  } else {
+                      echo nl2br($msg);
+                  }
+                  ?>
                 </div>
               </td>
-              <td class="fw-bold" style="color: var(--primary-light);"><?= formatDateTime($item['send_at']) ?></td>
+              <td class="fw-bold" style="color: var(--primary-light);">
+                <?= formatDateTime($item['send_at']) ?>
+                <?php
+                if ($item['status'] === 'pending') {
+                    $sendAt = strtotime($item['send_at']);
+                    $now = time();
+                    $diff = $sendAt - $now;
+                    if ($diff > 0) {
+                        if ($diff < 60) {
+                            $remaining = "متبقي $diff ثانية";
+                        } elseif ($diff < 3600) {
+                            $remaining = "متبقي " . round($diff / 60) . " دقيقة";
+                        } elseif ($diff < 86400) {
+                            $remaining = "متبقي " . round($diff / 3600) . " ساعة";
+                        } else {
+                            $remaining = "متبقي " . round($diff / 86400) . " يوم";
+                        }
+                        echo '<div style="font-size:11.5px;color:var(--text-muted);font-weight:normal;margin-top:4px;"><i class="fas fa-hourglass-half" style="margin-left:4px;"></i>' . $remaining . '</div>';
+                    } else {
+                        echo '<div style="font-size:11.5px;color:var(--danger);font-weight:normal;margin-top:4px;"><i class="fas fa-exclamation-circle" style="margin-left:4px;"></i>متأخرة عن الإرسال</div>';
+                    }
+                }
+                ?>
+              </td>
               <td class="text-muted"><?= $item['min_delay'] ?> - <?= $item['max_delay'] ?> ثانية</td>
               <td>
                 <?php
@@ -287,13 +324,11 @@ require_once INCLUDES_PATH . '/header.php';
                     <button onclick="editQueueItem(<?= htmlspecialchars(json_encode($item), ENT_QUOTES) ?>)" class="btn btn-sm btn-outline" title="تعديل">
                       <i class="fas fa-edit"></i>
                     </button>
-                    
-                    <a href="delete_queue.php?id=<?= $item['id'] ?>" class="btn btn-sm btn-outline-danger" data-confirm="هل تريد حذف هذه الرسالة من قائمة الانتظار نهائياً؟" title="حذف">
-                      <i class="fas fa-trash"></i>
-                    </a>
-                  <?php else: ?>
-                    <span class="text-muted" style="font-size: 11.5px;">لا يمكن التعديل</span>
                   <?php endif; ?>
+                  
+                  <a href="delete_queue.php?id=<?= $item['id'] ?>" class="btn btn-sm btn-outline-danger" data-confirm="هل تريد حذف هذه الرسالة من قائمة الانتظار نهائياً؟" title="حذف">
+                    <i class="fas fa-trash"></i>
+                  </a>
                 </div>
               </td>
             </tr>
@@ -463,6 +498,24 @@ require_once INCLUDES_PATH . '/header.php';
   </div>
 </div>
 
+<!-- ════ Modal: عرض نص الرسالة بالكامل ════════════════════════════════ -->
+<div class="modal-overlay" id="viewMessageModal" style="display:none;">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-header">
+      <span class="modal-title">
+        <i class="fas fa-envelope-open-text" style="color:var(--primary-light);"></i> محتوى الرسالة بالكامل
+      </span>
+      <button class="modal-close" onclick="closeModal('viewMessageModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="fullMessageContent" style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; max-height: 350px; overflow-y: auto; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 6px; border: 1px solid var(--border-color);"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" onclick="closeModal('viewMessageModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function onTargetTypeChange(sel) {
     const warningDaysGroup = document.getElementById('warning_days_group');
@@ -538,6 +591,11 @@ function editQueueItem(item) {
     document.getElementById('q_max_delay').value = item.max_delay || 15;
     
     openModal('queueModal');
+}
+
+function viewFullMessage(msg) {
+    document.getElementById('fullMessageContent').innerText = msg;
+    openModal('viewMessageModal');
 }
 </script>
 

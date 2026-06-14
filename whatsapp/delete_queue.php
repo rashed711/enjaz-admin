@@ -7,13 +7,17 @@ requireLogin();
 requirePermission('send_whatsapp');
 
 $id = (int)($_GET['id'] ?? 0);
-if ($id > 0) {
-    $db = getDB();
-    $stmt = $db->prepare("DELETE FROM whatsapp_queue WHERE id = ? AND status = 'pending'");
+$db = getDB();
+
+if (isset($_GET['clear_sent']) && $_GET['clear_sent'] == 1) {
+    $stmt = $db->query("DELETE FROM whatsapp_queue WHERE status = 'sent'");
+    setFlash('success', 'تم حذف جميع الرسائل المرسلة بنجاح.');
+} elseif ($id > 0) {
+    $stmt = $db->prepare("DELETE FROM whatsapp_queue WHERE id = ?");
     $stmt->execute([$id]);
-    setFlash('success', 'تم حذف الرسالة المجدولة من قائمة الانتظار بنجاح.');
+    setFlash('success', 'تم حذف الرسالة من قائمة الانتظار بنجاح.');
 } else {
-    setFlash('error', 'معرف رسالة غير صالح.');
+    setFlash('error', 'معرف غير صالح.');
 }
 
 header('Location: schedules.php?tab=queue');
