@@ -13,6 +13,8 @@ $stmt->execute([$id]);
 $sub = $stmt->fetch();
 if (!$sub) { setFlash('error','الاشتراك غير موجود.'); header('Location: ../clients/index.php'); exit; }
 
+$isDomainService = (mb_strpos($sub['service_name'], 'دومين') !== false || mb_strpos(mb_strtolower($sub['service_name']), 'domain') !== false);
+
 // جلب الباقات المتاحة لهذه الخدمة
 $plans = $db->prepare("SELECT * FROM service_plans WHERE service_id = ? AND status = 1 ORDER BY sort_order ASC, price ASC");
 $plans->execute([$sub['service_id']]);
@@ -103,7 +105,7 @@ require_once INCLUDES_PATH . '/header.php';
         </div>
         <div class="form-group">
           <label class="form-label" for="plan_name"><?= $isDomainService ? 'اسم الدومين المحجوز' : 'الخطة / الباقة' ?></label>
-          <?php if (!empty($plans)): 
+          <?php if (!empty($plans) && !$isDomainService): 
               $planNames = array_column($plans, 'name');
               $isCustom = !empty($formData['plan_name']) && !in_array($formData['plan_name'], $planNames);
           ?>
@@ -114,11 +116,11 @@ require_once INCLUDES_PATH . '/header.php';
                   <?= e($p['name']) ?> (<?= formatMoney($p['price']) ?>)
                 </option>
               <?php endforeach; ?>
-              <option value="custom" data-price="" <?= $isCustom ? 'selected' : '' ?>>باقة مخصصة...</option>
+              <option value="custom" data-price="" <?= $isCustom ? 'selected' : '' ?>><?= $isDomainService ? 'اسم دومين مخصص...' : 'باقة مخصصة...' ?></option>
             </select>
             <input type="text" id="custom_plan_name" name="custom_plan_name" class="form-control" 
                    style="margin-top:8px; display: <?= $isCustom ? 'block' : 'none' ?>;" 
-                   placeholder="اكتب اسم الباقة المخصصة..." value="<?= e($formData['plan_name']) ?>">
+                   placeholder="<?= $isDomainService ? 'اكتب اسم الدومين المحجوز (مثال: example.com)' : 'اكتب اسم الباقة المخصصة...' ?>" value="<?= e($formData['plan_name']) ?>">
           <?php else: ?>
             <input type="text" id="plan_name" name="plan_name" class="form-control" value="<?= e($formData['plan_name']) ?>">
           <?php endif; ?>
