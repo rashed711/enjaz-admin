@@ -179,6 +179,8 @@ elseif ($tab === 'monthly') {
 
     $months = [];
     $monthlyExpenses = [];
+    $monthlySales = [];
+    $monthlyPurchases = [];
     for ($m = 1; $m <= 12; $m++) {
         // الإيرادات
         $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date)=? AND MONTH(payment_date)=?");
@@ -189,10 +191,22 @@ elseif ($tab === 'monthly') {
         $stmt2 = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE YEAR(expense_date)=? AND MONTH(expense_date)=?");
         $stmt2->execute([$year, $m]);
         $monthlyExpenses[$m] = (float)$stmt2->fetchColumn();
+
+        // المبيعات (من الاشتراكات والخدمات المسجلة)
+        $stmt3 = $db->prepare("SELECT COALESCE(SUM(price),0) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
+        $stmt3->execute([$year, $m]);
+        $monthlySales[$m] = (float)$stmt3->fetchColumn();
+
+        // المشتريات (تساوي المصروفات)
+        $monthlyPurchases[$m] = $monthlyExpenses[$m];
     }
     $totalYear = array_sum($months);
     $totalExpensesYear = array_sum($monthlyExpenses);
     $netProfitYear = $totalYear - $totalExpensesYear;
+
+    $totalSalesYear = array_sum($monthlySales);
+    $totalPurchasesYear = array_sum($monthlyPurchases);
+    $netSalesProfitYear = $totalSalesYear - $totalPurchasesYear;
 
     // أفضل الخدمات
     $topServices = $db->query("
@@ -965,6 +979,36 @@ require_once INCLUDES_PATH . '/header.php';
         <div style="font-size:18px; font-weight:800; color:<?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?></div>
       </div>
     </div>
+
+    <div class="card" style="border-right: 4px solid #2563eb; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(37,99,235,0.1); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-file-invoice-dollar"></i>
+      </div>
+      <div>
+        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي مبيعات السنة (الاشتراكات والخدمات)</div>
+        <div style="font-size:18px; font-weight:800; color:#2563eb; margin-top:4px;"><?= formatMoney($totalSalesYear) ?></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-right: 4px solid #ea580c; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(234,88,12,0.1); color:#ea580c; display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-cart-shopping"></i>
+      </div>
+      <div>
+        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي مشتريات السنة (المصروفات)</div>
+        <div style="font-size:18px; font-weight:800; color:#ea580c; margin-top:4px;"><?= formatMoney($totalPurchasesYear) ?></div>
+      </div>
+    </div>
+
+    <div class="card" style="border-right: 4px solid <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:<?= $netSalesProfitYear >= 0 ? 'rgba(37,99,235,0.1)' : 'rgba(239,68,68,0.1)' ?>; color:<?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas <?= $netSalesProfitYear >= 0 ? 'fa-scale-balanced' : 'fa-triangle-exclamation' ?>"></i>
+      </div>
+      <div>
+        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">صافي قيمة المبيعات</div>
+        <div style="font-size:18px; font-weight:800; color:<?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?></div>
+      </div>
+    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
@@ -1038,6 +1082,56 @@ require_once INCLUDES_PATH . '/header.php';
         <div class="empty-state" style="padding:30px;"><p class="empty-title">لا بيانات</p></div>
         <?php endif; ?>
       </div>
+    </div>
+  </div>
+
+  <!-- تحليل المبيعات والمشتريات لعام YYYY -->
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <span class="card-title"><i class="fas fa-chart-line"></i> تحليل المبيعات والمشتريات لعام <?= $year ?></span>
+    </div>
+    <div class="card-body">
+      <canvas id="salesPurchasesChart" height="80"></canvas>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>الشهر</th>
+            <th>المبيعات (الاشتراكات والخدمات) (+)</th>
+            <th>المشتريات (المصروفات) (-)</th>
+            <th>صافي قيمة المبيعات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($months as $m => $amt): 
+            $salesAmt = $monthlySales[$m] ?? 0;
+            $purchAmt = $monthlyPurchases[$m] ?? 0;
+            $diff = $salesAmt - $purchAmt;
+          ?>
+          <tr>
+            <td>
+              <span style="font-weight:700;color:var(--primary);"><?= $arabicMonths[$m] ?></span>
+            </td>
+            <td class="fw-bold text-success"><?= formatMoney($salesAmt) ?></td>
+            <td class="fw-bold text-danger"><?= formatMoney($purchAmt) ?></td>
+            <td class="fw-bold" style="color: <?= $diff >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
+              <?= ($diff >= 0 ? '+' : '') . formatMoney($diff) ?>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
+            <td style="padding:12px 16px;">الإجمالي السنوي</td>
+            <td style="padding:12px 16px;color:#2563eb;"><?= formatMoney($totalSalesYear) ?></td>
+            <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalPurchasesYear) ?></td>
+            <td style="padding:12px 16px;color: <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
+              <?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   </div>
 
@@ -1179,6 +1273,42 @@ require_once INCLUDES_PATH . '/header.php';
                 data: [<?= implode(',', array_values($monthlyExpenses)) ?>],
                 backgroundColor: 'rgba(239, 68, 68, 0.75)',
                 borderColor: '#ef4444',
+                borderWidth: 1.5,
+                borderRadius: 6,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: true, labels: { font: { family: 'Cairo', weight: 'bold' } } },
+              tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
+            },
+            scales: { y: { beginAtZero: true, ticks: { font: { family:'Cairo' } } }, x: { grid: { display:false }, ticks: { font:{family:'Cairo'} } } }
+          }
+        });
+      }
+
+      const ctxSales = document.getElementById('salesPurchasesChart');
+      if (ctxSales) {
+        new Chart(ctxSales, {
+          type: 'bar',
+          data: {
+            labels: [<?= implode(',', array_map(fn($m) => '"'.$arabicMonths[$m].'"', range(1,12))) ?>],
+            datasets: [
+              {
+                label: 'المبيعات',
+                data: [<?= implode(',', array_values($monthlySales)) ?>],
+                backgroundColor: 'rgba(37, 99, 235, 0.75)',
+                borderColor: '#2563eb',
+                borderWidth: 1.5,
+                borderRadius: 6,
+              },
+              {
+                label: 'المشتريات',
+                data: [<?= implode(',', array_values($monthlyPurchases)) ?>],
+                backgroundColor: 'rgba(234, 88, 12, 0.75)',
+                borderColor: '#ea580c',
                 borderWidth: 1.5,
                 borderRadius: 6,
               }
