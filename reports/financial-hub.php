@@ -181,6 +181,7 @@ elseif ($tab === 'monthly') {
     $monthlyExpenses = [];
     $monthlySales = [];
     $monthlyPurchases = [];
+    $monthlyClients = [];
     for ($m = 1; $m <= 12; $m++) {
         // الإيرادات
         $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date)=? AND MONTH(payment_date)=?");
@@ -199,6 +200,11 @@ elseif ($tab === 'monthly') {
 
         // المشتريات (تساوي المصروفات)
         $monthlyPurchases[$m] = $monthlyExpenses[$m];
+
+        // عدد العملاء المشتركين
+        $stmt4 = $db->prepare("SELECT COUNT(DISTINCT client_id) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
+        $stmt4->execute([$year, $m]);
+        $monthlyClients[$m] = (int)$stmt4->fetchColumn();
     }
     $totalYear = array_sum($months);
     $totalExpensesYear = array_sum($monthlyExpenses);
@@ -207,6 +213,8 @@ elseif ($tab === 'monthly') {
     $totalSalesYear = array_sum($monthlySales);
     $totalPurchasesYear = array_sum($monthlyPurchases);
     $netSalesProfitYear = $totalSalesYear - $totalPurchasesYear;
+
+    $totalClientsYear = array_sum($monthlyClients);
 
     // أفضل الخدمات
     $topServices = $db->query("
@@ -1029,11 +1037,12 @@ require_once INCLUDES_PATH . '/header.php';
       </div>
       <div class="table-wrapper">
         <table class="data-table">
-          <thead><tr><th>الشهر</th><th>الإيرادات (+)</th><th>المصروفات (-)</th><th>صافي الربح / الخسارة</th></tr></thead>
+          <thead><tr><th>الشهر</th><th>عدد العملاء المشتركين</th><th>الإيرادات (+)</th><th>المصروفات (-)</th><th>صافي الربح / الخسارة</th></tr></thead>
           <tbody>
             <?php foreach ($months as $m => $amt): 
               $expAmt = $monthlyExpenses[$m] ?? 0;
               $profit = $amt - $expAmt;
+              $clientsCount = $monthlyClients[$m] ?? 0;
             ?>
             <tr>
               <td>
@@ -1041,6 +1050,7 @@ require_once INCLUDES_PATH . '/header.php';
                   <?= $arabicMonths[$m] ?>
                 </a>
               </td>
+              <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
               <td class="fw-bold text-success"><?= formatMoney($amt) ?></td>
               <td class="fw-bold text-danger"><?= formatMoney($expAmt) ?></td>
               <td class="fw-bold" style="color: <?= $profit >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
@@ -1052,6 +1062,7 @@ require_once INCLUDES_PATH . '/header.php';
           <tfoot>
             <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
               <td style="padding:12px 16px;">الإجمالي السنوي</td>
+              <td style="padding:12px 16px;color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
               <td style="padding:12px 16px;color:var(--success);"><?= formatMoney($totalYear) ?></td>
               <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalExpensesYear) ?></td>
               <td style="padding:12px 16px;color: <?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
@@ -1098,6 +1109,7 @@ require_once INCLUDES_PATH . '/header.php';
         <thead>
           <tr>
             <th>الشهر</th>
+            <th>عدد العملاء المشتركين</th>
             <th>المبيعات (الاشتراكات والخدمات) (+)</th>
             <th>المشتريات (المصروفات) (-)</th>
             <th>صافي قيمة المبيعات</th>
@@ -1108,11 +1120,13 @@ require_once INCLUDES_PATH . '/header.php';
             $salesAmt = $monthlySales[$m] ?? 0;
             $purchAmt = $monthlyPurchases[$m] ?? 0;
             $diff = $salesAmt - $purchAmt;
+            $clientsCount = $monthlyClients[$m] ?? 0;
           ?>
           <tr>
             <td>
               <span style="font-weight:700;color:var(--primary);"><?= $arabicMonths[$m] ?></span>
             </td>
+            <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
             <td class="fw-bold text-success"><?= formatMoney($salesAmt) ?></td>
             <td class="fw-bold text-danger"><?= formatMoney($purchAmt) ?></td>
             <td class="fw-bold" style="color: <?= $diff >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
@@ -1124,6 +1138,7 @@ require_once INCLUDES_PATH . '/header.php';
         <tfoot>
           <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
             <td style="padding:12px 16px;">الإجمالي السنوي</td>
+            <td style="padding:12px 16px;color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
             <td style="padding:12px 16px;color:#2563eb;"><?= formatMoney($totalSalesYear) ?></td>
             <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalPurchasesYear) ?></td>
             <td style="padding:12px 16px;color: <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
@@ -1267,6 +1282,7 @@ require_once INCLUDES_PATH . '/header.php';
                 borderColor: '#10b981',
                 borderWidth: 1.5,
                 borderRadius: 6,
+                yAxisID: 'y',
               },
               {
                 label: 'المصروفات',
@@ -1275,6 +1291,16 @@ require_once INCLUDES_PATH . '/header.php';
                 borderColor: '#ef4444',
                 borderWidth: 1.5,
                 borderRadius: 6,
+                yAxisID: 'y',
+              },
+              {
+                label: 'عدد العملاء',
+                data: [<?= implode(',', array_values($monthlyClients)) ?>],
+                backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                borderColor: '#3b82f6',
+                borderWidth: 1.5,
+                borderRadius: 6,
+                yAxisID: 'y1',
               }
             ]
           },
@@ -1282,9 +1308,43 @@ require_once INCLUDES_PATH . '/header.php';
             responsive: true,
             plugins: {
               legend: { display: true, labels: { font: { family: 'Cairo', weight: 'bold' } } },
-              tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
+              tooltip: {
+                callbacks: {
+                  label: ctx => {
+                    if (ctx.datasetIndex === 2) {
+                      return ctx.dataset.label + ': ' + ctx.parsed.y + ' عميل';
+                    }
+                    return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>';
+                  }
+                }
+              }
             },
-            scales: { y: { beginAtZero: true, ticks: { font: { family:'Cairo' } } }, x: { grid: { display:false }, ticks: { font:{family:'Cairo'} } } }
+            scales: {
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                ticks: { font: { family:'Cairo' } }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: true,
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  precision: 0,
+                  font: { family:'Cairo' }
+                }
+              },
+              x: {
+                grid: { display:false },
+                ticks: { font:{family:'Cairo'} }
+              }
+            }
           }
         });
       }
@@ -1303,6 +1363,7 @@ require_once INCLUDES_PATH . '/header.php';
                 borderColor: '#2563eb',
                 borderWidth: 1.5,
                 borderRadius: 6,
+                yAxisID: 'y',
               },
               {
                 label: 'المشتريات',
@@ -1311,6 +1372,16 @@ require_once INCLUDES_PATH . '/header.php';
                 borderColor: '#ea580c',
                 borderWidth: 1.5,
                 borderRadius: 6,
+                yAxisID: 'y',
+              },
+              {
+                label: 'عدد العملاء',
+                data: [<?= implode(',', array_values($monthlyClients)) ?>],
+                backgroundColor: 'rgba(4, 155, 6, 0.75)',
+                borderColor: '#049b06',
+                borderWidth: 1.5,
+                borderRadius: 6,
+                yAxisID: 'y1',
               }
             ]
           },
@@ -1318,9 +1389,43 @@ require_once INCLUDES_PATH . '/header.php';
             responsive: true,
             plugins: {
               legend: { display: true, labels: { font: { family: 'Cairo', weight: 'bold' } } },
-              tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>' } }
+              tooltip: {
+                callbacks: {
+                  label: ctx => {
+                    if (ctx.datasetIndex === 2) {
+                      return ctx.dataset.label + ': ' + ctx.parsed.y + ' عميل';
+                    }
+                    return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US',{minimumFractionDigits:2}) + ' <?= getSetting('currency','جنيه') ?>';
+                  }
+                }
+              }
             },
-            scales: { y: { beginAtZero: true, ticks: { font: { family:'Cairo' } } }, x: { grid: { display:false }, ticks: { font:{family:'Cairo'} } } }
+            scales: {
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                ticks: { font: { family:'Cairo' } }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: true,
+                grid: {
+                  drawOnChartArea: false,
+                },
+                ticks: {
+                  precision: 0,
+                  font: { family:'Cairo' }
+                }
+              },
+              x: {
+                grid: { display:false },
+                ticks: { font:{family:'Cairo'} }
+              }
+            }
           }
         });
       }
