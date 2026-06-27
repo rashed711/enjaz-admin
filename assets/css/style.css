@@ -1288,6 +1288,11 @@ textarea.form-control {
     max-height: 90vh;
     overflow-y: auto;
   }
+  
+  /* Chart.js responsive height on mobile */
+  .card-body canvas {
+    min-height: 250px !important;
+  }
 }
 
 @media (max-width: 576px) {

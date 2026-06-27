@@ -1306,6 +1306,7 @@ require_once INCLUDES_PATH . '/header.php';
           },
           options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
               legend: { display: true, labels: { font: { family: 'Cairo', weight: 'bold' } } },
               tooltip: {
@@ -1387,6 +1388,7 @@ require_once INCLUDES_PATH . '/header.php';
           },
           options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
               legend: { display: true, labels: { font: { family: 'Cairo', weight: 'bold' } } },
               tooltip: {
