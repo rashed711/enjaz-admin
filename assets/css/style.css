@@ -1241,6 +1241,7 @@ textarea.form-control {
   .main-content {
     margin-right: 0;
     width: 100%;
+    overflow-x: hidden;
   }
   .topbar-time { display: none; }
 }
