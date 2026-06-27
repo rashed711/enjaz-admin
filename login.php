@@ -48,7 +48,7 @@ $companyName = getSetting('company_name', APP_NAME);
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { direction: rtl; font-size: 15px; }
+    html { direction: rtl; font-size: 15px; overflow-x: hidden; height: 100%; }
     body {
       font-family: 'Cairo', sans-serif;
       min-height: 100vh;
@@ -57,11 +57,13 @@ $companyName = getSetting('company_name', APP_NAME);
       justify-content: center;
       background: #0e1e35;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
+      line-height: 1.6;
+      width: 100%;
     }
 
-    /* Background decoration */
-    body::before {
+    /* Background decoration on .bg-grid instead of body to prevent scrolling overflow */
+    .bg-grid::before {
       content: '';
       position: absolute;
       top: -120px; right: -120px;
@@ -69,7 +71,7 @@ $companyName = getSetting('company_name', APP_NAME);
       background: radial-gradient(circle, rgba(240,165,0,.15) 0%, transparent 70%);
       border-radius: 50%;
     }
-    body::after {
+    .bg-grid::after {
       content: '';
       position: absolute;
       bottom: -100px; left: -100px;
@@ -86,6 +88,8 @@ $companyName = getSetting('company_name', APP_NAME);
         linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
       background-size: 40px 40px;
+      overflow: hidden;
+      z-index: 1;
     }
 
     .login-wrapper {
@@ -285,6 +289,15 @@ $companyName = getSetting('company_name', APP_NAME);
       40%       { transform: translateX(6px); }
       60%       { transform: translateX(-4px); }
       80%       { transform: translateX(4px); }
+    }
+
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 24px 20px;
+      }
+      .login-logo {
+        margin-bottom: 20px;
+      }
     }
   </style>
 </head>
