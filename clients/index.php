@@ -145,9 +145,9 @@ $stmt = $db->prepare("
            COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
            COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
            COUNT(DISTINCT cs.id) AS subs_count,
-           (SELECT cs2.start_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
-           (SELECT cs2.end_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
-           (SELECT cs2.status FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status,
+           (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
+           (SELECT cs2.end_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
+           (SELECT cs2.status FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status,
            (SELECT COUNT(*) FROM client_subscriptions cs3 JOIN services s3 ON s3.id = cs3.service_id WHERE cs3.client_id = c.id AND cs3.status != 'cancelled' AND (s3.name LIKE '%دومين%' OR s3.name LIKE '%domain%')) AS has_our_domain
     FROM clients c
     LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
@@ -238,9 +238,9 @@ if (isset($_GET['export_all'])) {
                COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
                COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
                COUNT(DISTINCT cs.id) AS subs_count,
-               (SELECT cs2.start_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
-               (SELECT cs2.end_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
-               (SELECT cs2.status FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status
+               (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
+               (SELECT cs2.end_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
+               (SELECT cs2.status FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status
         FROM clients c
         LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
         WHERE ($whereStr) $extraWhere
