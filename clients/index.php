@@ -167,11 +167,33 @@ $clients = $stmt->fetchAll();
 // AJAX get all IDs/names/mobiles for bulk actions matching current filters
 if (isset($_GET['get_all_ids'])) {
     header('Content-Type: application/json');
+    $extraWhere = '';
+    $extraParams = [];
+    
+    if (!empty($_GET['selected_ids'])) {
+        $ids = array_filter(array_map('intval', explode(',', $_GET['selected_ids'])));
+        if (!empty($ids)) {
+            $inPlaceholder = implode(',', array_fill(0, count($ids), '?'));
+            $extraWhere = " AND c.id IN ($inPlaceholder)";
+            $extraParams = $ids;
+        } else {
+            echo json_encode([]);
+            exit;
+        }
+    } elseif (!empty($_GET['exclude_ids'])) {
+        $ids = array_filter(array_map('intval', explode(',', $_GET['exclude_ids'])));
+        if (!empty($ids)) {
+            $inPlaceholder = implode(',', array_fill(0, count($ids), '?'));
+            $extraWhere = " AND c.id NOT IN ($inPlaceholder)";
+            $extraParams = $ids;
+        }
+    }
+
     $stmtAll = $db->prepare("
         SELECT c.id, c.name, c.mobile, c.company_name
         FROM clients c
         LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
-        WHERE $whereStr
+        WHERE ($whereStr) $extraWhere
         $havingStr
         GROUP BY c.id
         ORDER BY COALESCE(
@@ -180,9 +202,59 @@ if (isset($_GET['get_all_ids'])) {
             c.created_at
         ) DESC, c.id DESC
     ");
-    $stmtAll->execute($params);
+    $stmtAll->execute(array_merge($params, $extraParams));
     $allFilteredClients = $stmtAll->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode($allFilteredClients);
+    exit;
+}
+
+// AJAX export all selected or matching clients with full detailed fields
+if (isset($_GET['export_all'])) {
+    header('Content-Type: application/json');
+    $extraWhere = '';
+    $extraParams = [];
+    
+    if (!empty($_GET['selected_ids'])) {
+        $ids = array_filter(array_map('intval', explode(',', $_GET['selected_ids'])));
+        if (!empty($ids)) {
+            $inPlaceholder = implode(',', array_fill(0, count($ids), '?'));
+            $extraWhere = " AND c.id IN ($inPlaceholder)";
+            $extraParams = $ids;
+        } else {
+            echo json_encode(['success' => true, 'clients' => []]);
+            exit;
+        }
+    } elseif (!empty($_GET['exclude_ids'])) {
+        $ids = array_filter(array_map('intval', explode(',', $_GET['exclude_ids'])));
+        if (!empty($ids)) {
+            $inPlaceholder = implode(',', array_fill(0, count($ids), '?'));
+            $extraWhere = " AND c.id NOT IN ($inPlaceholder)";
+            $extraParams = $ids;
+        }
+    }
+
+    $stmtExport = $db->prepare("
+        SELECT c.*,
+               COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
+               COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
+               COUNT(DISTINCT cs.id) AS subs_count,
+               (SELECT cs2.start_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
+               (SELECT cs2.end_date FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
+               (SELECT cs2.status FROM client_subscriptions cs2 WHERE cs2.client_id = c.id ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status
+        FROM clients c
+        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+        WHERE ($whereStr) $extraWhere
+        GROUP BY c.id
+        $havingStr
+        ORDER BY COALESCE(
+            (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%') ORDER BY cs2.start_date DESC LIMIT 1),
+            (SELECT cs3.start_date FROM client_subscriptions cs3 JOIN services s3 ON s3.id = cs3.service_id WHERE cs3.client_id = c.id AND cs3.status != 'cancelled' AND (s3.name LIKE '%بريد%' OR s3.name LIKE '%mail%' OR s3.name LIKE '%email%') ORDER BY cs3.start_date DESC LIMIT 1),
+            c.created_at
+        ) DESC, c.id DESC
+    ");
+    $stmtExport->execute(array_merge($params, $extraParams));
+    $exportClients = $stmtExport->fetchAll(PDO::FETCH_ASSOC);
+    echo json_encode(['success' => true, 'clients' => $exportClients]);
     exit;
 }
 
@@ -390,7 +462,7 @@ require_once INCLUDES_PATH . '/header.php';
       إرسال رسالة جماعية (<span id="selected-count">0</span>)
     </button>
     <?php endif; ?>
-    <button type="button" class="btn btn-outline" onclick="exportTableToExcel('table.data-table', 'قائمة_العملاء_إنجاز')">
+    <button type="button" class="btn btn-outline" onclick="exportSelectedClients()">
       <i class="fas fa-file-excel" style="color:#217346;"></i>
       تصدير Excel
     </button>
@@ -763,7 +835,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 tbody.innerHTML = data.tbody;
                 subtitle.textContent = data.subtitle;
                 totalFilteredClients = parseInt(data.total_filtered_clients) || 0;
-                selectAllFiltered = false;
+                if (page === 1) {
+                    selectAllFiltered = false;
+                    selectedClientIds.clear();
+                    excludedClientIds.clear();
+                }
                 if (selectAllCheckbox) selectAllCheckbox.checked = false;
                 updateSelectionState();
                 
@@ -860,12 +936,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSelectionState() {
         const checkboxes = document.querySelectorAll('.client-checkbox');
+        
+        // 1. Sync checkboxes checks based on the selection state
+        checkboxes.forEach(cb => {
+            const id = parseInt(cb.value);
+            if (selectAllFiltered) {
+                cb.checked = !excludedClientIds.has(id);
+            } else {
+                cb.checked = selectedClientIds.has(id);
+            }
+        });
+        
         const checked = document.querySelectorAll('.client-checkbox:checked');
         
+        // 2. Sync master selectAllCheckbox
         if (selectAllCheckbox) {
             selectAllCheckbox.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
         }
         
+        const totalCount = selectAllFiltered ? (totalFilteredClients - excludedClientIds.size) : selectedClientIds.size;
+        
+        // 3. Show/hide and update banners
         if (selectAllCheckbox && selectAllCheckbox.checked && totalFilteredClients > checked.length && !selectAllFiltered) {
             selectAllBanner.style.display = 'flex';
             visibleCheckedCount.textContent = checked.length;
@@ -875,17 +966,14 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (selectAllFiltered) {
             selectAllBanner.style.display = 'flex';
             btnSelectAllFiltered.style.display = 'none';
-            bannerText.innerHTML = `تم تحديد جميع العملاء الـ <strong>${totalFilteredClients}</strong> المطابقين للفلترة الحالية.`;
+            bannerText.innerHTML = `تم تحديد جميع العملاء الـ <strong>${totalFilteredClients - excludedClientIds.size}</strong> المطابقين للفلترة الحالية.`;
         } else {
             selectAllBanner.style.display = 'none';
         }
         
         if (bulkButton) {
-            if (selectAllFiltered) {
-                selectedCountSpan.textContent = totalFilteredClients;
-                bulkButton.style.display = 'inline-flex';
-            } else if (checked.length > 0) {
-                selectedCountSpan.textContent = checked.length;
+            if (totalCount > 0) {
+                selectedCountSpan.textContent = totalCount;
                 bulkButton.style.display = 'inline-flex';
             } else {
                 bulkButton.style.display = 'none';
@@ -896,6 +984,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnSelectAllFiltered) {
         btnSelectAllFiltered.addEventListener('click', function() {
             selectAllFiltered = true;
+            excludedClientIds.clear();
+            selectedClientIds.clear();
             updateSelectionState();
         });
     }
@@ -903,6 +993,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnClearFilteredSelection) {
         btnClearFilteredSelection.addEventListener('click', function() {
             selectAllFiltered = false;
+            excludedClientIds.clear();
+            selectedClientIds.clear();
             if (selectAllCheckbox) selectAllCheckbox.checked = false;
             document.querySelectorAll('.client-checkbox').forEach(cb => {
                 cb.checked = false;
@@ -913,20 +1005,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = selectAllCheckbox.checked;
             document.querySelectorAll('.client-checkbox').forEach(cb => {
-                cb.checked = selectAllCheckbox.checked;
+                cb.checked = isChecked;
+                const id = parseInt(cb.value);
+                if (isChecked) {
+                    if (selectAllFiltered) {
+                        excludedClientIds.delete(id);
+                    } else {
+                        selectedClientIds.add(id);
+                    }
+                } else {
+                    if (selectAllFiltered) {
+                        excludedClientIds.add(id);
+                    } else {
+                        selectedClientIds.delete(id);
+                    }
+                }
             });
-            if (!selectAllCheckbox.checked) {
-                selectAllFiltered = false;
-            }
             updateSelectionState();
         });
     }
 
     tbody.addEventListener('change', function(e) {
         if (e.target.classList.contains('client-checkbox')) {
-            if (!e.target.checked && selectAllFiltered) {
-                selectAllFiltered = false;
+            const cb = e.target;
+            const id = parseInt(cb.value);
+            if (cb.checked) {
+                if (selectAllFiltered) {
+                    excludedClientIds.delete(id);
+                } else {
+                    selectedClientIds.add(id);
+                }
+            } else {
+                if (selectAllFiltered) {
+                    excludedClientIds.add(id);
+                } else {
+                    selectedClientIds.delete(id);
+                }
             }
             updateSelectionState();
         }
@@ -935,21 +1051,142 @@ document.addEventListener('DOMContentLoaded', function() {
     // We also hook into search/filter requests to reset checkboxes
     const originalDoSearch = window.doSearchGlobal;
     window.doSearchGlobal = function(page) {
-        selectAllFiltered = false;
-        if (selectAllCheckbox) selectAllCheckbox.checked = false;
-        if (bulkButton) bulkButton.style.display = 'none';
+        if (page === 1) {
+            selectAllFiltered = false;
+            selectedClientIds.clear();
+            excludedClientIds.clear();
+            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+            if (bulkButton) bulkButton.style.display = 'none';
+        }
         originalDoSearch(page);
     };
+    
+    // Initial call to sync visible checkboxes on DOM load
+    updateSelectionState();
 });
 
 // Global selection state
 let selectAllFiltered = false;
+let selectedClientIds = new Set();
+let excludedClientIds = new Set();
 let totalFilteredClients = <?= (int)$totalClients ?>;
 let bulkSendCancelled = false;
 
+// Client-side Excel Export for All selected clients across pages
+async function exportSelectedClients() {
+    const totalCount = selectAllFiltered ? (totalFilteredClients - excludedClientIds.size) : selectedClientIds.size;
+    
+    // Show toast or loader
+    showToast('جاري تجهيز بيانات التصدير من السيرفر...', 'info');
+    
+    const searchQuery = document.getElementById('searchInput').value;
+    const statusSelect = document.querySelector('select[name="status"]');
+    const statusQuery = statusSelect ? statusSelect.value : '1';
+    const filterSelect = document.querySelector('select[name="filter"]');
+    const filterQuery = filterSelect ? filterSelect.value : '';
+    
+    const params = new URLSearchParams({
+        search: searchQuery,
+        status: statusQuery,
+        filter: filterQuery,
+        export_all: 1
+    });
+    
+    // Pass selected IDs or excluded IDs only if user has an active custom selection
+    if (totalCount > 0) {
+        if (selectAllFiltered) {
+            params.append('exclude_ids', Array.from(excludedClientIds).join(','));
+        } else {
+            params.append('selected_ids', Array.from(selectedClientIds).join(','));
+        }
+    }
+    
+    try {
+        const response = await fetch('index.php?' + params.toString());
+        const data = await response.json();
+        
+        if (data.success && data.clients) {
+            downloadClientsCSV(data.clients);
+        } else {
+            showToast('حدث خطأ أثناء تصدير البيانات.', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('خطأ في الاتصال بالخادم.', 'error');
+    }
+}
+
+function downloadClientsCSV(clients) {
+    if (clients.length === 0) {
+        showToast('لا توجد بيانات عملاء لتصديرها.', 'warning');
+        return;
+    }
+
+    let csv = [];
+    // CSV Header matching the table columns
+    const header = [
+        'اسم العميل',
+        'الشركة',
+        'الهاتف',
+        'عدد الاشتراكات',
+        'إجمالي قيمة الاشتراكات',
+        'إجمالي المدفوع',
+        'المتبقي',
+        'تاريخ البداية (آخر اشتراك)',
+        'تاريخ الانتهاء (آخر اشتراك)',
+        'حالة الاشتراك',
+        'الملاحظات'
+    ];
+    csv.push(header.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
+    
+    clients.forEach((client) => {
+        const remaining = (parseFloat(client.total_services) - parseFloat(client.total_paid)).toFixed(2);
+        
+        let subStatus = 'لا يوجد';
+        if (client.sub_status === 'active') subStatus = 'نشط';
+        else if (client.sub_status === 'expired') subStatus = 'منتهي';
+        else if (client.sub_status === 'cancelled') subStatus = 'ملغي';
+        
+        const row = [
+            client.name || '',
+            client.company_name || '',
+            client.mobile || '',
+            client.subs_count || 0,
+            client.total_services || 0,
+            client.total_paid || 0,
+            remaining,
+            client.sub_start || '',
+            client.sub_end || '',
+            subStatus,
+            client.notes || ''
+        ];
+        
+        csv.push(row.map(val => {
+            let data = String(val).replace(/(\r\n|\n|\r)/gm, ' ').replace(/\s+/g, ' ').trim();
+            data = data.replace(/"/g, '""');
+            return `"${data}"`;
+        }).join(','));
+    });
+    
+    const csvString = '\uFEFF' + csv.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'قائمة_العملاء_إنجاز.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('تم تصدير البيانات إلى Excel بنجاح');
+    }
+}
+
 function openBulkWhatsappModal() {
-    const checked = document.querySelectorAll('.client-checkbox:checked');
-    document.getElementById('bulk-selected-count').textContent = selectAllFiltered ? totalFilteredClients : checked.length;
+    const totalCount = selectAllFiltered ? (totalFilteredClients - excludedClientIds.size) : selectedClientIds.size;
+    document.getElementById('bulk-selected-count').textContent = totalCount;
     
     // Reset modal UI
     document.getElementById('bulkWhatsappMessage').value = '';
@@ -1026,43 +1263,41 @@ async function startBulkSending() {
     document.getElementById('btn-cancel-bulk').style.display = 'inline-flex';
     document.getElementById('bulk-progress-section').style.display = 'block';
 
+    const fetchLog = document.createElement('div');
+    fetchLog.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-left:5px;color:var(--primary);"></i>جاري جلب بيانات جميع العملاء المحددين من السيرفر...';
+    logList.appendChild(fetchLog);
+    
+    const searchQuery = document.getElementById('searchInput').value;
+    const statusSelect = document.querySelector('select[name="status"]');
+    const statusQuery = statusSelect ? statusSelect.value : '1';
+    const filterSelect = document.querySelector('select[name="filter"]');
+    const filterQuery = filterSelect ? filterSelect.value : '';
+    
+    const params = new URLSearchParams({
+        search: searchQuery,
+        status: statusQuery,
+        filter: filterQuery,
+        get_all_ids: 1
+    });
+    
     if (selectAllFiltered) {
-        const fetchLog = document.createElement('div');
-        fetchLog.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-left:5px;color:var(--primary);"></i>جاري جلب بيانات جميع العملاء المحددين من السيرفر...';
-        logList.appendChild(fetchLog);
-        
-        const searchQuery = document.getElementById('searchInput').value;
-        const statusQuery = document.querySelector('select[name="status"]').value;
-        const filterQuery = document.querySelector('select[name="filter"]').value;
-        
-        const params = new URLSearchParams({
-            search: searchQuery,
-            status: statusQuery,
-            filter: filterQuery,
-            get_all_ids: 1
-        });
-        
-        try {
-            const res = await fetch('index.php?' + params.toString());
-            clientsList = await res.json();
-            fetchLog.style.color = 'var(--success)';
-            fetchLog.innerHTML = '<i class="fas fa-check-circle" style="margin-left:5px;"></i>تم جلب بيانات العملاء بنجاح.';
-        } catch (err) {
-            fetchLog.style.color = 'var(--danger)';
-            fetchLog.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-left:5px;"></i>فشل جلب بيانات العملاء من السيرفر.';
-            document.getElementById('btn-cancel-bulk').style.display = 'none';
-            document.getElementById('btn-start-bulk').style.display = 'inline-flex';
-            document.getElementById('bulk-send-form-inputs').style.display = 'block';
-            return;
-        }
+        params.append('exclude_ids', Array.from(excludedClientIds).join(','));
     } else {
-        const checkedBoxes = Array.from(document.querySelectorAll('.client-checkbox:checked'));
-        clientsList = checkedBoxes.map(box => ({
-            id: box.value,
-            name: box.dataset.name,
-            company_name: box.dataset.company || '',
-            mobile: box.dataset.mobile
-        }));
+        params.append('selected_ids', Array.from(selectedClientIds).join(','));
+    }
+    
+    try {
+        const res = await fetch('index.php?' + params.toString());
+        clientsList = await res.json();
+        fetchLog.style.color = 'var(--success)';
+        fetchLog.innerHTML = '<i class="fas fa-check-circle" style="margin-left:5px;"></i>تم جلب بيانات العملاء بنجاح.';
+    } catch (err) {
+        fetchLog.style.color = 'var(--danger)';
+        fetchLog.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-left:5px;"></i>فشل جلب بيانات العملاء من السيرفر.';
+        document.getElementById('btn-cancel-bulk').style.display = 'none';
+        document.getElementById('btn-start-bulk').style.display = 'inline-flex';
+        document.getElementById('bulk-send-form-inputs').style.display = 'block';
+        return;
     }
 
     if (clientsList.length === 0) {
