@@ -58,6 +58,17 @@ foreach ($renewals as $r) {
 }
 $grandTotalRenewals = array_sum(array_column($clients, 'total_price'));
 
+// حساب إجمالي كل خدمة على حدة
+$serviceTotals = [];
+foreach ($renewals as $r) {
+    $sName = $r['service_name'];
+    if (!isset($serviceTotals[$sName])) {
+        $serviceTotals[$sName] = 0;
+    }
+    $serviceTotals[$sName] += $r['price'];
+}
+arsort($serviceTotals);
+
 function renderRenewalsTable($clients) {
     if (empty($clients)): ?>
     <tr><td colspan="8">
@@ -169,12 +180,24 @@ if (isset($_GET['ajax'])) {
     renderRenewalsTable($clients);
     $tbodyHtml = ob_get_clean();
 
+    $statusText = ($clientStatus === '1') ? ' نشط' : (($clientStatus === '0') ? ' موقوف' : '');
+
+    ob_start();
+    foreach ($serviceTotals as $sName => $total): ?>
+    <div style="background: rgba(36,86,164,0.05); border: 1px solid rgba(36,86,164,0.1); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+      <span style="color: var(--text-muted);"><?= e($sName) ?>:</span>
+      <span style="color: var(--primary);"><?= formatMoney($total) ?></span>
+    </div>
+    <?php endforeach;
+    $serviceTotalsHtml = ob_get_clean();
+
     echo json_encode([
         'tbody' => $tbodyHtml,
-        'subtitle' => count($clients) . ' عميل لديهم تجديدات قريبة بقيمة إجمالية ' . formatMoney($grandTotalRenewals) . ' خلال ' . $filterDays . ' يوم القادمة',
+        'subtitle' => count($clients) . ' عميل' . $statusText . ' لديهم تجديدات قريبة بقيمة إجمالية ' . formatMoney($grandTotalRenewals) . ' خلال ' . $filterDays . ' يوم القادمة',
         'clients_count' => count($clients),
         'renewals_count' => count($renewals),
-        'grand_total_formatted' => formatMoney($grandTotalRenewals)
+        'grand_total_formatted' => formatMoney($grandTotalRenewals),
+        'service_totals_html' => $serviceTotalsHtml
     ]);
     exit;
 }
@@ -196,6 +219,14 @@ require_once INCLUDES_PATH . '/header.php';
     <div class="page-header-text">
       <h1 class="page-title"><i class="fas fa-calendar-exclamation" style="color:var(--warning);margin-left:8px;"></i>تقرير التجديدات القريبة</h1>
       <p class="page-subtitle"><?= count($clients) ?> عميل<?= $statusText ?> لديهم تجديدات قريبة بقيمة إجمالية <?= formatMoney($grandTotalRenewals) ?> خلال <?= $filterDays ?> يوم القادمة</p>
+      <div class="service-totals-summary" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;" id="serviceTotalsContainer">
+        <?php foreach ($serviceTotals as $sName => $total): ?>
+        <div style="background: rgba(36,86,164,0.05); border: 1px solid rgba(36,86,164,0.1); padding: 4px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+          <span style="color: var(--text-muted);"><?= e($sName) ?>:</span>
+          <span style="color: var(--primary);"><?= formatMoney($total) ?></span>
+        </div>
+        <?php endforeach; ?>
+      </div>
     </div>
     <div class="page-actions" style="gap: 12px;">
       <div style="display:flex;gap:10px;align-items:center;" id="filterFormContainer">
@@ -355,6 +386,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const grandTotalCell = document.getElementById('grandTotalCell');
                 if (grandTotalCell && data.grand_total_formatted) {
                     grandTotalCell.textContent = data.grand_total_formatted;
+                }
+                
+                const serviceTotalsContainer = document.getElementById('serviceTotalsContainer');
+                if (serviceTotalsContainer && data.service_totals_html !== undefined) {
+                    serviceTotalsContainer.innerHTML = data.service_totals_html;
                 }
                 
                 // Reset checkbox state
