@@ -18,7 +18,8 @@ $stmt = $db->prepare("
     JOIN clients c ON c.id=cs.client_id
     JOIN services s ON s.id=cs.service_id
     WHERE cs.status='active'
-      AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+      AND cs.end_date IS NOT NULL
+      AND cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
     ORDER BY cs.end_date ASC
 ");
 $stmt->execute([$filterDays]);
@@ -185,8 +186,8 @@ require_once INCLUDES_PATH . '/header.php';
       <div style="display:flex;gap:10px;align-items:center;" id="filterFormContainer">
         <label style="font-size:13px;font-weight:600;">خلال</label>
         <select name="days_filter" id="daysFilter" class="form-control" style="width:auto;">
-          <?php foreach ([7,14,30,60,90] as $d): ?>
-          <option value="<?= $d ?>" <?= $filterDays===$d?'selected':'' ?>><?= $d ?> يوم</option>
+          <?php foreach ([7,14,30,60,90,120,180,270,365] as $d): ?>
+          <option value="<?= $d ?>" <?= $filterDays == $d ? 'selected' : '' ?>><?= $d ?> يوم</option>
           <?php endforeach; ?>
         </select>
       </div>
