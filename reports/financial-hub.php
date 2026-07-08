@@ -175,91 +175,171 @@ elseif ($tab === 'invoices') {
 elseif ($tab === 'monthly') {
     requirePermission('view_reports');
     
+    $selectedMonth = isset($_GET['month']) ? (int)$_GET['month'] : null;
     $year = (int)($_GET['year'] ?? date('Y'));
 
-    $months = [];
-    $monthlyExpenses = [];
-    $monthlySales = [];
-    $monthlyPurchases = [];
-    $monthlyClients = [];
-    for ($m = 1; $m <= 12; $m++) {
-        // الإيرادات
-        $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date)=? AND MONTH(payment_date)=?");
-        $stmt->execute([$year, $m]);
-        $months[$m] = (float)$stmt->fetchColumn();
-
-        // المصروفات
-        $stmt2 = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE YEAR(expense_date)=? AND MONTH(expense_date)=?");
-        $stmt2->execute([$year, $m]);
-        $monthlyExpenses[$m] = (float)$stmt2->fetchColumn();
-
-        // المبيعات (من الاشتراكات والخدمات المسجلة)
-        $stmt3 = $db->prepare("SELECT COALESCE(SUM(price),0) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
-        $stmt3->execute([$year, $m]);
-        $monthlySales[$m] = (float)$stmt3->fetchColumn();
-
-        // المشتريات (تساوي المصروفات)
-        $monthlyPurchases[$m] = $monthlyExpenses[$m];
-
-        // عدد العملاء المشتركين
-        $stmt4 = $db->prepare("SELECT COUNT(DISTINCT client_id) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
-        $stmt4->execute([$year, $m]);
-        $monthlyClients[$m] = (int)$stmt4->fetchColumn();
-    }
-    $totalYear = array_sum($months);
-    $totalExpensesYear = array_sum($monthlyExpenses);
-    $netProfitYear = $totalYear - $totalExpensesYear;
-
-    $totalSalesYear = array_sum($monthlySales);
-    $totalPurchasesYear = array_sum($monthlyPurchases);
-    $netSalesProfitYear = $totalSalesYear - $totalPurchasesYear;
-
-    $totalClientsYear = array_sum($monthlyClients);
-
-    // أفضل الخدمات
-    $topServices = $db->query("
-        SELECT s.name, COUNT(*) as count, SUM(cs.price) as total
-        FROM client_subscriptions cs JOIN services s ON s.id=cs.service_id
-        GROUP BY s.id ORDER BY total DESC LIMIT 5
-    ")->fetchAll();
-
-    // تفصيل الإيرادات حسب الخدمات لكل شهر
-    $allServices = $db->query("SELECT id, name FROM services ORDER BY sort_order ASC, name ASC")->fetchAll();
-    $serviceMonthlyRevenue = [];
-    foreach (range(1, 12) as $m) {
-        $serviceMonthlyRevenue[$m] = [];
-        foreach ($allServices as $srv) {
-            $stmt = $db->prepare("
-                SELECT COALESCE(SUM(p.amount),0) 
-                FROM payments p
-                JOIN client_subscriptions cs ON cs.id = p.subscription_id
-                WHERE cs.service_id = ? 
-                  AND YEAR(p.payment_date) = ? 
-                  AND MONTH(p.payment_date) = ?
-            ");
-            $stmt->execute([$srv['id'], $year, $m]);
-            $serviceMonthlyRevenue[$m][$srv['id']] = (float)$stmt->fetchColumn();
-        }
-    }
-    // تفصيل المصروفات حسب التصنيفات لكل شهر
-    $expenseCategories = ['دومين', 'سيرفر', 'إعلانات', 'موظفين', 'أخرى'];
-    $categoryMonthlyExpenses = [];
-    foreach (range(1, 12) as $m) {
-        $categoryMonthlyExpenses[$m] = [];
-        foreach ($expenseCategories as $cat) {
-            $stmt = $db->prepare("
-                SELECT COALESCE(SUM(amount),0) 
-                FROM expenses 
-                WHERE category = ? 
-                  AND YEAR(expense_date) = ? 
-                  AND MONTH(expense_date) = ?
-            ");
-            $stmt->execute([$cat, $year, $m]);
-            $categoryMonthlyExpenses[$m][$cat] = (float)$stmt->fetchColumn();
-        }
-    }
-
     $arabicMonths = ['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+    if ($selectedMonth) {
+        // ── جلب تفاصيل الشهر المحدد ──
+        
+        // 1. الاشتراكات الجديدة في هذا الشهر (مجمعة حسب العميل)
+        $newSubsQuery = $db->prepare("
+            SELECT cs.client_id, c.name as client_name, c.company_name,
+                   GROUP_CONCAT(s.name SEPARATOR '، ') as services_list,
+                   SUM(cs.price) as total_price,
+                   COUNT(cs.id) as subs_count,
+                   MIN(cs.start_date) as min_start_date
+            FROM client_subscriptions cs
+            JOIN clients c ON c.id = cs.client_id
+            JOIN services s ON s.id = cs.service_id
+            WHERE YEAR(cs.start_date) = ? AND MONTH(cs.start_date) = ? AND cs.status != 'cancelled'
+            GROUP BY cs.client_id
+            ORDER BY min_start_date DESC
+        ");
+        $newSubsQuery->execute([$year, $selectedMonth]);
+        $newSubs = $newSubsQuery->fetchAll();
+
+        // 2. التحصيلات المحصلة في هذا الشهر
+        $monthPaysQuery = $db->prepare("
+            SELECT p.*, c.name as client_name, c.company_name, s.name as service_name
+            FROM payments p
+            JOIN clients c ON c.id = p.client_id
+            LEFT JOIN client_subscriptions cs ON cs.id = p.subscription_id
+            LEFT JOIN services s ON s.id = cs.service_id
+            WHERE YEAR(p.payment_date) = ? AND MONTH(p.payment_date) = ?
+            ORDER BY p.payment_date DESC
+        ");
+        $monthPaysQuery->execute([$year, $selectedMonth]);
+        $monthPays = $monthPaysQuery->fetchAll();
+
+        // 3. المصروفات في هذا الشهر
+        $monthExpsQuery = $db->prepare("
+            SELECT e.*
+            FROM expenses e
+            WHERE YEAR(e.expense_date) = ? AND MONTH(e.expense_date) = ?
+            ORDER BY e.expense_date DESC
+        ");
+        $monthExpsQuery->execute([$year, $selectedMonth]);
+        $monthExps = $monthExpsQuery->fetchAll();
+
+        // 4. العملاء الذين عليهم مديونيات قائمة
+        $duesQuery = $db->prepare("
+            SELECT c.id, c.name, c.company_name, c.mobile,
+                   COALESCE(subs.total_subs, 0) as total_subscriptions,
+                   COALESCE(pays.total_paid, 0) as total_paid,
+                   (COALESCE(subs.total_subs, 0) - COALESCE(pays.total_paid, 0)) as remaining_due,
+                   (SELECT COUNT(*) FROM client_subscriptions WHERE client_id = c.id AND YEAR(start_date) = ? AND MONTH(start_date) = ?) as month_subs_count
+            FROM clients c
+            LEFT JOIN (
+                SELECT client_id, SUM(price) as total_subs
+                FROM client_subscriptions
+                WHERE status != 'cancelled'
+                GROUP BY client_id
+            ) subs ON subs.client_id = c.id
+            LEFT JOIN (
+                SELECT client_id, SUM(amount) as total_paid
+                FROM payments
+                GROUP BY client_id
+            ) pays ON pays.client_id = c.id
+            WHERE (COALESCE(subs.total_subs, 0) - COALESCE(pays.total_paid, 0)) > 0.01
+            ORDER BY month_subs_count DESC, remaining_due DESC
+        ");
+        $duesQuery->execute([$year, $selectedMonth]);
+        $clientsWithDues = $duesQuery->fetchAll();
+
+        // حساب الإجماليات
+        $totalNewSubsVal   = array_sum(array_column($newSubs, 'total_price'));
+        $totalCollectedVal = array_sum(array_column($monthPays, 'amount'));
+        $totalExpensesVal  = array_sum(array_column($monthExps, 'amount'));
+        $cashNetProfit     = $totalCollectedVal - $totalExpensesVal;
+        $accrualNetProfit  = $totalNewSubsVal - $totalExpensesVal;
+        
+        $activeClientsCount = (int)$db->query("SELECT COUNT(*) FROM clients WHERE status = 1")->fetchColumn();
+    } else {
+        // ── جلب التقرير السنوي العام ──
+        $months = [];
+        $monthlyExpenses = [];
+        $monthlySales = [];
+        $monthlyPurchases = [];
+        $monthlyClients = [];
+        for ($m = 1; $m <= 12; $m++) {
+            // الإيرادات
+            $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date)=? AND MONTH(payment_date)=?");
+            $stmt->execute([$year, $m]);
+            $months[$m] = (float)$stmt->fetchColumn();
+
+            // المصروفات
+            $stmt2 = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE YEAR(expense_date)=? AND MONTH(expense_date)=?");
+            $stmt2->execute([$year, $m]);
+            $monthlyExpenses[$m] = (float)$stmt2->fetchColumn();
+
+            // المبيعات (من الاشتراكات والخدمات المسجلة)
+            $stmt3 = $db->prepare("SELECT COALESCE(SUM(price),0) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
+            $stmt3->execute([$year, $m]);
+            $monthlySales[$m] = (float)$stmt3->fetchColumn();
+
+            // المشتريات (تساوي المصروفات)
+            $monthlyPurchases[$m] = $monthlyExpenses[$m];
+
+            // عدد العملاء المشتركين
+            $stmt4 = $db->prepare("SELECT COUNT(DISTINCT client_id) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
+            $stmt4->execute([$year, $m]);
+            $monthlyClients[$m] = (int)$stmt4->fetchColumn();
+        }
+        $totalYear = array_sum($months);
+        $totalExpensesYear = array_sum($monthlyExpenses);
+        $netProfitYear = $totalYear - $totalExpensesYear;
+
+        $totalSalesYear = array_sum($monthlySales);
+        $totalPurchasesYear = array_sum($monthlyPurchases);
+        $netSalesProfitYear = $totalSalesYear - $totalPurchasesYear;
+
+        $totalClientsYear = array_sum($monthlyClients);
+
+        // أفضل الخدمات
+        $topServices = $db->query("
+            SELECT s.name, COUNT(*) as count, SUM(cs.price) as total
+            FROM client_subscriptions cs JOIN services s ON s.id=cs.service_id
+            GROUP BY s.id ORDER BY total DESC LIMIT 5
+        ")->fetchAll();
+
+        // تفصيل الإيرادات حسب الخدمات لكل شهر
+        $allServices = $db->query("SELECT id, name FROM services ORDER BY sort_order ASC, name ASC")->fetchAll();
+        $serviceMonthlyRevenue = [];
+        foreach (range(1, 12) as $m) {
+            $serviceMonthlyRevenue[$m] = [];
+            foreach ($allServices as $srv) {
+                $stmt = $db->prepare("
+                    SELECT COALESCE(SUM(p.amount),0) 
+                    FROM payments p
+                    JOIN client_subscriptions cs ON cs.id = p.subscription_id
+                    WHERE cs.service_id = ? 
+                      AND YEAR(p.payment_date) = ? 
+                      AND MONTH(p.payment_date) = ?
+                ");
+                $stmt->execute([$srv['id'], $year, $m]);
+                $serviceMonthlyRevenue[$m][$srv['id']] = (float)$stmt->fetchColumn();
+            }
+        }
+        // تفصيل المصروفات حسب التصنيفات لكل شهر
+        $expenseCategories = ['دومين', 'سيرفر', 'إعلانات', 'موظفين', 'أخرى'];
+        $categoryMonthlyExpenses = [];
+        foreach (range(1, 12) as $m) {
+            $categoryMonthlyExpenses[$m] = [];
+            foreach ($expenseCategories as $cat) {
+                $stmt = $db->prepare("
+                    SELECT COALESCE(SUM(amount),0) 
+                    FROM expenses 
+                    WHERE category = ? 
+                      AND YEAR(expense_date) = ? 
+                      AND MONTH(expense_date) = ?
+                ");
+                $stmt->execute([$cat, $year, $m]);
+                $categoryMonthlyExpenses[$m][$cat] = (float)$stmt->fetchColumn();
+            }
+        }
+    }
 }
 
 // ── 4. تبويب ملخص الخدمات (Services Summary Tab) ─────────────────
@@ -956,6 +1036,413 @@ require_once INCLUDES_PATH . '/header.php';
   <!-- 3. الأرباح والخسائر والتحليلات -->
   <?php if ($tab === 'monthly'): ?>
   
+  <?php if ($selectedMonth): ?>
+  <!-- ── التقرير المالي والتشغيلي المفصل للشهر ── -->
+  <div class="card" style="margin-bottom: 20px; border-right: 4px solid var(--primary);">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; padding:16px 20px;">
+      <div>
+        <h2 style="font-size:18px; font-weight:800; color:var(--primary); margin:0;">
+          <i class="fas fa-calendar-check" style="margin-left:8px;"></i>
+          التقرير المالي والتشغيلي لشهر <?= $arabicMonths[$selectedMonth] ?> لعام <?= $year ?>
+        </h2>
+        <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-muted);">
+          متابعة العملاء الجدد المشتركين، التحصيلات والمدفوعات والمصروفات والديون القائمة
+        </p>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <form method="GET" style="display:inline-flex; gap:8px;">
+          <input type="hidden" name="tab" value="monthly">
+          <select name="month" class="form-control" style="width:auto;" onchange="this.form.submit()">
+            <?php for ($m = 1; $m <= 12; $m++): ?>
+            <option value="<?= $m ?>" <?= $selectedMonth === $m ? 'selected' : '' ?>><?= $arabicMonths[$m] ?></option>
+            <?php endfor; ?>
+          </select>
+          <select name="year" class="form-control" style="width:auto;" onchange="this.form.submit()">
+            <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
+            <option value="<?= $y ?>" <?= $year === $y ? 'selected' : '' ?>><?= $y ?></option>
+            <?php endfor; ?>
+          </select>
+        </form>
+        <a href="?tab=monthly&year=<?= $year ?>" class="btn btn-outline" style="font-weight:700;">
+          <i class="fas fa-arrow-left"></i> العودة للتقرير السنوي
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- بطاقات الملخص الشهري -->
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px;">
+    <!-- 1. الاشتراكات الجديدة -->
+    <div class="card" style="border-right: 4px solid var(--primary-light); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(36,86,164,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-file-contract"></i>
+      </div>
+      <div>
+        <div style="font-size:12px; color:var(--text-muted); font-weight:600;">الاشتراكات الجديدة</div>
+        <div style="font-size:17px; font-weight:800; color:var(--primary); margin-top:4px;"><?= formatMoney($totalNewSubsVal) ?></div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;"><?= count($newSubs) ?> عميل مشترك جديد</div>
+      </div>
+    </div>
+
+    <!-- 2. المقبوضات/التحصيلات -->
+    <div class="card" style="border-right: 4px solid var(--success); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(16,185,129,0.1); color:var(--success); display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-coins"></i>
+      </div>
+      <div>
+        <div style="font-size:12px; color:var(--text-muted); font-weight:600;">التحصيلات والمدفوعات</div>
+        <div style="font-size:17px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalCollectedVal) ?></div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;"><?= count($monthPays) ?> دفعة مستلمة</div>
+      </div>
+    </div>
+
+    <!-- 3. المصروفات -->
+    <div class="card" style="border-right: 4px solid var(--danger); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(239,68,68,0.1); color:var(--danger); display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-file-invoice-dollar"></i>
+      </div>
+      <div>
+        <div style="font-size:12px; color:var(--text-muted); font-weight:600;">المصروفات المنصرفة</div>
+        <div style="font-size:17px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney($totalExpensesVal) ?></div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;"><?= count($monthExps) ?> مصروف تشغيلي</div>
+      </div>
+    </div>
+
+    <!-- 4. صافي الربح الفعلي -->
+    <div class="card" style="border-right: 4px solid <?= $cashNetProfit >= 0 ? 'var(--success)' : 'var(--danger)' ?>; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:<?= $cashNetProfit >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' ?>; color:<?= $cashNetProfit >= 0 ? 'var(--success)' : 'var(--danger)' ?>; display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas <?= $cashNetProfit >= 0 ? 'fa-scale-balanced' : 'fa-triangle-exclamation' ?>"></i>
+      </div>
+      <div>
+        <div style="font-size:12px; color:var(--text-muted); font-weight:600;">صافي التدفق النقدي</div>
+        <div style="font-size:17px; font-weight:800; color:<?= $cashNetProfit >= 0 ? 'var(--success)' : 'var(--danger)' ?>; margin-top:4px;">
+          <?= ($cashNetProfit >= 0 ? '+' : '') . formatMoney($cashNetProfit) ?>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">التحصيلات - المصروفات</div>
+      </div>
+    </div>
+
+    <!-- 5. مديونيات وحالة العملاء -->
+    <div class="card" style="border-right: 4px solid #ea580c; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
+      <div style="width:48px; height:48px; border-radius:12px; background:rgba(234,88,12,0.1); color:#ea580c; display:flex; align-items:center; justify-content:center; font-size:20px;">
+        <i class="fas fa-user-clock"></i>
+      </div>
+      <div>
+        <div style="font-size:12px; color:var(--text-muted); font-weight:600;">المديونيات القائمة</div>
+        <div style="font-size:17px; font-weight:800; color:#ea580c; margin-top:4px;">
+          <?= formatMoney(array_sum(array_column($clientsWithDues, 'remaining_due'))) ?>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">
+          <?= count($clientsWithDues) ?> عميل عليه مديونية
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- تبويبات تفصيلية -->
+  <div class="month-tabs" style="display:flex; gap:8px; margin: 24px 0 16px 0; border-bottom:2px solid #cbd5e1; padding-bottom:2px; flex-wrap:wrap;">
+    <button class="month-tab-btn active" onclick="switchMonthTab(event, 'new-subs')">
+      <i class="fas fa-file-contract"></i> المشتركون الجدد هذا الشهر (<?= count($newSubs) ?>)
+    </button>
+    <button class="month-tab-btn" onclick="switchMonthTab(event, 'collected-pays')">
+      <i class="fas fa-coins"></i> التحصيلات والدفعات (<?= count($monthPays) ?>)
+    </button>
+    <button class="month-tab-btn" onclick="switchMonthTab(event, 'expenses-tab')">
+      <i class="fas fa-file-invoice-dollar"></i> المصروفات المنصرفة (<?= count($monthExps) ?>)
+    </button>
+    <button class="month-tab-btn" onclick="switchMonthTab(event, 'dues-tab')">
+      <i class="fas fa-user-clock"></i> عملاء عليهم مديونيات (<?= count($clientsWithDues) ?>)
+    </button>
+  </div>
+
+  <style>
+  .month-tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 20px;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    font-family: 'Cairo', sans-serif;
+    font-size: 14.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .month-tab-btn:hover {
+    color: var(--primary);
+    background: rgba(36,86,164,0.04);
+  }
+  .month-tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: rgba(36,86,164,0.02);
+  }
+  .month-tab-content {
+    display: none;
+  }
+  .month-tab-content.active {
+    display: block;
+  }
+  </style>
+
+  <script>
+  function switchMonthTab(evt, tabId) {
+    document.querySelectorAll('.month-tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.month-tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    evt.currentTarget.classList.add('active');
+  }
+  </script>
+
+  <!-- 1. الاشتراكات الجديدة -->
+  <div id="new-subs" class="month-tab-content active card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>تاريخ أول اشتراك</th>
+            <th>العميل</th>
+            <th>الخدمات المشترك فيها</th>
+            <th>عدد الاشتراكات</th>
+            <th>إجمالي التكلفة</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($newSubs)): ?>
+          <tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><i class="fas fa-file-contract"></i></div><p class="empty-title">لا توجد اشتراكات جديدة في هذا الشهر</p></div></td></tr>
+          <?php else: ?>
+          <?php foreach ($newSubs as $i => $sub): ?>
+          <tr>
+            <td class="text-muted"><?= $i+1 ?></td>
+            <td><?= formatDate($sub['min_start_date']) ?></td>
+            <td>
+              <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
+                <?= e($sub['client_name']) ?>
+              </a>
+              <?php if ($sub['company_name']): ?>
+              <div style="font-size:11px; color:var(--text-muted);"><?= e($sub['company_name']) ?></div>
+              <?php endif; ?>
+            </td>
+            <td><strong><?= e($sub['services_list']) ?></strong></td>
+            <td class="text-muted"><?= e($sub['subs_count']) ?> اشتراكات</td>
+            <td class="fw-bold text-success"><?= formatMoney($sub['total_price']) ?></td>
+            <td>
+              <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" class="btn btn-sm btn-outline-info" style="padding: 4px 8px;">
+                <i class="fas fa-eye"></i> عرض العميل
+              </a>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc; font-weight:700;">
+            <td colspan="5" style="text-align:right;">إجمالي قيمة اشتراكات الشهر:</td>
+            <td style="color:var(--success); font-size:14px;"><?= formatMoney($totalNewSubsVal) ?></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. التحصيلات والمدفوعات -->
+  <div id="collected-pays" class="month-tab-content card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>التاريخ</th>
+            <th>العميل</th>
+            <th>المبلغ</th>
+            <th>طريقة الدفع</th>
+            <th>الخدمة</th>
+            <th>المرجع</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($monthPays)): ?>
+          <tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><i class="fas fa-coins"></i></div><p class="empty-title">لا توجد مدفوعات محصلة في هذا الشهر</p></div></td></tr>
+          <?php else: ?>
+          <?php foreach ($monthPays as $i => $pay): ?>
+          <tr>
+            <td class="text-muted"><?= $i+1 ?></td>
+            <td><?= formatDate($pay['payment_date']) ?></td>
+            <td>
+              <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
+                <?= e($pay['client_name']) ?>
+              </a>
+              <?php if ($pay['company_name']): ?>
+              <div style="font-size:11px; color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
+              <?php endif; ?>
+            </td>
+            <td style="color:var(--success); font-weight:700;"><?= formatMoney($pay['amount']) ?></td>
+            <td><?= paymentMethodLabel($pay['payment_method']) ?></td>
+            <td class="text-muted"><?= e($pay['service_name'] ?: '—') ?></td>
+            <td class="text-muted fs-sm"><?= e($pay['reference_number'] ?: '—') ?></td>
+            <td class="text-muted fs-sm"><?= e($pay['notes'] ?: '—') ?></td>
+          </tr>
+          <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc; font-weight:700;">
+            <td colspan="3" style="text-align:right;">إجمالي المبالغ المحصلة:</td>
+            <td style="color:var(--success); font-size:14px;"><?= formatMoney($totalCollectedVal) ?></td>
+            <td colspan="4"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. المصروفات -->
+  <div id="expenses-tab" class="month-tab-content card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>التاريخ</th>
+            <th>عنوان المصروف</th>
+            <th>التصنيف</th>
+            <th>المبلغ</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($monthExps)): ?>
+          <tr><td colspan="6"><div class="empty-state"><div class="empty-icon"><i class="fas fa-file-signature"></i></div><p class="empty-title">لا توجد مصروفات في هذا الشهر</p></div></td></tr>
+          <?php else: ?>
+          <?php foreach ($monthExps as $i => $exp): ?>
+          <tr>
+            <td class="text-muted"><?= $i+1 ?></td>
+            <td><?= formatDate($exp['expense_date']) ?></td>
+            <td><strong><?= e($exp['title']) ?></strong></td>
+            <td><span class="badge badge-info" style="font-weight:700; padding:2px 8px; border-radius:4px; font-size:11px;"><?= e($exp['category']) ?></span></td>
+            <td style="color:var(--danger); font-weight:700;"><?= formatMoney($exp['amount']) ?></td>
+            <td class="text-muted fs-sm"><?= e($exp['notes'] ?: '—') ?></td>
+          </tr>
+          <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc; font-weight:700;">
+            <td colspan="4" style="text-align:right;">إجمالي المصروفات المنصرفة:</td>
+            <td style="color:var(--danger); font-size:14px;"><?= formatMoney($totalExpensesVal) ?></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. مديونيات العملاء -->
+  <div id="dues-tab" class="month-tab-content card">
+    <div style="padding:16px 20px; border-bottom:1px solid #cbd5e1; background:#fafbfc; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <span style="font-weight:700; color:var(--text-primary); font-size:13.5px;">
+        <i class="fas fa-info-circle" style="color:var(--primary); margin-left:6px;"></i>
+        العملاء الذين لديهم مبالغ غير مدفوعة (مستحقة) مسجلة في النظام ككل.
+      </span>
+      <div style="font-size:12px; color:var(--text-muted); font-weight:700;">
+        العملاء الذين اشتركوا هذا الشهر يتم إبرازهم أولاً بنجمة ذهبية.
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>العميل</th>
+            <th>رقم الموبايل</th>
+            <th>إجمالي الاشتراكات</th>
+            <th>إجمالي المدفوع</th>
+            <th>المديونية المتبقية</th>
+            <th>الحالة</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($clientsWithDues)): ?>
+          <tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><i class="fas fa-user-check"></i></div><p class="empty-title">لا توجد مديونيات معلقة حالياً</p></div></td></tr>
+          <?php else: ?>
+          <?php foreach ($clientsWithDues as $i => $client): ?>
+          <tr>
+            <td class="text-muted">
+              <?php if ($client['month_subs_count'] > 0): ?>
+              <span title="اشترك هذا الشهر" style="color:#eab308; font-size:15px; font-weight:bold;"><i class="fas fa-star"></i></span>
+              <?php else: ?>
+              <?= $i+1 ?>
+              <?php endif; ?>
+            </td>
+            <td>
+              <a href="../clients/view.php?id=<?= $client['id'] ?>" style="font-weight:600; color:var(--text-primary);">
+                <?= e($client['name']) ?>
+              </a>
+              <?php if ($client['company_name']): ?>
+              <div style="font-size:11px; color:var(--text-muted);"><?= e($client['company_name']) ?></div>
+              <?php endif; ?>
+            </td>
+            <td>
+              <span class="text-muted" style="direction:ltr; display:inline-block;"><?= e($client['mobile']) ?></span>
+            </td>
+            <td class="fw-bold text-muted"><?= formatMoney($client['total_subscriptions']) ?></td>
+            <td class="fw-bold text-success"><?= formatMoney($client['total_paid']) ?></td>
+            <td class="fw-bold text-danger" style="font-size:14px;"><?= formatMoney($client['remaining_due']) ?></td>
+            <td>
+              <?php if ($client['month_subs_count'] > 0): ?>
+              <span class="badge" style="background:rgba(234,179,8,0.15); color:#854d0e; font-weight:700; border:1px solid rgba(234,179,8,0.3); font-size:11px; padding:2px 8px; border-radius:6px;">
+                اشترك هذا الشهر
+              </span>
+              <?php else: ?>
+              <span class="badge" style="background:rgba(220,38,38,0.08); color:var(--danger); font-weight:600; font-size:11px; padding:2px 8px; border-radius:6px;">
+                متراكمة سابقاً
+              </span>
+              <?php endif; ?>
+            </td>
+            <td>
+              <div style="display:inline-flex; gap:8px;">
+                <a href="client-statement.php?id=<?= $client['id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" title="كشف الحساب" style="padding:4px 8px;">
+                  <i class="fas fa-file-invoice"></i> كشف
+                </a>
+                <?php if ($client['mobile']): ?>
+                <?php 
+                $cleanMob = preg_replace('/[^0-9]/', '', $client['mobile']);
+                if (strlen($cleanMob) == 11 && strpos($cleanMob, '01') === 0) {
+                    $cleanMob = '20' . substr($cleanMob, 1);
+                }
+                $waMsg = "السلام عليكم " . $client['name'] . "، للتذكير توجد مديونية معلقة مستحقة بقيمة " . formatMoney($client['remaining_due']) . ". نرجو التكرم بالتحصيل.";
+                ?>
+                <a href="https://wa.me/<?= $cleanMob ?>?text=<?= urlencode($waMsg) ?>" class="btn btn-sm btn-outline-success" target="_blank" title="تذكير واتساب" style="padding:4px 8px; border-color:#25d366; color:#128c7e;">
+                  <i class="fab fa-whatsapp"></i> تذكير
+                </a>
+                <?php endif; ?>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc; font-weight:700;">
+            <td colspan="5" style="text-align:right;">إجمالي المديونيات المستحقة:</td>
+            <td style="color:var(--danger); font-size:14px;"><?= formatMoney(array_sum(array_column($clientsWithDues, 'remaining_due'))) ?></td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <?php else: ?>
+  
   <!-- بطاقات الملخص السنوي للمركز المالي -->
   <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:20px;">
     <div class="card" style="border-right: 4px solid var(--success); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
@@ -1046,7 +1533,7 @@ require_once INCLUDES_PATH . '/header.php';
             ?>
             <tr>
               <td>
-                <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="font-weight:700;color:var(--primary);">
+                <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700;color:var(--primary);">
                   <?= $arabicMonths[$m] ?>
                 </a>
               </td>
@@ -1190,7 +1677,7 @@ require_once INCLUDES_PATH . '/header.php';
           ?>
           <tr style="transition: background 0.15s;">
             <td style="font-weight:700; border-left:1.5px solid var(--border-color); background:#fafbfc;">
-              <a href="?tab=payments&date_from=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-01&date_to=<?= $year ?>-<?= str_pad($m, 2, '0', STR_PAD_LEFT) ?>-<?= date('t', strtotime("$year-$m-01")) ?>" style="color:var(--primary); font-weight:700;">
+              <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="color:var(--primary); font-weight:700;">
                 <?= $arabicMonths[$m] ?>
               </a>
             </td>
@@ -1433,6 +1920,8 @@ require_once INCLUDES_PATH . '/header.php';
       }
   });
   </script>
+  <?php endif; ?>
+  
   <?php endif; ?>
 
   <!-- 4. ملخص الخدمات -->
