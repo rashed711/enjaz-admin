@@ -8,7 +8,17 @@ requirePermission('view_reports');
 
 $db = getDB();
 $warningDays = (int)getSetting('renewal_warning_days','60');
-$filterDays  = (int)($_GET['days'] ?? $warningDays);
+$filterDays   = (int)($_GET['days'] ?? $warningDays);
+$clientStatus = $_GET['status'] ?? '1'; // '1' = active, '0' = stopped, 'all' = both
+
+$where = ["cs.status='active'", "cs.end_date IS NOT NULL", "cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)"];
+$params = [$filterDays];
+
+if ($clientStatus !== 'all') {
+    $where[] = "c.status = ?";
+    $params[] = (int)$clientStatus;
+}
+$whereStr = implode(' AND ', $where);
 
 $stmt = $db->prepare("
     SELECT cs.*, c.name as client_name, c.mobile, c.company_name,
@@ -17,12 +27,10 @@ $stmt = $db->prepare("
     FROM client_subscriptions cs
     JOIN clients c ON c.id=cs.client_id
     JOIN services s ON s.id=cs.service_id
-    WHERE cs.status='active'
-      AND cs.end_date IS NOT NULL
-      AND cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+    WHERE $whereStr
     ORDER BY cs.end_date ASC
 ");
-$stmt->execute([$filterDays]);
+$stmt->execute($params);
 $renewals = $stmt->fetchAll();
 
 // Group by client
@@ -48,6 +56,7 @@ foreach ($renewals as $r) {
     }
     $clients[$cId]['subscriptions'][] = $r;
 }
+$grandTotalRenewals = array_sum(array_column($clients, 'total_price'));
 
 function renderRenewalsTable($clients) {
     if (empty($clients)): ?>
@@ -162,9 +171,10 @@ if (isset($_GET['ajax'])) {
 
     echo json_encode([
         'tbody' => $tbodyHtml,
-        'subtitle' => count($clients) . ' عميل لديهم تجديدات قريبة خلال ' . $filterDays . ' يوم القادمة',
+        'subtitle' => count($clients) . ' عميل لديهم تجديدات قريبة بقيمة إجمالية ' . formatMoney($grandTotalRenewals) . ' خلال ' . $filterDays . ' يوم القادمة',
         'clients_count' => count($clients),
-        'renewals_count' => count($renewals)
+        'renewals_count' => count($renewals),
+        'grand_total_formatted' => formatMoney($grandTotalRenewals)
     ]);
     exit;
 }
@@ -176,15 +186,27 @@ require_once INCLUDES_PATH . '/header.php';
 ?>
 <form id="bulkWhatsappForm" method="POST" action="../whatsapp/bulk.php?type=renewal">
   <input type="hidden" name="days" value="<?= $filterDays ?>" id="daysInput">
+  <input type="hidden" name="status" value="<?= $clientStatus ?>" id="statusInput">
+
+  <?php
+  $statusText = ($clientStatus === '1') ? ' نشط' : (($clientStatus === '0') ? ' موقوف' : '');
+  ?>
 
   <div class="page-header">
     <div class="page-header-text">
       <h1 class="page-title"><i class="fas fa-calendar-exclamation" style="color:var(--warning);margin-left:8px;"></i>تقرير التجديدات القريبة</h1>
-      <p class="page-subtitle"><?= count($clients) ?> عميل لديهم تجديدات قريبة خلال <?= $filterDays ?> يوم القادمة</p>
+      <p class="page-subtitle"><?= count($clients) ?> عميل<?= $statusText ?> لديهم تجديدات قريبة بقيمة إجمالية <?= formatMoney($grandTotalRenewals) ?> خلال <?= $filterDays ?> يوم القادمة</p>
     </div>
     <div class="page-actions" style="gap: 12px;">
       <div style="display:flex;gap:10px;align-items:center;" id="filterFormContainer">
-        <label style="font-size:13px;font-weight:600;">خلال</label>
+        <label style="font-size:13px;font-weight:600;">الحالة</label>
+        <select name="status_filter" id="statusFilter" class="form-control" style="width:auto;">
+          <option value="1" <?= $clientStatus === '1' ? 'selected' : '' ?>>النشطين فقط</option>
+          <option value="0" <?= $clientStatus === '0' ? 'selected' : '' ?>>الموقوفين فقط</option>
+          <option value="all" <?= $clientStatus === 'all' ? 'selected' : '' ?>>الكل</option>
+        </select>
+
+        <label style="font-size:13px;font-weight:600;margin-right:10px;">خلال</label>
         <select name="days_filter" id="daysFilter" class="form-control" style="width:auto;">
           <?php foreach ([7,14,30,60,90,120,180,270,365] as $d): ?>
           <option value="<?= $d ?>" <?= $filterDays == $d ? 'selected' : '' ?>><?= $d ?> يوم</option>
@@ -229,6 +251,15 @@ require_once INCLUDES_PATH . '/header.php';
         <tbody>
           <?php renderRenewalsTable($clients); ?>
         </tbody>
+        <tfoot>
+          <tr style="background:#f8fafc; font-weight:800; border-top: 2px solid #cbd5e1;">
+            <td colspan="4" style="text-align: left; padding: 12px 16px;">الإجمالي الكلي للتجديدات:</td>
+            <td id="grandTotalCell" style="padding: 12px 16px; color: var(--success); font-size: 15px; font-weight: 800;">
+              <?= formatMoney($grandTotalRenewals) ?>
+            </td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
@@ -248,6 +279,7 @@ function toggleClientDetails(clientId) {
 
 document.addEventListener('DOMContentLoaded', function() {
     const daysSelect = document.getElementById('daysFilter');
+    const statusSelect = document.getElementById('statusFilter');
     const tbody = document.querySelector('.data-table tbody');
     const subtitle = document.querySelector('.page-subtitle');
     const bulkWhatsappBtn = document.getElementById('bulkWhatsappBtn');
@@ -255,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedCountSpan = document.getElementById('selectedCount');
     const selectAllCheckbox = document.getElementById('selectAll');
     const daysInput = document.getElementById('daysInput');
+    const statusInput = document.getElementById('statusInput');
 
     function updateSendButtonState() {
         const checkedBoxes = document.querySelectorAll('.client-checkbox:checked');
@@ -288,24 +321,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function doSearch() {
         const daysVal = daysSelect.value;
+        const statusVal = statusSelect ? statusSelect.value : '1';
         const params = new URLSearchParams({
             days: daysVal,
+            status: statusVal,
             ajax: 1
         });
 
         // Update URL
-        const cleanParams = new URLSearchParams({ days: daysVal });
+        const cleanParams = new URLSearchParams({ days: daysVal, status: statusVal });
         const newUrl = window.location.pathname + '?' + cleanParams.toString();
         window.history.replaceState({path: newUrl}, '', newUrl);
 
-        // Update hidden input
+        // Update hidden inputs
         if (daysInput) {
             daysInput.value = daysVal;
+        }
+        if (statusInput) {
+            statusInput.value = statusVal;
         }
 
         // Update Bulk WhatsApp button url & confirm message
         if (bulkWhatsappBtn) {
-            bulkWhatsappBtn.setAttribute('href', '../whatsapp/bulk.php?type=renewal&days=' + daysVal);
+            bulkWhatsappBtn.setAttribute('href', '../whatsapp/bulk.php?type=renewal&days=' + daysVal + '&status=' + statusVal);
         }
 
         fetch('renewals.php?' + params.toString())
@@ -313,6 +351,11 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 tbody.innerHTML = data.tbody;
                 subtitle.textContent = data.subtitle;
+                
+                const grandTotalCell = document.getElementById('grandTotalCell');
+                if (grandTotalCell && data.grand_total_formatted) {
+                    grandTotalCell.textContent = data.grand_total_formatted;
+                }
                 
                 // Reset checkbox state
                 if (selectAllCheckbox) {
@@ -333,6 +376,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     daysSelect.addEventListener('change', doSearch);
+    if (statusSelect) {
+        statusSelect.addEventListener('change', doSearch);
+    }
 });
 </script>
 
