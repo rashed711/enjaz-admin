@@ -356,7 +356,7 @@ elseif ($tab === 'services') {
     $payWhereStr = implode(' AND ', $payWhere);
     
     $services = $db->prepare("
-        SELECT s.name, s.default_price,
+        SELECT s.id, s.name, s.default_price,
                COUNT(DISTINCT CASE WHEN cs.status='active' THEN cs.client_id END) as active_clients,
                COUNT(DISTINCT cs.client_id) as total_clients,
                COALESCE((
@@ -1970,7 +1970,7 @@ require_once INCLUDES_PATH . '/header.php';
           <?php foreach ($services as $i => $srv): ?>
           <tr>
             <td class="text-muted"><?= $i+1 ?></td>
-            <td><strong><?= e($srv['name']) ?></strong></td>
+            <td><a href="service-details.php?id=<?= $srv['id'] ?>" style="font-weight:bold; color:var(--primary);"><?= e($srv['name']) ?></a></td>
             <td><?= formatMoney($srv['default_price']) ?></td>
             <td><span class="badge badge-primary"><?= $srv['total_clients'] ?></span></td>
             <td><span class="badge badge-success"><?= $srv['active_clients'] ?></span></td>
