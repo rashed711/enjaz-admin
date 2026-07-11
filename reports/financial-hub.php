@@ -14,10 +14,7 @@ $db = getDB();
 if ($tab === 'payments') {
     requirePermission('view_payments');
     
-    $search  = clean($_GET['search'] ?? '');
-    $method  = $_GET['method'] ?? '';
-    $dateFrom= clean($_GET['date_from'] ?? '');
-    $dateTo  = clean($_GET['date_to'] ?? '');
+    $clientStatus = $_GET['client_status'] ?? 'active';
     $page    = max(1,(int)($_GET['page'] ?? 1));
     $perPage = 25;
 
@@ -27,6 +24,8 @@ if ($tab === 'payments') {
     if ($method) { $where[] = "p.payment_method = ?"; $params[] = $method; }
     if ($dateFrom) { $where[] = "p.payment_date >= ?"; $params[] = $dateFrom; }
     if ($dateTo)   { $where[] = "p.payment_date <= ?"; $params[] = $dateTo; }
+    if ($clientStatus === 'active') { $where[] = "c.status = 1"; }
+    elseif ($clientStatus === 'suspended') { $where[] = "c.status = 0"; }
     $whereStr = implode(' AND ', $where);
 
     $countStmt = $db->prepare("SELECT COUNT(*) FROM payments p LEFT JOIN clients c ON c.id=p.client_id WHERE $whereStr");
@@ -40,7 +39,7 @@ if ($tab === 'payments') {
     $totalAmount = (float)$sumStmt->fetchColumn();
 
     $stmt = $db->prepare("
-        SELECT p.*, c.name as client_name, c.company_name, u.full_name as added_by,
+        SELECT p.*, c.name as client_name, c.company_name, c.status as client_status, u.full_name as added_by,
                s.name as service_name
         FROM payments p
         LEFT JOIN clients c ON c.id=p.client_id
@@ -70,6 +69,9 @@ if ($tab === 'payments') {
             <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600;color:var(--text-primary);">
               <?= e($pay['client_name']) ?>
             </a>
+            <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
+            <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+            <?php endif; ?>
             <?php if ($pay['company_name']): ?>
             <div style="font-size:11.5px;color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
             <?php endif; ?>
@@ -127,7 +129,7 @@ if ($tab === 'payments') {
           </span>
           <div class="pagination">
             <?php
-            $queryBase = http_build_query(array_filter(['search' => $search, 'method' => $method, 'date_from' => $dateFrom, 'date_to' => $dateTo]));
+            $queryBase = http_build_query(array_filter(['search' => $search, 'method' => $method, 'client_status' => $clientStatus, 'date_from' => $dateFrom, 'date_to' => $dateTo]));
             $sep = $queryBase ? '&' : '';
             ?>
             <a href="?tab=payments&<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -177,15 +179,25 @@ elseif ($tab === 'monthly') {
     
     $selectedMonth = isset($_GET['month']) ? (int)$_GET['month'] : null;
     $year = (int)($_GET['year'] ?? date('Y'));
+    $clientStatus = $_GET['client_status'] ?? 'active';
 
     $arabicMonths = ['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
     if ($selectedMonth) {
         // ── جلب تفاصيل الشهر المحدد ──
         
+        $newSubsWhere = ["YEAR(cs.start_date) = ?", "MONTH(cs.start_date) = ?", "cs.status != 'cancelled'"];
+        $newSubsParams = [$year, $selectedMonth];
+        if ($clientStatus === 'active') {
+            $newSubsWhere[] = "c.status = 1";
+        } elseif ($clientStatus === 'suspended') {
+            $newSubsWhere[] = "c.status = 0";
+        }
+        $newSubsWhereStr = implode(' AND ', $newSubsWhere);
+
         // 1. الاشتراكات الجديدة في هذا الشهر (مجمعة حسب العميل)
         $newSubsQuery = $db->prepare("
-            SELECT cs.client_id, c.name as client_name, c.company_name,
+            SELECT cs.client_id, c.name as client_name, c.company_name, c.status as client_status,
                    GROUP_CONCAT(s.name SEPARATOR '، ') as services_list,
                    SUM(cs.price) as total_price,
                    COUNT(cs.id) as subs_count,
@@ -193,24 +205,33 @@ elseif ($tab === 'monthly') {
             FROM client_subscriptions cs
             JOIN clients c ON c.id = cs.client_id
             JOIN services s ON s.id = cs.service_id
-            WHERE YEAR(cs.start_date) = ? AND MONTH(cs.start_date) = ? AND cs.status != 'cancelled'
+            WHERE $newSubsWhereStr
             GROUP BY cs.client_id
             ORDER BY min_start_date DESC
         ");
-        $newSubsQuery->execute([$year, $selectedMonth]);
+        $newSubsQuery->execute($newSubsParams);
         $newSubs = $newSubsQuery->fetchAll();
+
+        $monthPaysWhere = ["YEAR(p.payment_date) = ?", "MONTH(p.payment_date) = ?"];
+        $monthPaysParams = [$year, $selectedMonth];
+        if ($clientStatus === 'active') {
+            $monthPaysWhere[] = "c.status = 1";
+        } elseif ($clientStatus === 'suspended') {
+            $monthPaysWhere[] = "c.status = 0";
+        }
+        $monthPaysWhereStr = implode(' AND ', $monthPaysWhere);
 
         // 2. التحصيلات المحصلة في هذا الشهر
         $monthPaysQuery = $db->prepare("
-            SELECT p.*, c.name as client_name, c.company_name, s.name as service_name
+            SELECT p.*, c.name as client_name, c.company_name, c.status as client_status, s.name as service_name
             FROM payments p
             JOIN clients c ON c.id = p.client_id
             LEFT JOIN client_subscriptions cs ON cs.id = p.subscription_id
             LEFT JOIN services s ON s.id = cs.service_id
-            WHERE YEAR(p.payment_date) = ? AND MONTH(p.payment_date) = ?
+            WHERE $monthPaysWhereStr
             ORDER BY p.payment_date DESC
         ");
-        $monthPaysQuery->execute([$year, $selectedMonth]);
+        $monthPaysQuery->execute($monthPaysParams);
         $monthPays = $monthPaysQuery->fetchAll();
 
         // 3. المصروفات في هذا الشهر
@@ -223,9 +244,18 @@ elseif ($tab === 'monthly') {
         $monthExpsQuery->execute([$year, $selectedMonth]);
         $monthExps = $monthExpsQuery->fetchAll();
 
+        $duesWhere = ["(COALESCE(subs.total_subs, 0) - COALESCE(pays.total_paid, 0)) > 0.01"];
+        $duesParams = [$year, $selectedMonth];
+        if ($clientStatus === 'active') {
+            $duesWhere[] = "c.status = 1";
+        } elseif ($clientStatus === 'suspended') {
+            $duesWhere[] = "c.status = 0";
+        }
+        $duesWhereStr = implode(' AND ', $duesWhere);
+
         // 4. العملاء الذين عليهم مديونيات قائمة
         $duesQuery = $db->prepare("
-            SELECT c.id, c.name, c.company_name, c.mobile,
+            SELECT c.id, c.name, c.company_name, c.mobile, c.status as client_status,
                    COALESCE(subs.total_subs, 0) as total_subscriptions,
                    COALESCE(pays.total_paid, 0) as total_paid,
                    (COALESCE(subs.total_subs, 0) - COALESCE(pays.total_paid, 0)) as remaining_due,
@@ -242,10 +272,10 @@ elseif ($tab === 'monthly') {
                 FROM payments
                 GROUP BY client_id
             ) pays ON pays.client_id = c.id
-            WHERE (COALESCE(subs.total_subs, 0) - COALESCE(pays.total_paid, 0)) > 0.01
+            WHERE $duesWhereStr
             ORDER BY month_subs_count DESC, remaining_due DESC
         ");
-        $duesQuery->execute([$year, $selectedMonth]);
+        $duesQuery->execute($duesParams);
         $clientsWithDues = $duesQuery->fetchAll();
 
         // حساب الإجماليات
@@ -638,6 +668,11 @@ require_once INCLUDES_PATH . '/header.php';
         <?php 
         $payMethods = explode(',', getSetting('payment_methods', 'كاش,تحويل بنكي,فودافون كاش,شيك,أخرى')); 
         ?>
+        <select name="client_status" class="form-control" style="width:auto;">
+          <option value="active" <?= $clientStatus === 'active' ? 'selected' : '' ?>>العملاء النشطين</option>
+          <option value="suspended" <?= $clientStatus === 'suspended' ? 'selected' : '' ?>>العملاء الموقوفين</option>
+          <option value="all" <?= $clientStatus === 'all' ? 'selected' : '' ?>>كل العملاء</option>
+        </select>
         <select name="method" class="form-control" style="width:auto;">
           <option value="">كل طرق الدفع</option>
           <?php foreach ($payMethods as $pm): $pm = trim($pm); ?>
@@ -693,6 +728,9 @@ require_once INCLUDES_PATH . '/header.php';
               <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600;color:var(--text-primary);">
                 <?= e($pay['client_name']) ?>
               </a>
+              <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
+              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+              <?php endif; ?>
               <?php if ($pay['company_name']): ?>
               <div style="font-size:11.5px;color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
               <?php endif; ?>
@@ -748,7 +786,7 @@ require_once INCLUDES_PATH . '/header.php';
         </span>
         <div class="pagination">
           <?php
-          $queryBase = http_build_query(array_filter(['search' => $search, 'method' => $method, 'date_from' => $dateFrom, 'date_to' => $dateTo]));
+          $queryBase = http_build_query(array_filter(['search' => $search, 'method' => $method, 'client_status' => $clientStatus, 'date_from' => $dateFrom, 'date_to' => $dateTo]));
           $sep = $queryBase ? '&' : '';
           ?>
           <a href="?tab=payments&<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -963,6 +1001,11 @@ require_once INCLUDES_PATH . '/header.php';
           methodSelect.addEventListener('change', () => doSearch(1));
       }
 
+      const clientStatusSelect = document.querySelector('select[name="client_status"]');
+      if (clientStatusSelect) {
+          clientStatusSelect.addEventListener('change', () => doSearch(1));
+      }
+
       setTimeout(() => {
           if (dateFromInput && dateFromInput._flatpickr) {
               dateFromInput._flatpickr.config.onChange.push(() => doSearch(1));
@@ -1052,6 +1095,11 @@ require_once INCLUDES_PATH . '/header.php';
       <div style="display:flex; gap:10px; align-items:center;">
         <form method="GET" style="display:inline-flex; gap:8px;">
           <input type="hidden" name="tab" value="monthly">
+          <select name="client_status" class="form-control" style="width:auto;" onchange="this.form.submit()">
+            <option value="active" <?= $clientStatus === 'active' ? 'selected' : '' ?>>العملاء النشطين</option>
+            <option value="suspended" <?= $clientStatus === 'suspended' ? 'selected' : '' ?>>العملاء الموقوفين</option>
+            <option value="all" <?= $clientStatus === 'all' ? 'selected' : '' ?>>كل العملاء</option>
+          </select>
           <select name="month" class="form-control" style="width:auto;" onchange="this.form.submit()">
             <?php for ($m = 1; $m <= 12; $m++): ?>
             <option value="<?= $m ?>" <?= $selectedMonth === $m ? 'selected' : '' ?>><?= $arabicMonths[$m] ?></option>
@@ -1224,6 +1272,9 @@ require_once INCLUDES_PATH . '/header.php';
               <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
                 <?= e($sub['client_name']) ?>
               </a>
+              <?php if (isset($sub['client_status']) && !$sub['client_status']): ?>
+              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+              <?php endif; ?>
               <?php if ($sub['company_name']): ?>
               <div style="font-size:11px; color:var(--text-muted);"><?= e($sub['company_name']) ?></div>
               <?php endif; ?>
@@ -1279,6 +1330,9 @@ require_once INCLUDES_PATH . '/header.php';
               <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
                 <?= e($pay['client_name']) ?>
               </a>
+              <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
+              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+              <?php endif; ?>
               <?php if ($pay['company_name']): ?>
               <div style="font-size:11px; color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
               <?php endif; ?>
@@ -1386,6 +1440,9 @@ require_once INCLUDES_PATH . '/header.php';
               <a href="../clients/view.php?id=<?= $client['id'] ?>" style="font-weight:600; color:var(--text-primary);">
                 <?= e($client['name']) ?>
               </a>
+              <?php if (isset($client['client_status']) && !$client['client_status']): ?>
+              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+              <?php endif; ?>
               <?php if ($client['company_name']): ?>
               <div style="font-size:11px; color:var(--text-muted);"><?= e($client['company_name']) ?></div>
               <?php endif; ?>
