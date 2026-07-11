@@ -1451,7 +1451,18 @@ require_once INCLUDES_PATH . '/header.php';
               <span class="text-muted" style="direction:ltr; display:inline-block;"><?= e($client['mobile']) ?></span>
             </td>
             <td class="fw-bold text-muted"><?= formatMoney($client['total_subscriptions']) ?></td>
-            <td class="fw-bold text-success"><?= formatMoney($client['total_paid']) ?></td>
+            <td class="fw-bold text-success">
+              <?= formatMoney($client['total_paid']) ?>
+              <?php 
+              $paidPercent = $client['total_subscriptions'] > 0 ? round(($client['total_paid'] / $client['total_subscriptions']) * 100) : 0;
+              ?>
+              <div style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:normal;" title="نسبة التحصيل: <?= $paidPercent ?>%">
+                <div style="flex:1; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; min-width:60px;">
+                  <div style="width:<?= min(100, max(0, $paidPercent)) ?>%; height:100%; background:var(--success); border-radius:3px;"></div>
+                </div>
+                <span style="font-size:11px; color:var(--text-muted); font-weight: 600;"><?= $paidPercent ?>%</span>
+              </div>
+            </td>
             <td class="fw-bold text-danger" style="font-size:14px;"><?= formatMoney($client['remaining_due']) ?></td>
             <td>
               <?php if ($client['month_subs_count'] > 0): ?>
