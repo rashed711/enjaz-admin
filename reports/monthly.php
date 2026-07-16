@@ -9,11 +9,21 @@ requirePermission('view_reports');
 $db = getDB();
 $year = (int)($_GET['year'] ?? date('Y'));
 $selectedMonth = isset($_GET['month']) ? (int)$_GET['month'] : null;
+$clientStatus = $_GET['client_status'] ?? 'active'; // 'active', 'suspended', 'all'
 
 $arabicMonths = ['', 'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
 if ($selectedMonth) {
     // ── تفاصيل الشهر المحدد ──
+    $where = ["YEAR(cs.start_date) = ?", "MONTH(cs.start_date) = ?", "cs.status != 'cancelled'"];
+    $params = [$year, $selectedMonth];
+    if ($clientStatus === 'active') {
+        $where[] = "c.status = 1";
+    } elseif ($clientStatus === 'suspended') {
+        $where[] = "c.status = 0";
+    }
+    $whereStr = implode(' AND ', $where);
+
     $stmt = $db->prepare("
         SELECT 
             c.id as client_id,
@@ -27,13 +37,11 @@ if ($selectedMonth) {
             MIN(cs.start_date) as min_start_date
         FROM client_subscriptions cs
         JOIN clients c ON c.id = cs.client_id
-        WHERE YEAR(cs.start_date) = ? 
-          AND MONTH(cs.start_date) = ? 
-          AND cs.status != 'cancelled'
+        WHERE $whereStr
         GROUP BY c.id
         ORDER BY total_cost DESC
     ");
-    $stmt->execute([$year, $selectedMonth]);
+    $stmt->execute($params);
     $clientsReport = $stmt->fetchAll();
 
     // حساب الإجماليات للشهر
@@ -45,6 +53,15 @@ if ($selectedMonth) {
     // ── التقرير السنوي العام ──
     $monthlySummary = [];
     for ($m = 1; $m <= 12; $m++) {
+        $where = ["YEAR(cs.start_date) = ?", "MONTH(cs.start_date) = ?", "cs.status != 'cancelled'"];
+        $params = [$year, $m];
+        if ($clientStatus === 'active') {
+            $where[] = "c.status = 1";
+        } elseif ($clientStatus === 'suspended') {
+            $where[] = "c.status = 0";
+        }
+        $whereStr = implode(' AND ', $where);
+
         $stmt = $db->prepare("
             SELECT 
                 COUNT(DISTINCT cs.client_id) as clients_count,
@@ -55,11 +72,9 @@ if ($selectedMonth) {
                 SUM(cs.price) as grand_total
             FROM client_subscriptions cs
             JOIN clients c ON c.id = cs.client_id
-            WHERE YEAR(cs.start_date) = ? 
-              AND MONTH(cs.start_date) = ? 
-              AND cs.status != 'cancelled'
+            WHERE $whereStr
         ");
-        $stmt->execute([$year, $m]);
+        $stmt->execute($params);
         $row = $stmt->fetch();
         
         $monthlySummary[$m] = [
@@ -73,14 +88,22 @@ if ($selectedMonth) {
     }
 
     // حساب الإجماليات السنوية
-    $yearTotalClients = 0;
-    // للحصول على العدد الفعلي للعملاء الفريدين طوال السنة
+    $whereYear = ["YEAR(cs.start_date) = ?", "cs.status != 'cancelled'"];
+    $paramsYear = [$year];
+    if ($clientStatus === 'active') {
+        $whereYear[] = "c.status = 1";
+    } elseif ($clientStatus === 'suspended') {
+        $whereYear[] = "c.status = 0";
+    }
+    $whereYearStr = implode(' AND ', $whereYear);
+
     $stmtYearClients = $db->prepare("
         SELECT COUNT(DISTINCT cs.client_id) 
         FROM client_subscriptions cs
-        WHERE YEAR(cs.start_date) = ? AND cs.status != 'cancelled'
+        JOIN clients c ON c.id = cs.client_id
+        WHERE $whereYearStr
     ");
-    $stmtYearClients->execute([$year]);
+    $stmtYearClients->execute($paramsYear);
     $yearTotalClients = (int)$stmtYearClients->fetchColumn();
 
     $yearTotalDomainsCount = array_sum(array_column($monthlySummary, 'domain_count'));
@@ -113,18 +136,30 @@ require_once dirname(__DIR__) . '/includes/header.php';
     </div>
 
     <div style="display:flex; align-items:center; gap:12px;">
-      <?php if ($selectedMonth): ?>
-      <a href="monthly.php?year=<?= $year ?>" class="btn btn-outline" style="font-weight:700;">
-        <i class="fas fa-arrow-left" style="margin-left:6px;"></i> العودة للتقرير السنوي
-      </a>
-      <?php else: ?>
       <form method="GET" action="" style="display:flex; align-items:center; gap:8px;">
-        <select name="year" onchange="this.form.submit()" class="form-control" style="font-weight:700; width:120px; padding:6px 12px; border-radius:8px;">
+        <?php if ($selectedMonth): ?>
+          <input type="hidden" name="month" value="<?= $selectedMonth ?>">
+        <?php endif; ?>
+        
+        <!-- فلتر الحالة -->
+        <select name="client_status" onchange="this.form.submit()" class="form-control" style="font-weight:700; width:150px; padding:6px 12px; border-radius:8px;">
+          <option value="all" <?= $clientStatus === 'all' ? 'selected' : '' ?>>جميع العملاء</option>
+          <option value="active" <?= $clientStatus === 'active' ? 'selected' : '' ?>>العملاء النشطون</option>
+          <option value="suspended" <?= $clientStatus === 'suspended' ? 'selected' : '' ?>>العملاء الموقوفون</option>
+        </select>
+
+        <!-- فلتر السنة -->
+        <select name="year" onchange="this.form.submit()" class="form-control" style="font-weight:700; width:100px; padding:6px 12px; border-radius:8px;">
           <?php for($y = date('Y') + 1; $y >= date('Y') - 4; $y--): ?>
             <option value="<?= $y ?>" <?= $y === $year ? 'selected' : '' ?>><?= $y ?></option>
           <?php endfor; ?>
         </select>
       </form>
+
+      <?php if ($selectedMonth): ?>
+      <a href="monthly.php?year=<?= $year ?>&client_status=<?= $clientStatus ?>" class="btn btn-outline" style="font-weight:700;">
+        <i class="fas fa-arrow-left" style="margin-left:6px;"></i> العودة للتقرير السنوي
+      </a>
       <?php endif; ?>
     </div>
   </div>
@@ -236,7 +271,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
             <?php foreach ($monthlySummary as $m => $data): ?>
             <tr style="<?= $data['clients_count'] > 0 ? 'background: rgba(36,86,164,0.01);' : '' ?>">
               <td style="font-weight:800; font-size:14px;">
-                <a href="monthly.php?month=<?= $m ?>&year=<?= $year ?>" style="color:var(--primary); text-decoration:none;">
+                <a href="monthly.php?month=<?= $m ?>&year=<?= $year ?>&client_status=<?= $clientStatus ?>" style="color:var(--primary); text-decoration:none;">
                   <?= $arabicMonths[$m] ?>
                 </a>
               </td>
@@ -256,7 +291,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 <?= $data['grand_total'] > 0 ? formatMoney($data['grand_total']) : '—' ?>
               </td>
               <td>
-                <a href="monthly.php?month=<?= $m ?>&year=<?= $year ?>" class="btn btn-sm btn-outline-primary" style="padding:3px 12px; font-size:12px; border-radius:6px; font-weight:700;">
+                <a href="monthly.php?month=<?= $m ?>&year=<?= $year ?>&client_status=<?= $clientStatus ?>" class="btn btn-sm btn-outline-primary" style="padding:3px 12px; font-size:12px; border-radius:6px; font-weight:700;">
                   <i class="fas fa-list-ul"></i> تفاصيل الشهر
                 </a>
               </td>
