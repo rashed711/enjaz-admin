@@ -173,6 +173,14 @@ try {
         </li>
         <?php if (hasPermission('view_reports')): ?>
         <li class="nav-item">
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/monthly.php"
+             class="nav-link <?= ($activePage ?? '') === 'reports-monthly' ? 'active' : '' ?>"
+             id="nav-reports-monthly">
+            <i class="fas fa-chart-bar nav-icon"></i>
+            <span>المشتركون والخدمات شهرياً</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals.php"
              class="nav-link <?= ($activePage ?? '') === 'reports-renewals' ? 'active' : '' ?>"
              id="nav-reports-renewals">
