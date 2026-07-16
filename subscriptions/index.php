@@ -66,9 +66,9 @@ if (isset($_GET['ajax'])) {
           <?php if (hasPermission('edit_subscriptions')): ?>
           <a href="edit.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-outline"><i class="fas fa-edit"></i></a>
           <?php endif; ?>
-          <?php if ($sub['status'] !== 'active' && hasPermission('add_subscriptions')): ?>
-          <a href="renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-redo"></i></a>
-          <?php endif; ?>
+           <?php if (hasPermission('add_subscriptions')): ?>
+           <a href="renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-redo"></i></a>
+           <?php endif; ?>
         </div>
       </td>
     </tr>
@@ -160,9 +160,9 @@ require_once INCLUDES_PATH . '/header.php';
               <?php if (hasPermission('edit_subscriptions')): ?>
               <a href="edit.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-outline"><i class="fas fa-edit"></i></a>
               <?php endif; ?>
-              <?php if ($sub['status'] !== 'active' && hasPermission('add_subscriptions')): ?>
-              <a href="renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-redo"></i></a>
-              <?php endif; ?>
+               <?php if (hasPermission('add_subscriptions')): ?>
+               <a href="renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success"><i class="fas fa-redo"></i></a>
+               <?php endif; ?>
             </div>
           </td>
         </tr>

@@ -2,6 +2,9 @@
 /**
  * subscriptions/renew.php - تجديد اشتراك
  */
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+
 require_once dirname(__DIR__) . '/config/app.php';
 requireLogin();
 requirePermission('add_subscriptions');
@@ -31,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Mark old as expired
             $db->prepare("UPDATE client_subscriptions SET status='expired' WHERE id=?")->execute([$id]);
             // Create new
-            $db->prepare("INSERT INTO client_subscriptions (client_id,service_id,plan_name,price,start_date,end_date,notes,status,created_by) VALUES (?,?,?,?,?,?,'تجديد: '||?,'active',?)")
+            $db->prepare("INSERT INTO client_subscriptions (client_id,service_id,plan_name,price,start_date,end_date,notes,status,created_by) VALUES (?,?,?,?,?,?,CONCAT('تجديد: ', ?),'active',?)")
                ->execute([$sub['client_id'],$sub['service_id'],$sub['plan_name'],$price,$startDate,$endDate,$notes,currentUserId()]);
             setFlash('success','تم تجديد الاشتراك بنجاح.');
             header("Location: ../clients/view.php?id={$sub['client_id']}");

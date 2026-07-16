@@ -205,11 +205,9 @@ require_once INCLUDES_PATH . '/header.php';
                      title="حذف">
                     <i class="fas fa-trash"></i>
                   </a>
-                  <?php if ($sub['status'] === 'expired' || $sub['status'] === 'cancelled'): ?>
                   <a href="../subscriptions/renew.php?id=<?= $sub['id'] ?>" class="btn btn-sm btn-success" title="تجديد">
                     <i class="fas fa-redo"></i>
                   </a>
-                  <?php endif; ?>
                 </div>
               </td>
               <?php endif; ?>
