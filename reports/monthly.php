@@ -48,6 +48,7 @@ if ($selectedMonth) {
         $stmt = $db->prepare("
             SELECT 
                 COUNT(DISTINCT cs.client_id) as clients_count,
+                COUNT(CASE WHEN cs.service_id = 2 THEN 1 END) as domain_count,
                 COALESCE(SUM(CASE WHEN cs.service_id = 2 THEN cs.price END), 0) as domain_total,
                 COALESCE(SUM(CASE WHEN cs.service_id = 1 THEN cs.price END), 0) as email_total,
                 COALESCE(SUM(CASE WHEN cs.service_id = 3 THEN cs.price END), 0) as website_total,
@@ -63,6 +64,7 @@ if ($selectedMonth) {
         
         $monthlySummary[$m] = [
             'clients_count' => (int)$row['clients_count'],
+            'domain_count'  => (int)$row['domain_count'],
             'domain_total'  => (float)$row['domain_total'],
             'email_total'   => (float)$row['email_total'],
             'website_total' => (float)$row['website_total'],
@@ -81,6 +83,7 @@ if ($selectedMonth) {
     $stmtYearClients->execute([$year]);
     $yearTotalClients = (int)$stmtYearClients->fetchColumn();
 
+    $yearTotalDomainsCount = array_sum(array_column($monthlySummary, 'domain_count'));
     $yearTotalDomains = array_sum(array_column($monthlySummary, 'domain_total'));
     $yearTotalEmails = array_sum(array_column($monthlySummary, 'email_total'));
     $yearTotalWebsites = array_sum(array_column($monthlySummary, 'website_total'));
@@ -238,7 +241,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
                 </a>
               </td>
               <td style="font-weight:700; color: <?= $data['clients_count'] > 0 ? 'var(--primary-light)' : 'var(--text-muted)' ?>;">
-                <?= $data['clients_count'] > 0 ? $data['clients_count'] . " عميل" : '—' ?>
+                <?= $data['clients_count'] > 0 ? $data['clients_count'] . " عميل (" . $data['domain_count'] . " دومين)" : '—' ?>
               </td>
               <td style="font-weight:700; color: <?= $data['domain_total'] > 0 ? 'var(--text-primary)' : 'var(--text-muted)' ?>;">
                 <?= $data['domain_total'] > 0 ? formatMoney($data['domain_total']) : '—' ?>
@@ -263,7 +266,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
           <tfoot>
             <tr style="background:#f8fafc; font-weight:900; border-top: 2px solid #e2e8f0; font-size:14.5px;">
               <td style="padding:16px 20px;">الإجمالي السنوي:</td>
-              <td style="color:var(--primary-light);"><?= $yearTotalClients ?> عميل فريد</td>
+              <td style="color:var(--primary-light);"><?= $yearTotalClients ?> عميل فريد (<?= $yearTotalDomainsCount ?> دومين)</td>
               <td style="color:var(--text-primary);"><?= formatMoney($yearTotalDomains) ?></td>
               <td style="color:var(--text-primary);"><?= formatMoney($yearTotalEmails) ?></td>
               <td style="color:var(--text-primary);"><?= formatMoney($yearTotalWebsites) ?></td>
