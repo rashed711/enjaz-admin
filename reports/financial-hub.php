@@ -328,10 +328,28 @@ elseif ($tab === 'monthly') {
         $totalClientsYear = array_sum($monthlyClients);
 
         // أفضل الخدمات
+        $topServicesFilter = $_GET['top_services_filter'] ?? 'all';
+        $topServicesWhere = ["1=1"];
+        if ($topServicesFilter === 'active' || $topServicesFilter === 'exclude_suspended') {
+            $topServicesWhere[] = "c.status = 1";
+        } elseif ($topServicesFilter === 'suspended') {
+            $topServicesWhere[] = "c.status = 0";
+        } elseif ($topServicesFilter === 'has_debt') {
+            $topServicesWhere[] = "(SELECT COALESCE(SUM(sub.price), 0) FROM client_subscriptions sub WHERE sub.client_id = c.id AND sub.status != 'cancelled') > (SELECT COALESCE(SUM(pay.amount), 0) FROM payments pay WHERE pay.client_id = c.id)";
+        } elseif ($topServicesFilter === 'exclude_debt') {
+            $topServicesWhere[] = "(SELECT COALESCE(SUM(sub.price), 0) FROM client_subscriptions sub WHERE sub.client_id = c.id AND sub.status != 'cancelled') <= (SELECT COALESCE(SUM(pay.amount), 0) FROM payments pay WHERE pay.client_id = c.id)";
+        }
+        $topServicesWhereStr = implode(' AND ', $topServicesWhere);
+
         $topServices = $db->query("
-            SELECT s.name, COUNT(*) as count, SUM(cs.price) as total
-            FROM client_subscriptions cs JOIN services s ON s.id=cs.service_id
-            GROUP BY s.id ORDER BY total DESC LIMIT 5
+            SELECT s.name, COUNT(DISTINCT cs.client_id) as count, SUM(cs.price) as total
+            FROM client_subscriptions cs 
+            JOIN services s ON s.id=cs.service_id
+            JOIN clients c ON c.id=cs.client_id
+            WHERE $topServicesWhereStr
+            GROUP BY s.id 
+            ORDER BY total DESC 
+            LIMIT 5
         ")->fetchAll();
 
         // تفصيل الإيرادات حسب الخدمات لكل شهر
@@ -1630,7 +1648,21 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
 
     <div class="card">
-      <div class="card-header"><span class="card-title"><i class="fas fa-trophy"></i> أفضل الخدمات إيراداً</span></div>
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span class="card-title"><i class="fas fa-trophy"></i> أفضل الخدمات إيراداً</span>
+        <form method="GET" style="margin:0; display:inline-flex; align-items:center;">
+          <input type="hidden" name="tab" value="monthly">
+          <input type="hidden" name="year" value="<?= $year ?>">
+          <select name="top_services_filter" class="form-control" style="width:auto; font-size:12px; padding:4px 10px; height:auto; border-radius:6px; cursor:pointer;" onchange="this.form.submit()">
+            <option value="all" <?= $topServicesFilter === 'all' ? 'selected' : '' ?>>كل العملاء</option>
+            <option value="active" <?= $topServicesFilter === 'active' ? 'selected' : '' ?>>النشطين فقط</option>
+            <option value="suspended" <?= $topServicesFilter === 'suspended' ? 'selected' : '' ?>>الموقوفين فقط</option>
+            <option value="has_debt" <?= $topServicesFilter === 'has_debt' ? 'selected' : '' ?>>عليهم مديونية فقط</option>
+            <option value="exclude_suspended" <?= $topServicesFilter === 'exclude_suspended' ? 'selected' : '' ?>>استثناء الموقوفين</option>
+            <option value="exclude_debt" <?= $topServicesFilter === 'exclude_debt' ? 'selected' : '' ?>>استثناء من عليهم مديونية (العملاء اللي دفعوا فقط)</option>
+          </select>
+        </form>
+      </div>
       <div class="card-body" style="padding:0;">
         <?php foreach ($topServices as $i => $srv): ?>
         <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f1f5f9;">
