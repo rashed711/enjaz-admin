@@ -133,80 +133,71 @@ require_once INCLUDES_PATH . '/header.php';
 ?>
 
 <!-- stats-grid rows -->
-<div class="stats-grid" style="margin-bottom: 20px;">
-
-  <div class="stat-card stat-primary">
-    <div class="stat-icon bg-primary"><i class="fas fa-users"></i></div>
-    <div class="stat-content">
-      <div class="stat-value"><?= number_format($totalClients) ?></div>
-      <div class="stat-label">إجمالي العملاء</div>
-      <?php if ($newClientsMonth > 0): ?>
-      <div class="stat-change up"><i class="fas fa-arrow-up"></i> +<?= $newClientsMonth ?> هذا الشهر</div>
-      <?php endif; ?>
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-bottom:20px;">
+  
+  <!-- 👥 العملاء والاشتراكات -->
+  <div class="card" style="border-right: 4px solid var(--primary); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
+    <h3 style="font-size:14px; font-weight:800; color:var(--primary); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+      <i class="fas fa-users" style="margin-left:6px;"></i> العملاء والاشتراكات
+    </h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي العملاء</div>
+        <div style="font-size:16px; font-weight:800; color:var(--primary); margin-top:4px;"><?= number_format($totalClients) ?></div>
+        <?php if ($newClientsMonth > 0): ?>
+        <div style="font-size:10px; color:var(--success); margin-top:2px;"><i class="fas fa-plus"></i> <?= $newClientsMonth ?></div>
+        <?php endif; ?>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">العملاء النشطين</div>
+        <div style="font-size:16px; font-weight:800; color:#10b981; margin-top:4px;"><?= number_format($activeClients) ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">الاشتراكات النشطة</div>
+        <div style="font-size:16px; font-weight:800; color:#8b5cf6; margin-top:4px;"><?= number_format($activeSubs) ?></div>
+      </div>
     </div>
   </div>
 
-  <div class="stat-card stat-success">
-    <div class="stat-icon bg-success"><i class="fas fa-coins"></i></div>
-    <div class="stat-content">
-      <div class="stat-value" style="font-size:20px;"><?= formatMoney($totalRevenue) ?></div>
-      <div class="stat-label">إجمالي الإيرادات</div>
-      <?php if ($thisMonthRevenue > 0): ?>
-      <div class="stat-change up"><i class="fas fa-arrow-up"></i> <?= formatMoney($thisMonthRevenue) ?> هذا الشهر</div>
-      <?php endif; ?>
+  <!-- 💰 الموقف المالي -->
+  <div class="card" style="border-right: 4px solid var(--success); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
+    <h3 style="font-size:14px; font-weight:800; color:var(--success); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+      <i class="fas fa-coins" style="margin-left:6px;"></i> الموقف المالي العام
+    </h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي الإيرادات</div>
+        <div style="font-size:15px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalRevenue) ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تحصيلات الشهر</div>
+        <div style="font-size:15px; font-weight:800; color:#10b981; margin-top:4px;"><?= formatMoney($thisMonthRevenue) ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">المبالغ المستحقة</div>
+        <div style="font-size:15px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney(max(0,$totalDebt)) ?></div>
+      </div>
     </div>
   </div>
 
-  <div class="stat-card stat-danger">
-    <div class="stat-icon bg-danger"><i class="fas fa-file-invoice-dollar"></i></div>
-    <div class="stat-content">
-      <div class="stat-value" style="font-size:20px;"><?= formatMoney(max(0,$totalDebt)) ?></div>
-      <div class="stat-label">المبالغ المستحقة</div>
-    </div>
-  </div>
-
-  <div class="stat-card stat-warning">
-    <div class="stat-icon bg-warning"><i class="fas fa-calendar-exclamation"></i></div>
-    <div class="stat-content">
-      <div class="stat-value"><?= $renewalsSoon ?></div>
-      <div class="stat-label">تجديدات قريبة (<?= $warningDays ?> يوم)</div>
-    </div>
-  </div>
-
-</div>
-
-<!-- Additional KPI Row (Merge Advanced Reports) -->
-<div class="stats-grid" style="margin-bottom: 24px;">
-
-  <div class="stat-card" style="border-right: 4px solid var(--primary-light);">
-    <div class="stat-icon" style="background: rgba(36,86,164,0.1); color: var(--primary-light);"><i class="fas fa-file-signature"></i></div>
-    <div class="stat-content">
-      <div class="stat-value"><?= $activeSubs ?></div>
-      <div class="stat-label">الاشتراكات النشطة</div>
-    </div>
-  </div>
-
-  <div class="stat-card" style="border-right: 4px solid #10b981;">
-    <div class="stat-icon" style="background: rgba(16,185,129,0.1); color: #10b981;"><i class="fas fa-globe"></i></div>
-    <div class="stat-content">
-      <div class="stat-value"><?= $ourDomainsCount ?></div>
-      <div class="stat-label">دومينات حجزناها للعملاء</div>
-    </div>
-  </div>
-
-  <div class="stat-card" style="border-right: 4px solid #f59e0b;">
-    <div class="stat-icon" style="background: rgba(245,158,11,0.1); color: #f59e0b;"><i class="fas fa-laptop-code"></i></div>
-    <div class="stat-content">
-      <div class="stat-value" style="font-size: 18px;"><?= $designPaid ?> مدفوع / <?= $designFree ?> مجاني</div>
-      <div class="stat-label">تصميم وتطوير المواقع</div>
-    </div>
-  </div>
-
-  <div class="stat-card" style="border-right: 4px solid #8b5cf6;">
-    <div class="stat-icon" style="background: rgba(139,92,246,0.1); color: #8b5cf6;"><i class="fas fa-check-double"></i></div>
-    <div class="stat-content">
-      <div class="stat-value"><?= $activeClients ?></div>
-      <div class="stat-label">العملاء النشطين حالياً</div>
+  <!-- ⚙️ التشغيل والمتابعة -->
+  <div class="card" style="border-right: 4px solid var(--warning); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
+    <h3 style="font-size:14px; font-weight:800; color:var(--warning); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+      <i class="fas fa-sliders" style="margin-left:6px;"></i> المتابعة والتشغيل
+    </h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:10px; text-align:center;">
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تجديدات قريبة</div>
+        <div style="font-size:16px; font-weight:800; color:var(--warning); margin-top:4px;"><?= $renewalsSoon ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">دومينات محجوزة</div>
+        <div style="font-size:16px; font-weight:800; color:#06b6d4; margin-top:4px;"><?= $ourDomainsCount ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تصميم المواقع</div>
+        <div style="font-size:12px; font-weight:800; color:#3b82f6; margin-top:4px; line-height:1.2;"><?= $designPaid ?> مدفوع<br><?= $designFree ?> مجاني</div>
+      </div>
     </div>
   </div>
 
@@ -217,23 +208,23 @@ require_once INCLUDES_PATH . '/header.php';
 
   <!-- Column 1: Charts & Renewals -->
   <div>
-    <!-- Revenue Chart -->
-    <div class="card" style="margin-bottom:20px;">
-      <div class="card-header">
-        <span class="card-title"><i class="fas fa-chart-bar"></i> الإيرادات المحصلة شهرياً — آخر 6 أشهر</span>
+    <!-- Interactive Charts Card -->
+    <div class="card" style="margin-bottom:20px; display:flex; flex-direction:column;">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:inline-flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:8px;">
+          <button type="button" id="btnRevenueChart" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:var(--primary); color:#fff; border:none; cursor:pointer;" onclick="switchDashboardChart('revenue')">
+            <i class="fas fa-chart-bar" style="margin-left:4px;"></i> الإيرادات المحصلة شهرياً
+          </button>
+          <button type="button" id="btnTrendChart" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:transparent; color:var(--text-primary); border:none; cursor:pointer;" onclick="switchDashboardChart('trend')">
+            <i class="fas fa-chart-line" style="margin-left:4px;"></i> نمو الاشتراكات الجديدة
+          </button>
+        </div>
       </div>
-      <div class="card-body">
-        <canvas id="revenueChart" height="85"></canvas>
+      <div class="card-body" id="revenueChartContainer">
+        <div style="height:250px; position:relative;"><canvas id="revenueChart"></canvas></div>
       </div>
-    </div>
-
-    <!-- Subscriptions Growth Trend -->
-    <div class="card" style="margin-bottom:20px;">
-      <div class="card-header">
-        <span class="card-title"><i class="fas fa-chart-line"></i> منحنى نمو الاشتراكات الجديدة شهرياً (آخر 12 شهر)</span>
-      </div>
-      <div class="card-body">
-        <canvas id="monthlyTrendChart" height="85"></canvas>
+      <div class="card-body" id="trendChartContainer" style="display:none;">
+        <div style="height:250px; position:relative;"><canvas id="monthlyTrendChart"></canvas></div>
       </div>
     </div>
 
@@ -400,10 +391,13 @@ require_once INCLUDES_PATH . '/header.php';
 
 <!-- Hosted Domains Client List -->
 <div class="card" style="margin-bottom: 24px;">
-  <div class="card-header">
+  <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
     <span class="card-title"><i class="fas fa-globe-americas"></i> العملاء الذين تم حجز النطاق (الدومين) لهم من خلالنا (إجمالي: <?= count($ourDomainsClients) ?> نطاق/دومين)</span>
+    <button type="button" class="btn btn-outline btn-sm" id="btnToggleDomainsTable" onclick="toggleDomainsTable()" style="font-weight:700; font-size:12px; padding:6px 12px; border-radius:6px; cursor:pointer;">
+      <i class="fas fa-eye"></i> عرض القائمة
+    </button>
   </div>
-  <div class="table-wrapper">
+  <div class="table-wrapper" id="domainsTableContainer" style="display:none;">
     <table class="data-table">
       <thead>
         <tr>
@@ -456,6 +450,51 @@ require_once INCLUDES_PATH . '/header.php';
 </div>
 
 <script>
+function switchDashboardChart(type) {
+    const revContainer = document.getElementById('revenueChartContainer');
+    const trendContainer = document.getElementById('trendChartContainer');
+    const btnRev = document.getElementById('btnRevenueChart');
+    const btnTrend = document.getElementById('btnTrendChart');
+    
+    if (type === 'revenue') {
+        if (revContainer) revContainer.style.display = 'block';
+        if (trendContainer) trendContainer.style.display = 'none';
+        if (btnRev) {
+            btnRev.style.background = 'var(--primary)';
+            btnRev.style.color = '#fff';
+        }
+        if (btnTrend) {
+            btnTrend.style.background = 'transparent';
+            btnTrend.style.color = 'var(--text-primary)';
+        }
+    } else {
+        if (revContainer) revContainer.style.display = 'none';
+        if (trendContainer) trendContainer.style.display = 'block';
+        if (btnRev) {
+            btnRev.style.background = 'transparent';
+            btnRev.style.color = 'var(--text-primary)';
+        }
+        if (btnTrend) {
+            btnTrend.style.background = 'var(--primary)';
+            btnTrend.style.color = '#fff';
+        }
+    }
+}
+
+function toggleDomainsTable() {
+    const container = document.getElementById('domainsTableContainer');
+    const btn = document.getElementById('btnToggleDomainsTable');
+    if (container) {
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            if (btn) btn.innerHTML = '<i class="fas fa-eye-slash"></i> إخفاء القائمة';
+        } else {
+            container.style.display = 'none';
+            if (btn) btn.innerHTML = '<i class="fas fa-eye"></i> عرض القائمة';
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Chart: Monthly Revenue (6 Months)
     const revCtx = document.getElementById('revenueChart');
