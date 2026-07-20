@@ -1530,124 +1530,171 @@ require_once INCLUDES_PATH . '/header.php';
   <?php else: ?>
   
   <!-- بطاقات الملخص السنوي للمركز المالي -->
-  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:20px; margin-bottom:20px;">
-    <div class="card" style="border-right: 4px solid var(--success); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
-      <div style="width:48px; height:48px; border-radius:12px; background:rgba(16,185,129,0.1); color:var(--success); display:flex; align-items:center; justify-content:center; font-size:20px;">
-        <i class="fas fa-arrow-trend-up"></i>
-      </div>
-      <div>
-        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي إيرادات السنة</div>
-        <div style="font-size:18px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalYear) ?></div>
-      </div>
-    </div>
-
-    <div class="card" style="border-right: 4px solid var(--danger); padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
-      <div style="width:48px; height:48px; border-radius:12px; background:rgba(239,68,68,0.1); color:var(--danger); display:flex; align-items:center; justify-content:center; font-size:20px;">
-        <i class="fas fa-arrow-trend-down"></i>
-      </div>
-      <div>
-        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي مصروفات السنة</div>
-        <div style="font-size:18px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney($totalExpensesYear) ?></div>
-      </div>
-    </div>
-
-    <div class="card" style="border-right: 4px solid <?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
-      <div style="width:48px; height:48px; border-radius:12px; background:<?= $netProfitYear >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' ?>; color:<?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; display:flex; align-items:center; justify-content:center; font-size:20px;">
-        <i class="fas <?= $netProfitYear >= 0 ? 'fa-scale-balanced' : 'fa-triangle-exclamation' ?>"></i>
-      </div>
-      <div>
-        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">صافي أرباح السنة</div>
-        <div style="font-size:18px; font-weight:800; color:<?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?></div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-bottom:20px;">
+    <!-- الأساس النقدي -->
+    <div class="card" style="border-right: 4px solid var(--success); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px;">
+      <h3 style="font-size:14px; font-weight:800; color:var(--success); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+        <i class="fas fa-coins" style="margin-left:6px;"></i> الأساس النقدي (التدفقات النقدية الفعلية)
+      </h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي الإيرادات</div>
+          <div style="font-size:15px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalYear) ?></div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي المصروفات</div>
+          <div style="font-size:15px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney($totalExpensesYear) ?></div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:600;">صافي الربح النقدي</div>
+          <div style="font-size:15px; font-weight:800; color:<?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?></div>
+        </div>
       </div>
     </div>
 
-    <div class="card" style="border-right: 4px solid #2563eb; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
-      <div style="width:48px; height:48px; border-radius:12px; background:rgba(37,99,235,0.1); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:20px;">
-        <i class="fas fa-file-invoice-dollar"></i>
-      </div>
-      <div>
-        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي مبيعات السنة (الاشتراكات والخدمات)</div>
-        <div style="font-size:18px; font-weight:800; color:#2563eb; margin-top:4px;"><?= formatMoney($totalSalesYear) ?></div>
-      </div>
-    </div>
-
-    <div class="card" style="border-right: 4px solid #ea580c; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
-      <div style="width:48px; height:48px; border-radius:12px; background:rgba(234,88,12,0.1); color:#ea580c; display:flex; align-items:center; justify-content:center; font-size:20px;">
-        <i class="fas fa-cart-shopping"></i>
-      </div>
-      <div>
-        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">إجمالي مشتريات السنة (المصروفات)</div>
-        <div style="font-size:18px; font-weight:800; color:#ea580c; margin-top:4px;"><?= formatMoney($totalPurchasesYear) ?></div>
-      </div>
-    </div>
-
-    <div class="card" style="border-right: 4px solid <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; padding:16px; background:#fff; display:flex; align-items:center; gap:16px; margin: 0;">
-      <div style="width:48px; height:48px; border-radius:12px; background:<?= $netSalesProfitYear >= 0 ? 'rgba(37,99,235,0.1)' : 'rgba(239,68,68,0.1)' ?>; color:<?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; display:flex; align-items:center; justify-content:center; font-size:20px;">
-        <i class="fas <?= $netSalesProfitYear >= 0 ? 'fa-scale-balanced' : 'fa-triangle-exclamation' ?>"></i>
-      </div>
-      <div>
-        <div style="font-size:12.5px; color:var(--text-muted); font-weight:600;">صافي قيمة المبيعات</div>
-        <div style="font-size:18px; font-weight:800; color:<?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?></div>
+    <!-- أساس الاستحقاق -->
+    <div class="card" style="border-right: 4px solid #2563eb; padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px;">
+      <h3 style="font-size:14px; font-weight:800; color:#2563eb; border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+        <i class="fas fa-file-invoice-dollar" style="margin-left:6px;"></i> أساس الاستحقاق (المبيعات والتعاقدات)
+      </h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:600;">قيمة المبيعات</div>
+          <div style="font-size:15px; font-weight:800; color:#2563eb; margin-top:4px;"><?= formatMoney($totalSalesYear) ?></div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي التكاليف</div>
+          <div style="font-size:15px; font-weight:800; color:#ea580c; margin-top:4px;"><?= formatMoney($totalPurchasesYear) ?></div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:600;">صافي أرباح المبيعات</div>
+          <div style="font-size:15px; font-weight:800; color:<?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>; margin-top:4px;"><?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?></div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
-    <div class="card" style="margin: 0;">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="card-title"><i class="fas fa-chart-bar"></i> تحليل الأرباح والخسائر لعام <?= $year ?></span>
-        <form method="GET" style="display:flex;gap:10px;align-items:center;">
+  <!-- لوحة التحليلات التفاعلية المدمجة -->
+  <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; align-items:start; margin-bottom:20px;">
+    <!-- الكرت التفاعلي الرئيسي -->
+    <div class="card" style="margin: 0; display:flex; flex-direction:column;">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:inline-flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:8px;">
+          <button type="button" id="btnCashTab" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:var(--primary); color:#fff; border:none; cursor:pointer;" onclick="switchAnalysisTab('cash')">
+            <i class="fas fa-wallet" style="margin-left:4px;"></i> التدفق النقدي الفعلي
+          </button>
+          <button type="button" id="btnAccrualTab" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:transparent; color:var(--text-primary); border:none; cursor:pointer;" onclick="switchAnalysisTab('accrual')">
+            <i class="fas fa-chart-line" style="margin-left:4px;"></i> المبيعات والتعاقدات
+          </button>
+        </div>
+        <form method="GET" style="margin:0; display:inline-flex; align-items:center;">
           <input type="hidden" name="tab" value="monthly">
-          <select name="year" class="form-control" style="width:auto;" onchange="this.form.submit()">
+          <select name="year" class="form-control" style="width:auto; font-size:12px; padding:4px 10px; height:auto; border-radius:6px;" onchange="this.form.submit()">
             <?php for ($y = date('Y'); $y >= date('Y')-5; $y--): ?>
             <option value="<?= $y ?>" <?= $year===$y?'selected':'' ?>><?= $y ?></option>
             <?php endfor; ?>
           </select>
         </form>
       </div>
-      <div class="card-body">
-        <canvas id="monthlyChart" height="100"></canvas>
+
+      <!-- محتوى التدفق النقدي الفعلي -->
+      <div id="cashAnalysisContent">
+        <div class="card-body">
+          <div style="height:250px; position:relative;"><canvas id="monthlyChart"></canvas></div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>الشهر</th><th>عدد العملاء المشتركين</th><th>الإيرادات (+)</th><th>المصروفات (-)</th><th>صافي الربح / الخسارة</th></tr></thead>
+            <tbody>
+              <?php foreach ($months as $m => $amt): 
+                $expAmt = $monthlyExpenses[$m] ?? 0;
+                $profit = $amt - $expAmt;
+                $clientsCount = $monthlyClients[$m] ?? 0;
+              ?>
+              <tr>
+                <td>
+                  <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700;color:var(--primary);">
+                    <?= $arabicMonths[$m] ?>
+                  </a>
+                </td>
+                <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
+                <td class="fw-bold text-success"><?= formatMoney($amt) ?></td>
+                <td class="fw-bold text-danger"><?= formatMoney($expAmt) ?></td>
+                <td class="fw-bold" style="color: <?= $profit >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
+                  <?= ($profit >= 0 ? '+' : '') . formatMoney($profit) ?>
+                </td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+            <tfoot>
+              <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
+                <td style="padding:12px 16px;">الإجمالي السنوي</td>
+                <td style="padding:12px 16px;color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
+                <td style="padding:12px 16px;color:var(--success);"><?= formatMoney($totalYear) ?></td>
+                <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalExpensesYear) ?></td>
+                <td style="padding:12px 16px;color: <?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
+                  <?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead><tr><th>الشهر</th><th>عدد العملاء المشتركين</th><th>الإيرادات (+)</th><th>المصروفات (-)</th><th>صافي الربح / الخسارة</th></tr></thead>
-          <tbody>
-            <?php foreach ($months as $m => $amt): 
-              $expAmt = $monthlyExpenses[$m] ?? 0;
-              $profit = $amt - $expAmt;
-              $clientsCount = $monthlyClients[$m] ?? 0;
-            ?>
-            <tr>
-              <td>
-                <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700;color:var(--primary);">
-                  <?= $arabicMonths[$m] ?>
-                </a>
-              </td>
-              <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
-              <td class="fw-bold text-success"><?= formatMoney($amt) ?></td>
-              <td class="fw-bold text-danger"><?= formatMoney($expAmt) ?></td>
-              <td class="fw-bold" style="color: <?= $profit >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
-                <?= ($profit >= 0 ? '+' : '') . formatMoney($profit) ?>
-              </td>
-            </tr>
-            <?php endforeach; ?>
-          </tbody>
-          <tfoot>
-            <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
-              <td style="padding:12px 16px;">الإجمالي السنوي</td>
-              <td style="padding:12px 16px;color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
-              <td style="padding:12px 16px;color:var(--success);"><?= formatMoney($totalYear) ?></td>
-              <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalExpensesYear) ?></td>
-              <td style="padding:12px 16px;color: <?= $netProfitYear >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
-                <?= ($netProfitYear >= 0 ? '+' : '') . formatMoney($netProfitYear) ?>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+
+      <!-- محتوى أساس المبيعات -->
+      <div id="accrualAnalysisContent" style="display:none;">
+        <div class="card-body">
+          <div style="height:250px; position:relative;"><canvas id="salesPurchasesChart"></canvas></div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الشهر</th>
+                <th>عدد العملاء المشتركين</th>
+                <th>المبيعات (الاشتراكات والخدمات) (+)</th>
+                <th>المشتريات (المصروفات) (-)</th>
+                <th>صافي قيمة المبيعات</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($months as $m => $amt): 
+                $salesAmt = $monthlySales[$m] ?? 0;
+                $purchAmt = $monthlyPurchases[$m] ?? 0;
+                $diff = $salesAmt - $purchAmt;
+                $clientsCount = $monthlyClients[$m] ?? 0;
+              ?>
+              <tr>
+                <td>
+                  <span style="font-weight:700;color:var(--primary);"><?= $arabicMonths[$m] ?></span>
+                </td>
+                <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
+                <td class="fw-bold text-success"><?= formatMoney($salesAmt) ?></td>
+                <td class="fw-bold text-danger"><?= formatMoney($purchAmt) ?></td>
+                <td class="fw-bold" style="color: <?= $diff >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
+                  <?= ($diff >= 0 ? '+' : '') . formatMoney($diff) ?>
+                </td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+            <tfoot>
+              <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
+                <td style="padding:12px 16px;">الإجمالي السنوي</td>
+                <td style="padding:12px 16px;color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
+                <td style="padding:12px 16px;color:#2563eb;"><?= formatMoney($totalSalesYear) ?></td>
+                <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalPurchasesYear) ?></td>
+                <td style="padding:12px 16px;color: <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
+                  <?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
 
-    <div class="card">
+    <!-- أفضل الخدمات -->
+    <div class="card" style="margin: 0;">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
         <span class="card-title"><i class="fas fa-trophy"></i> أفضل الخدمات إيراداً</span>
         <form method="GET" style="margin:0; display:inline-flex; align-items:center;">
@@ -1683,66 +1730,15 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
   </div>
 
-  <!-- تحليل المبيعات والمشتريات لعام YYYY -->
+  <!-- تفصيل الأرباح والخسائر الشامل لعام (الميزانية التفصيلية القابلة للطي) -->
   <div class="card" style="margin-top: 20px;">
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <span class="card-title"><i class="fas fa-chart-line"></i> تحليل المبيعات والمشتريات لعام <?= $year ?></span>
-    </div>
-    <div class="card-body">
-      <canvas id="salesPurchasesChart" height="80"></canvas>
-    </div>
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>الشهر</th>
-            <th>عدد العملاء المشتركين</th>
-            <th>المبيعات (الاشتراكات والخدمات) (+)</th>
-            <th>المشتريات (المصروفات) (-)</th>
-            <th>صافي قيمة المبيعات</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($months as $m => $amt): 
-            $salesAmt = $monthlySales[$m] ?? 0;
-            $purchAmt = $monthlyPurchases[$m] ?? 0;
-            $diff = $salesAmt - $purchAmt;
-            $clientsCount = $monthlyClients[$m] ?? 0;
-          ?>
-          <tr>
-            <td>
-              <span style="font-weight:700;color:var(--primary);"><?= $arabicMonths[$m] ?></span>
-            </td>
-            <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
-            <td class="fw-bold text-success"><?= formatMoney($salesAmt) ?></td>
-            <td class="fw-bold text-danger"><?= formatMoney($purchAmt) ?></td>
-            <td class="fw-bold" style="color: <?= $diff >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
-              <?= ($diff >= 0 ? '+' : '') . formatMoney($diff) ?>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-        <tfoot>
-          <tr style="background:#f8fafc;font-weight:800;font-size:14px;">
-            <td style="padding:12px 16px;">الإجمالي السنوي</td>
-            <td style="padding:12px 16px;color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
-            <td style="padding:12px 16px;color:#2563eb;"><?= formatMoney($totalSalesYear) ?></td>
-            <td style="padding:12px 16px;color:var(--danger);"><?= formatMoney($totalPurchasesYear) ?></td>
-            <td style="padding:12px 16px;color: <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
-              <?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  </div>
-
-  <!-- تفصيل الأرباح والخسائر الشامل لعام 2026 -->
-  <div class="card" style="margin-top: 20px;">
-    <div class="card-header">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
       <span class="card-title"><i class="fas fa-table"></i> الميزانية التفصيلية (إيرادات الخدمات مقابل مصروفات الأقسام) لعام <?= $year ?></span>
+      <button type="button" class="btn btn-outline btn-sm" id="btnToggleDetailedBudget" onclick="toggleDetailedBudget()" style="font-weight:700; font-size:12px; padding:6px 12px; border-radius:6px; cursor:pointer;">
+        <i class="fas fa-eye"></i> عرض الميزانية التفصيلية
+      </button>
     </div>
-    <div class="table-wrapper" style="overflow-x: auto;">
+    <div class="table-wrapper" id="detailedBudgetContainer" style="overflow-x: auto; display:none;">
       <table class="data-table" style="font-size:12px; width:100%; min-width:1200px; text-align:center;">
         <thead>
           <tr style="background:#f1f5f9; text-align:center;">
@@ -1853,7 +1849,53 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
   </div>
 
+
   <script>
+  function switchAnalysisTab(tab) {
+      const cashContent = document.getElementById('cashAnalysisContent');
+      const accrualContent = document.getElementById('accrualAnalysisContent');
+      const btnCash = document.getElementById('btnCashTab');
+      const btnAccrual = document.getElementById('btnAccrualTab');
+      
+      if (tab === 'cash') {
+          if (cashContent) cashContent.style.display = 'block';
+          if (accrualContent) accrualContent.style.display = 'none';
+          if (btnCash) {
+              btnCash.style.background = 'var(--primary)';
+              btnCash.style.color = '#fff';
+          }
+          if (btnAccrual) {
+              btnAccrual.style.background = 'transparent';
+              btnAccrual.style.color = 'var(--text-primary)';
+          }
+      } else {
+          if (cashContent) cashContent.style.display = 'none';
+          if (accrualContent) accrualContent.style.display = 'block';
+          if (btnCash) {
+              btnCash.style.background = 'transparent';
+              btnCash.style.color = 'var(--text-primary)';
+          }
+          if (btnAccrual) {
+              btnAccrual.style.background = 'var(--primary)';
+              btnAccrual.style.color = '#fff';
+          }
+      }
+  }
+
+  function toggleDetailedBudget() {
+      const container = document.getElementById('detailedBudgetContainer');
+      const btn = document.getElementById('btnToggleDetailedBudget');
+      if (container) {
+          if (container.style.display === 'none') {
+              container.style.display = 'block';
+              if (btn) btn.innerHTML = '<i class="fas fa-eye-slash"></i> إخفاء الميزانية التفصيلية';
+          } else {
+              container.style.display = 'none';
+              if (btn) btn.innerHTML = '<i class="fas fa-eye"></i> عرض الميزانية التفصيلية';
+          }
+      }
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
       const ctx = document.getElementById('monthlyChart');
       if (ctx) {
