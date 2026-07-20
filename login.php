@@ -373,6 +373,13 @@ $companyName = getSetting('company_name', APP_NAME);
           </div>
         </div>
 
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; font-size:13px; color:rgba(255,255,255,.8);">
+          <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none;">
+            <input type="checkbox" id="rememberMe" style="accent-color:#f0a500; cursor:pointer; width:16px; height:16px;">
+            تذكرني
+          </label>
+        </div>
+
         <button type="submit" class="btn-login" id="submitBtn">
           <i class="fas fa-right-to-bracket"></i>
           تسجيل الدخول
@@ -401,8 +408,35 @@ $companyName = getSetting('company_name', APP_NAME);
       }
     });
 
-    // Loading state on submit
-    document.getElementById('loginForm')?.addEventListener('submit', function() {
+    // استعادة البيانات المحفوظة عند تحميل الصفحة
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUser = localStorage.getItem('remembered_username');
+      const savedPass = localStorage.getItem('remembered_password');
+      
+      if (savedUser && savedPass) {
+        const userEl = document.getElementById('username');
+        const passEl = document.getElementById('password');
+        const remEl  = document.getElementById('rememberMe');
+        if (userEl) userEl.value = savedUser;
+        if (passEl) passEl.value = savedPass;
+        if (remEl)  remEl.checked = true;
+      }
+    });
+
+    // حفظ أو مسح البيانات عند إرسال النموذج
+    document.getElementById('loginForm')?.addEventListener('submit', function(e) {
+      const remember = document.getElementById('rememberMe')?.checked;
+      const user = document.getElementById('username')?.value;
+      const pass = document.getElementById('password')?.value;
+
+      if (remember) {
+        localStorage.setItem('remembered_username', user);
+        localStorage.setItem('remembered_password', pass);
+      } else {
+        localStorage.removeItem('remembered_username');
+        localStorage.removeItem('remembered_password');
+      }
+
       const btn = document.getElementById('submitBtn');
       btn.innerHTML = '<span style="width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;"></span> جاري التحقق...';
       btn.disabled = true;
