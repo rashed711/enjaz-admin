@@ -308,3 +308,72 @@ function normalizeMobile(string $mobile): string {
     
     return $mobile;
 }
+
+/**
+ * إرسال بريد إلكتروني عبر SMTP باستخدام المقابس (Sockets)
+ */
+function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
+    $host = 'mail.enjaz.app';
+    $port = 465;
+    $username = 'noreplay@enjaz.app';
+    $password = 'Aa@01028855';
+    
+    $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 15);
+    if (!$socket) {
+        return false;
+    }
+
+    $readResponse = function($socket) {
+        $data = '';
+        while ($str = fgets($socket, 515)) {
+            $data .= $str;
+            if (substr($str, 3, 1) == ' ') {
+                break;
+            }
+        }
+        return $data;
+    };
+
+    $readResponse($socket); // 220 Welcome
+
+    fwrite($socket, "EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost') . "\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, "AUTH LOGIN\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, base64_encode($username) . "\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, base64_encode($password) . "\r\n");
+    $authRes = $readResponse($socket);
+    if (strpos($authRes, '235') === false) {
+        fclose($socket);
+        return false;
+    }
+
+    fwrite($socket, "MAIL FROM:<" . $username . ">\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, "RCPT TO:<" . $to . ">\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, "DATA\r\n");
+    $readResponse($socket);
+
+    $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
+    $headers .= "To: <" . $to . ">\r\n";
+    $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+    $headers .= "Date: " . date('r') . "\r\n";
+
+    fwrite($socket, $headers . "\r\n" . $htmlMessage . "\r\n.\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, "QUIT\r\n");
+    fclose($socket);
+    return true;
+}
+
