@@ -107,7 +107,7 @@ $html .= '</tbody></table>';
 $html .= '</div></body></html>';
 
 // إرسال البريد
-$to = getSetting('company_email', 'noreplay@enjaz.app');
+$to = 'rashed1711@gmail.com';
 $subject = '📊 تقرير العملاء والمديونيات اليومي الشامل';
 
 $res = sendSMTPMail($to, $subject, $html);
