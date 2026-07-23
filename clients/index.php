@@ -1127,6 +1127,7 @@ function downloadClientsCSV(clients) {
     const header = [
         'اسم العميل',
         'اسم المستخدم',
+        'السيرفر',
         'الشركة',
         'الهاتف',
         'عدد الاشتراكات',
@@ -1151,6 +1152,7 @@ function downloadClientsCSV(clients) {
         const row = [
             client.name || '',
             client.username_note || '',
+            client.server_panel || 'cp.enjaz.cloud',
             client.company_name || '',
             client.mobile || '',
             client.subs_count || 0,

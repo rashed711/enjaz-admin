@@ -357,6 +357,7 @@ require_once INCLUDES_PATH . '/header.php';
             ['fas fa-phone',       'موبايل إضافي',      $client['mobile_2']],
             ['fas fa-briefcase',   'النشاط',            $client['activity']],
             ['fas fa-at',          'اسم المستخدم',       $client['username_note']],
+            ['fas fa-server',      'السيرفر (لوحة التحكم)', $client['server_panel']],
             ['fas fa-globe',       'نطاق الموقع (الدومين)', $client['domain']],
             ['fas fa-server',      'مزود خدمة الدومين',  $client['domain_provider']],
             ['fas fa-envelope',    'البريد',             $client['email']],

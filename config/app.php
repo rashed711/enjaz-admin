@@ -75,6 +75,16 @@ try {
     }
 } catch (Exception $e) {}
 
+// التأكد من إضافة عمود السيرفر (لوحة التحكم) لجدول العملاء
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM clients LIKE 'server_panel'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE clients ADD COLUMN server_panel VARCHAR(100) NOT NULL DEFAULT 'cp.enjaz.cloud' AFTER username_note;");
+    }
+} catch (Exception $e) {}
+
+
 // التأكد من تعديل جدول المدفوعات لدعم طرق دفع مخصصة وإرفاق ملفات الإيصال
 try {
     $db = getDB();

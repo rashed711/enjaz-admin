@@ -7,7 +7,7 @@ requireLogin();
 requirePermission('add_clients');
 
 $errors   = [];
-$formData = ['name'=>'','company_name'=>'','mobile'=>'','mobile_2'=>'','activity'=>'','username_note'=>'','domain'=>'','domain_provider'=>'','email'=>'','address'=>'','notes'=>'','status'=>'1'];
+$formData = ['name'=>'','company_name'=>'','mobile'=>'','mobile_2'=>'','activity'=>'','username_note'=>'','server_panel'=>'cp.enjaz.cloud','domain'=>'','domain_provider'=>'','email'=>'','address'=>'','notes'=>'','status'=>'1'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
@@ -23,11 +23,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
             $db = getDB();
             $db->prepare("
-                INSERT INTO clients (name, company_name, mobile, mobile_2, activity, username_note, domain, domain_provider, email, address, notes, status, created_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO clients (name, company_name, mobile, mobile_2, activity, username_note, server_panel, domain, domain_provider, email, address, notes, status, created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ")->execute([
                 $formData['name'], $formData['company_name'], $formData['mobile'],
                 $formData['mobile_2'], $formData['activity'], $formData['username_note'],
+                $formData['server_panel'],
                 $formData['domain'], $formData['domain_provider'],
                 $formData['email'], $formData['address'], $formData['notes'],
                 $formData['status'], currentUserId()
@@ -146,6 +147,13 @@ require_once INCLUDES_PATH . '/header.php';
           <label class="form-label" for="address">العنوان</label>
           <input type="text" id="address" name="address" class="form-control"
                  value="<?= e($formData['address']) ?>" placeholder="العنوان التفصيلي">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="server_panel">السيرفر (لوحة التحكم)</label>
+          <select id="server_panel" name="server_panel" class="form-control">
+            <option value="cp.enjaz.cloud" <?= $formData['server_panel'] === 'cp.enjaz.cloud' ? 'selected' : '' ?>>cp.enjaz.cloud (السيرفر الأول)</option>
+            <option value="panel.enjaz.cloud" <?= $formData['server_panel'] === 'panel.enjaz.cloud' ? 'selected' : '' ?>>panel.enjaz.cloud (السيرفر الثاني)</option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label" for="status">الحالة</label>
