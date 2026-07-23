@@ -1126,6 +1126,7 @@ function downloadClientsCSV(clients) {
     // CSV Header matching the table columns
     const header = [
         'اسم العميل',
+        'اسم المستخدم',
         'الشركة',
         'الهاتف',
         'عدد الاشتراكات',
@@ -1149,6 +1150,7 @@ function downloadClientsCSV(clients) {
         
         const row = [
             client.name || '',
+            client.username_note || '',
             client.company_name || '',
             client.mobile || '',
             client.subs_count || 0,
