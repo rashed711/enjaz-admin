@@ -325,7 +325,22 @@ elseif ($tab === 'monthly') {
         $totalPurchasesYear = array_sum($monthlyPurchases);
         $netSalesProfitYear = $totalSalesYear - $totalPurchasesYear;
 
-        $totalClientsYear = array_sum($monthlyClients);
+        $yearClientsWhere = ["YEAR(cs.start_date) = ?", "cs.status != 'cancelled'"];
+        $yearClientsParams = [$year];
+        if ($clientStatus === 'active') {
+            $yearClientsWhere[] = "c.status = 1";
+        } elseif ($clientStatus === 'suspended') {
+            $yearClientsWhere[] = "c.status = 0";
+        }
+        $yearClientsWhereStr = implode(' AND ', $yearClientsWhere);
+        $stmtYearClients = $db->prepare("
+            SELECT COUNT(DISTINCT cs.client_id) 
+            FROM client_subscriptions cs
+            JOIN clients c ON c.id = cs.client_id
+            WHERE $yearClientsWhereStr
+        ");
+        $stmtYearClients->execute($yearClientsParams);
+        $totalClientsYear = (int)$stmtYearClients->fetchColumn();
 
         // أفضل الخدمات
         $topServicesFilter = $_GET['top_services_filter'] ?? 'all';

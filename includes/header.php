@@ -191,6 +191,14 @@ try {
             <?php endif; ?>
           </a>
         </li>
+        <li class="nav-item">
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/loyalty.php"
+             class="nav-link <?= ($activePage ?? '') === 'reports-loyalty' ? 'active' : '' ?>"
+             id="nav-reports-loyalty">
+            <i class="fas fa-handshake nav-icon"></i>
+            <span>تحليل التجديدات والولاء</span>
+          </a>
+        </li>
         <?php endif; ?>
       </ul>
       <?php endif; ?>
