@@ -240,7 +240,8 @@ if (isset($_GET['export_all'])) {
                COUNT(DISTINCT cs.id) AS subs_count,
                (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
                (SELECT cs2.end_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
-               (SELECT cs2.status FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status
+               (SELECT cs2.status FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status,
+               (SELECT cs2.plan_name FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_plan
         FROM clients c
         LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
         WHERE ($whereStr) $extraWhere
@@ -1134,6 +1135,7 @@ function downloadClientsCSV(clients) {
         'إجمالي قيمة الاشتراكات',
         'إجمالي المدفوع',
         'المتبقي',
+        'اسم الخطة',
         'تاريخ البداية (آخر اشتراك)',
         'تاريخ الانتهاء (آخر اشتراك)',
         'حالة الاشتراك',
@@ -1159,6 +1161,7 @@ function downloadClientsCSV(clients) {
             client.total_services || 0,
             client.total_paid || 0,
             remaining,
+            client.sub_plan || '',
             client.sub_start || '',
             client.sub_end || '',
             subStatus,
