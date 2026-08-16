@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Header & Sidebar - نظام إنجاز للحلول الذكية
  * يُضمَّن في كل صفحة
@@ -181,6 +181,14 @@ try {
           </a>
         </li>
         <li class="nav-item">
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/services-stats.php"
+             class="nav-link <?= ($activePage ?? '') === 'reports-services-stats' ? 'active' : '' ?>"
+             id="nav-reports-services-stats">
+            <i class="fas fa-chart-line nav-icon"></i>
+            <span>احصائيات الخدمات</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals.php"
              class="nav-link <?= ($activePage ?? '') === 'reports-renewals' ? 'active' : '' ?>"
              id="nav-reports-renewals">
@@ -301,3 +309,4 @@ try {
 
     <!-- Page Content starts here -->
     <main class="page-content">
+
