@@ -25,6 +25,23 @@ $getServiceIcon = function(string $n) use ($serviceIconMap): string {
     return 'fa-concierge-bell';
 };
 
+// تحديد الخدمة الأساسية (استضافة البريد الالكتروني) - هي مقياس عدد العملاء الفعلي
+// نبحث عن الخدمة اللي اسمها يحتوي على "بريد" أو "ايميل" أو "email" وإلا نأخذ الأولى
+$primaryServiceId = null;
+foreach ($services as $svc) {
+    $name = mb_strtolower($svc['name']);
+    if (mb_strpos($name,'بريد')!==false || mb_strpos($name,'ايميل')!==false || mb_strpos($name,'email')!==false || mb_strpos($name,'mail')!==false) {
+        $primaryServiceId = (int)$svc['id'];
+        $primaryServiceName = $svc['name'];
+        break;
+    }
+}
+// fallback: أول خدمة
+if (!$primaryServiceId && !empty($services)) {
+    $primaryServiceId = (int)$services[0]['id'];
+    $primaryServiceName = $services[0]['name'];
+}
+
 // 2. اشتراكات شهرية لكل خدمة
 $subsStmt = $db->prepare("
     SELECT MONTH(cs.start_date) AS month, cs.service_id,
@@ -71,18 +88,22 @@ $serviceTotals = [];
 foreach ($svcTotStmt->fetchAll() as $r) $serviceTotals[(int)$r['service_id']] = $r;
 
 // 6. KPIs السنة
-$yearTotalRevenue   = array_sum(array_column(array_merge(...array_values($subsByMonthService)), 'revenue') ?: [0]);
-$yearTotalCollected = array_sum($paymentsByMonth);
-$yearTotalExpenses  = array_sum($expensesByMonth);
-$yearNetProfit      = $yearTotalCollected - $yearTotalExpenses;
-
 $allSubsRevStmt = $db->prepare("SELECT SUM(price) FROM client_subscriptions WHERE YEAR(start_date)=? AND status!='cancelled' AND start_date IS NOT NULL");
 $allSubsRevStmt->execute([$year]);
 $yearTotalRevenue = (float)$allSubsRevStmt->fetchColumn();
 
-$totalClientsStmt = $db->prepare("SELECT COUNT(DISTINCT client_id) FROM client_subscriptions WHERE YEAR(start_date)=? AND status!='cancelled' AND start_date IS NOT NULL");
-$totalClientsStmt->execute([$year]);
-$yearTotalClients = (int)$totalClientsStmt->fetchColumn();
+$yearTotalCollected = array_sum($paymentsByMonth);
+$yearTotalExpenses  = array_sum($expensesByMonth);
+$yearNetProfit      = $yearTotalCollected - $yearTotalExpenses;
+
+// عدد العملاء الفعلي = عملاء الخدمة الأساسية (البريد الالكتروني)
+$primaryClientsStmt = $db->prepare("
+    SELECT COUNT(DISTINCT client_id) 
+    FROM client_subscriptions 
+    WHERE YEAR(start_date)=? AND status!='cancelled' AND start_date IS NOT NULL AND service_id=?
+");
+$primaryClientsStmt->execute([$year, $primaryServiceId]);
+$yearTotalClients = (int)$primaryClientsStmt->fetchColumn();
 
 // 7. تفاصيل AJAX
 $detailMonth   = isset($_GET['detail_month'])   ? (int)$_GET['detail_month']   : null;
@@ -124,6 +145,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 .svc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:28px;}
 .svc-chip{background:var(--card-bg);border-radius:var(--border-radius);padding:18px 20px;box-shadow:var(--shadow-sm);border:1px solid var(--border-color);display:flex;flex-direction:column;gap:10px;transition:var(--transition);text-decoration:none;color:inherit;}
 .svc-chip:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--primary-light);}
+.svc-chip.primary-service{border:2px solid var(--primary-light);background:linear-gradient(135deg,rgba(36,86,164,.04),var(--card-bg));}
 .svc-chip-hd{display:flex;align-items:center;gap:10px;}.svc-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}.svc-name{font-weight:700;font-size:13.5px;}
 .svc-stats{display:flex;gap:12px;}.svc-stat{flex:1;text-align:center;}.svc-stat .num{font-size:19px;font-weight:800;line-height:1.1;}.svc-stat .lbl{font-size:10px;color:var(--text-muted);font-weight:600;margin-top:2px;}
 .svc-bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;}.svc-bar-fill{height:100%;border-radius:99px;transition:width .6s;}
@@ -139,6 +161,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 .stats-tbl{width:100%;border-collapse:collapse;font-size:13px;}
 .stats-tbl th{padding:12px 12px;background:#f8fafc;font-weight:700;color:var(--text-secondary);text-align:center;border-bottom:2px solid var(--border-color);white-space:nowrap;font-size:12px;}
 .stats-tbl th:first-child{text-align:right;}
+.stats-tbl th.primary-col{background:#eff6ff;color:var(--primary-light);border-bottom-color:var(--primary-light);}
 .stats-tbl td{padding:13px 12px;border-bottom:1px solid #f1f5f9;text-align:center;vertical-align:middle;}
 .stats-tbl td:first-child{text-align:right;}
 .stats-tbl tbody tr:hover{background:#f8fafc;}
@@ -148,6 +171,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 .month-btn:hover{color:var(--accent);}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;transition:var(--transition);border:1px solid transparent;}
 .pill:hover{opacity:.85;transform:scale(1.05);}
+.pill.primary-pill{box-shadow:0 0 0 2px rgba(36,86,164,.15);}
 .money-pos{color:var(--success);font-weight:700;}.money-neg{color:var(--danger);font-weight:700;}.money-nil{color:var(--text-muted);}
 .drawer{background:var(--card-bg);border-radius:var(--border-radius);box-shadow:var(--shadow-lg);border:2px solid var(--primary-light);overflow:hidden;margin-bottom:28px;animation:slideIn .25s ease;}
 @keyframes slideIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
@@ -163,6 +187,7 @@ require_once dirname(__DIR__) . '/includes/header.php';
 .yr-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-color);background:var(--card-bg);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);font-size:13px;text-decoration:none;}
 .yr-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary);}
 .yr-disp{font-size:18px;font-weight:800;min-width:56px;text-align:center;}
+.primary-badge{display:inline-block;background:var(--primary-light);color:#fff;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;vertical-align:middle;margin-right:4px;}
 @media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.stats-tbl{font-size:11px;}.stats-tbl th,.stats-tbl td{padding:8px 6px;}}
 </style>
 
@@ -186,11 +211,11 @@ require_once dirname(__DIR__) . '/includes/header.php';
 <!-- KPIs -->
 <div class="kpi-grid">
   <div class="kpi-card blue">
-    <div class="kpi-icon blue"><i class="fas fa-users"></i></div>
+    <div class="kpi-icon blue"><i class="fas fa-envelope"></i></div>
     <div>
-      <div class="kpi-label">اجمالي العملاء المشتركين</div>
+      <div class="kpi-label">عملاء <?= e($primaryServiceName ?? 'البريد الالكتروني') ?></div>
       <div class="kpi-value"><?= number_format($yearTotalClients) ?></div>
-      <div class="kpi-sub">خلال عام <?= $year ?></div>
+      <div class="kpi-sub">العدد الفعلي للعملاء — <?= $year ?></div>
     </div>
   </div>
   <div class="kpi-card green">
@@ -245,12 +270,14 @@ foreach ($services as $i => $svc):
     $clients = (int)($totRow['total_clients'] ?? 0);
     $active  = (int)($totRow['active_clients'] ?? 0);
     $revenue = (float)($totRow['total_revenue'] ?? 0);
-    $pct     = round($clients / $maxClients * 100);
+    $pct     = $maxClients > 0 ? round($clients / $maxClients * 100) : 0;
+    $isPrimary = ((int)$svc['id'] === $primaryServiceId);
 ?>
-<a class="svc-chip" href="service-details.php?id=<?= $svc['id'] ?>">
+<a class="svc-chip <?= $isPrimary?'primary-service':'' ?>" href="service-details.php?id=<?= $svc['id'] ?>">
   <div class="svc-chip-hd">
     <div class="svc-dot" style="background:<?= $color ?>;"></div>
     <div class="svc-name">
+      <?php if($isPrimary): ?><span class="primary-badge">الاساسية</span><?php endif; ?>
       <i class="fas <?= $getServiceIcon($svc['name']) ?>" style="color:<?= $color ?>;"></i>
       <?= e($svc['name']) ?>
     </div>
@@ -309,21 +336,31 @@ foreach ($services as $i => $svc):
 <div class="tbl-wrap">
   <div class="tbl-head">
     <div class="tbl-title"><i class="fas fa-table" style="color:var(--primary-light);"></i>التفصيل الشهري لعام <?= $year ?></div>
-    <div style="font-size:12px;color:var(--text-muted);"><i class="fas fa-info-circle"></i> انقر على اي رقم لعرض تفاصيل العملاء</div>
+    <div style="font-size:12px;color:var(--text-muted);">
+      <i class="fas fa-info-circle"></i>
+      انقر على اي رقم لعرض تفاصيل العملاء
+      &nbsp;|&nbsp;
+      <span style="background:var(--primary-light);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">الاساسية</span>
+      = مقياس عدد عملائك الفعلي
+    </div>
   </div>
   <div style="overflow-x:auto;">
   <table class="stats-tbl">
     <thead>
       <tr>
         <th style="min-width:90px;">الشهر</th>
-        <?php foreach ($services as $i=>$svc): ?>
-        <th style="min-width:115px;">
+        <?php foreach ($services as $i=>$svc):
+            $isPrimary = ((int)$svc['id'] === $primaryServiceId);
+        ?>
+        <th style="min-width:130px;" class="<?= $isPrimary?'primary-col':'' ?>">
+          <?php if($isPrimary): ?>
+          <span class="primary-badge">الاساسية</span>
+          <?php endif; ?>
           <span style="color:<?= $serviceColors[$i%count($serviceColors)] ?>;">&#9679;</span>
           <?= e($svc['name']) ?>
-          <div style="font-size:10px;color:var(--text-muted);font-weight:500;">عملاء</div>
+          <div style="font-size:10px;font-weight:500;margin-top:2px;"><?= $isPrimary?'(العدد الفعلي)':'عملاء' ?></div>
         </th>
         <?php endforeach; ?>
-        <th style="min-width:100px;">اجمالي العملاء</th>
         <th style="min-width:120px;color:var(--success);"><i class="fas fa-arrow-up" style="font-size:10px;"></i> ايرادات محصلة</th>
         <th style="min-width:110px;color:var(--danger);"><i class="fas fa-arrow-down" style="font-size:10px;"></i> مصروفات</th>
         <th style="min-width:120px;">صافي الربح</th>
@@ -331,22 +368,24 @@ foreach ($services as $i => $svc):
     </thead>
     <tbody>
 <?php
-$gClients=0;$gCollected=0;$gExpenses=0;$gNet=0;
+$gCollected=0;$gExpenses=0;$gNet=0;
 $gBySvc=array_fill_keys(array_column($services,'id'),0);
+
 for($m=1;$m<=12;$m++):
-    $mClients=0;
+    $primaryClientsThisMonth = $subsByMonthService[$m][$primaryServiceId]['clients_count'] ?? 0;
+    $hasAnyData = false;
     foreach($services as $svc){
         $cnt=$subsByMonthService[$m][$svc['id']]['clients_count']??0;
-        $mClients+=$cnt;
         $gBySvc[$svc['id']]=($gBySvc[$svc['id']]??0)+$cnt;
+        if($cnt>0) $hasAnyData=true;
     }
     $col=$paymentsByMonth[$m]??0;
     $exp=$expensesByMonth[$m]??0;
     $net=$col-$exp;
-    $hasData=($mClients>0||$col>0||$exp>0);
-    $gClients+=$mClients;$gCollected+=$col;$gExpenses+=$exp;$gNet+=$net;
+    if($col>0||$exp>0) $hasAnyData=true;
+    $gCollected+=$col;$gExpenses+=$exp;$gNet+=$net;
 ?>
-    <tr style="<?= $hasData?'':'opacity:.45;' ?>">
+    <tr style="<?= $hasAnyData?'':'opacity:.45;' ?>">
       <td>
         <button class="month-btn" onclick="toggleDrawer(<?=$m?>,0)">
           <i class="fas fa-calendar-alt" style="font-size:11px;color:var(--text-muted);"></i>
@@ -356,11 +395,12 @@ for($m=1;$m<=12;$m++):
       <?php foreach($services as $i=>$svc):
         $color=$serviceColors[$i%count($serviceColors)];
         $cnt=$subsByMonthService[$m][$svc['id']]['clients_count']??0;
+        $isPrimary=((int)$svc['id']===$primaryServiceId);
       ?>
       <td>
         <?php if($cnt>0): ?>
-        <span class="pill"
-              style="background:<?=$color?>18;color:<?=$color?>;border-color:<?=$color?>35;"
+        <span class="pill <?= $isPrimary?'primary-pill':'' ?>"
+              style="background:<?=$color?>18;color:<?=$color?>;border-color:<?=$color?>35;<?= $isPrimary?'font-size:13px;font-weight:900;':'' ?>"
               onclick="toggleDrawer(<?=$m?>,<?=$svc['id']?>)"
               title="عرض عملاء <?=e($svc['name'])?> في <?=$arabicMonths[$m]?>">
           <i class="fas <?=$getServiceIcon($svc['name'])?>" style="font-size:10px;"></i>
@@ -371,7 +411,6 @@ for($m=1;$m<=12;$m++):
         <?php endif; ?>
       </td>
       <?php endforeach; ?>
-      <td><?= $mClients>0?"<strong style='color:var(--primary-light);font-size:14px;'>$mClients</strong>":"<span class='money-nil'>—</span>" ?></td>
       <td class="<?=$col>0?'money-pos':'money-nil'?>"><?=$col>0?formatMoney($col):'—'?></td>
       <td class="<?=$exp>0?'money-neg':'money-nil'?>"><?=$exp>0?formatMoney($exp):'—'?></td>
       <td>
@@ -388,10 +427,15 @@ for($m=1;$m<=12;$m++):
     <tfoot>
       <tr>
         <td style="text-align:right;font-size:13px;">الاجمالي السنوي</td>
-        <?php foreach($services as $svc): ?>
-        <td style="color:var(--primary-light);"><?=($gBySvc[$svc['id']]??0)?> عميل</td>
+        <?php foreach($services as $i=>$svc):
+            $isPrimary=((int)$svc['id']===$primaryServiceId);
+            $color=$serviceColors[$i%count($serviceColors)];
+        ?>
+        <td style="color:<?=$isPrimary?'var(--primary-light)':'var(--text-secondary)'?>;font-size:<?=$isPrimary?'15':'13'?>px;font-weight:<?=$isPrimary?'900':'700'?>;">
+          <?=($gBySvc[$svc['id']]??0)?> عميل
+          <?php if($isPrimary): ?><div style="font-size:10px;font-weight:600;color:var(--text-muted);">العدد الفعلي للعملاء</div><?php endif; ?>
+        </td>
         <?php endforeach; ?>
-        <td style="color:var(--primary-light);font-size:14px;"><?=$gClients?></td>
         <td style="color:var(--success);font-size:14px;"><?=formatMoney($gCollected)?></td>
         <td style="color:var(--danger);font-size:14px;"><?=formatMoney($gExpenses)?></td>
         <td style="color:<?=$gNet>=0?'var(--success)':'var(--danger)'?>;font-size:14px;"><?=formatMoney($gNet)?></td>
@@ -406,7 +450,7 @@ for($m=1;$m<=12;$m++):
     <i class="fas fa-info-circle" style="color:var(--info);margin-top:2px;flex-shrink:0;"></i>
     <span>
       <strong>ملاحظات:</strong>
-      "ايرادات الاشتراكات" = قيمة الاشتراكات المبرمة في السنة بغض النظر عن موعد التحصيل.
+      عمود <strong><?= e($primaryServiceName ?? 'البريد الالكتروني') ?></strong> هو المقياس الفعلي لعدد عملائك — كل عميل لديه اشتراك في البريد سواء حجزت له الدومين ام لا.
       "الايرادات المحصلة" = المبالغ المدفوعة فعلياً.
       "المصروفات" = المصروفات التشغيلية المسجلة.
     </span>
@@ -416,7 +460,8 @@ for($m=1;$m<=12;$m++):
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
 const mLabels=<?=json_encode(array_values($arabicMonths))?>;
-const svcs=<?=json_encode(array_map(fn($s,$i)=>['id'=>$s['id'],'name'=>$s['name'],'color'=>$serviceColors[$i%count($serviceColors)]],$services,array_keys($services)))?>;
+const svcs=<?=json_encode(array_map(fn($s,$i)=>['id'=>(int)$s['id'],'name'=>$s['name'],'color'=>$serviceColors[$i%count($serviceColors)]],$services,array_keys($services)))?>;
+const primaryServiceId=<?=(int)$primaryServiceId?>;
 const svcMap={};svcs.forEach(s=>svcMap[s.id]=s.name);
 const subsData=<?=json_encode($subsByMonthService)?>;
 const payData=<?=json_encode($paymentsByMonth)?>;
@@ -427,7 +472,8 @@ const arabicM=<?=json_encode($arabicMonths)?>;
 const cDatasets=svcs.map(s=>({
     label:s.name,
     data:Array.from({length:12},(_,i)=>subsData[i+1]?.[s.id]?.clients_count??0),
-    backgroundColor:s.color+'CC',borderColor:s.color,borderWidth:1.5,borderRadius:5
+    backgroundColor:s.color+'CC',borderColor:s.color,borderWidth:s.id===primaryServiceId?2.5:1.5,borderRadius:5,
+    borderDash:s.id===primaryServiceId?[]:[4,3],
 }));
 const cCtx=document.getElementById('cChart').getContext('2d');
 new Chart(cCtx,{
@@ -438,7 +484,12 @@ new Chart(cCtx,{
             x:{ticks:{font:{family:'Cairo',size:11}},grid:{display:false}}}}
 });
 const cLeg=document.getElementById('cLegend');
-svcs.forEach(s=>{const d=document.createElement('div');d.className='legend-item';d.innerHTML=`<div class="legend-dot" style="background:${s.color};"></div>${s.name}`;cLeg.appendChild(d);});
+svcs.forEach(s=>{
+    const d=document.createElement('div');d.className='legend-item';
+    const isPrimary=s.id===primaryServiceId;
+    d.innerHTML=`<div class="legend-dot" style="background:${s.color};${isPrimary?'box-shadow:0 0 0 2px '+s.color+'55;':''}"></div>${s.name}${isPrimary?'<span style="background:var(--primary-light);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;margin-right:4px;">الاساسية</span>':''}`;
+    cLeg.appendChild(d);
+});
 
 // Financial Chart
 const colArr=Array.from({length:12},(_,i)=>payData[i+1]??0);
@@ -470,7 +521,7 @@ function openDrawer(month,svcId){
     const dr=document.getElementById('drawer');
     const body=document.getElementById('drawerBody');
     const title=document.getElementById('drawerTitle');
-    const svcLabel=svcId?' — '+(svcMap[svcId]??'كل الخدمات'):'— كل الخدمات';
+    const svcLabel=svcId?' — '+(svcMap[svcId]??'كل الخدمات'):' — كل الخدمات';
     title.textContent='عملاء '+arabicM[month]+svcLabel;
     dr.style.display='block';
     body.innerHTML='<div style="padding:40px;text-align:center;"><div style="width:30px;height:30px;border:3px solid #e2e8f0;border-top-color:var(--primary-light);border-radius:50%;animation:spin .6s linear infinite;margin:auto;"></div><p style="color:var(--text-muted);margin-top:10px;font-size:13px;">جاري التحميل...</p></div>';
