@@ -15,6 +15,7 @@ $status  = isset($_GET['status']) ? $_GET['status'] : '1';
 $filter  = $_GET['filter'] ?? '';
 $plan    = clean($_GET['plan'] ?? '');
 $country = clean($_GET['country'] ?? '');
+$server  = clean($_GET['server'] ?? '');
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 
@@ -33,6 +34,11 @@ if ($status !== '') {
 if ($country !== '') {
     $where[]  = "c.country = ?";
     $params[] = $country;
+}
+
+if ($server !== '') {
+    $where[]  = "c.server_panel = ?";
+    $params[] = $server;
 }
 
 if ($filter === 'website') {
@@ -400,7 +406,7 @@ if (isset($_GET['ajax'])) {
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan, 'country' => $country]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan, 'country' => $country, 'server' => $server]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -559,6 +565,12 @@ require_once INCLUDES_PATH . '/header.php';
         <?php endforeach; ?>
       </select>
 
+      <select name="server" class="form-control" style="width:auto;">
+        <option value="">كل السيرفرات</option>
+        <option value="cp.enjaz.cloud" <?= $server === 'cp.enjaz.cloud' ? 'selected' : '' ?>>السيرفر الأول (cp)</option>
+        <option value="panel.enjaz.cloud" <?= $server === 'panel.enjaz.cloud' ? 'selected' : '' ?>>السيرفر الثاني (panel)</option>
+      </select>
+
       <select name="filter" class="form-control" style="width:auto;">
         <option value="">كل التصنيفات المخصصة</option>
         <option value="debt" <?= $filter === 'debt' ? 'selected' : '' ?>>عملاء عليهم مديونية</option>
@@ -569,7 +581,7 @@ require_once INCLUDES_PATH . '/header.php';
       </select>
 
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
-      <?php if ($search || $status !== '1' || $filter !== '' || $plan !== '' || $country !== ''): ?>
+      <?php if ($search || $status !== '1' || $filter !== '' || $plan !== '' || $country !== '' || $server !== ''): ?>
       <a href="index.php" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
       <?php endif; ?>
     </form>

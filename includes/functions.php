@@ -54,6 +54,7 @@ function getSupportedCountries(): array {
         'OM' => ['name' => 'سلطنة عمان', 'flag' => '🇴🇲', 'code' => '+968', 'currency' => 'OMR', 'currency_label' => 'ريال عماني'],
         'BH' => ['name' => 'البحرين', 'flag' => '🇧🇭', 'code' => '+973', 'currency' => 'BHD', 'currency_label' => 'دينار بحريني'],
         'SD' => ['name' => 'السودان', 'flag' => '🇸🇩', 'code' => '+249', 'currency' => 'SDG', 'currency_label' => 'جنيه سوداني'],
+        'ID' => ['name' => 'إندونيسيا', 'flag' => '🇮🇩', 'code' => '+62', 'currency' => 'IDR', 'currency_label' => 'روبية / أخرى'],
         'OTHER' => ['name' => 'دولة أخرى', 'flag' => '🌐', 'code' => '', 'currency' => 'USD', 'currency_label' => 'دولار / أخرى'],
     ];
 }
@@ -83,6 +84,8 @@ function getCountryFlagSvg(?string $countryCode, int $width = 22, int $height = 
             return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="480" fill="#ce1126"/><polygon points="0,0 180,0 240,48 180,96 240,144 180,192 240,240 180,288 240,336 180,384 240,432 180,480 0,480" fill="#ffffff"/></svg>', $w, $h);
         case 'SD':
             return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="160" fill="#d21034"/><rect y="160" width="640" height="160" fill="#ffffff"/><rect y="320" width="640" height="160" fill="#000000"/><polygon points="0,0 220,240 0,480" fill="#007229"/></svg>', $w, $h);
+        case 'ID':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="240" fill="#ce1126"/><rect y="240" width="640" height="240" fill="#ffffff"/></svg>', $w, $h);
         default:
             return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="480" fill="#2563eb"/><circle cx="320" cy="240" r="160" fill="none" stroke="#ffffff" stroke-width="20"/><ellipse cx="320" cy="240" rx="90" ry="160" fill="none" stroke="#ffffff" stroke-width="16"/><line x1="160" y1="240" x2="480" y2="240" stroke="#ffffff" stroke-width="18"/><line x1="190" y1="160" x2="450" y2="160" stroke="#ffffff" stroke-width="14"/><line x1="190" y1="320" x2="450" y2="320" stroke="#ffffff" stroke-width="14"/></svg>', $w, $h);
     }

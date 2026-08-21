@@ -114,14 +114,34 @@ $serviceDist = $db->query("
     ORDER BY count DESC
 ")->fetchAll();
 
-// ── 7. توزيع العملاء حسب الدولة والخدمات ────────────────────────
+// ── 7. توزيع العملاء حسب الدولة والخدمات والسيرفر ────────────────────────
 $countryFilterStatus = $_GET['country_status'] ?? '1'; // '1' = active (default), '0' = suspended, 'all' = all
+$countryFilterServer = clean($_GET['country_server'] ?? '');
+
+$availableServers = $db->query("
+    SELECT DISTINCT server_panel 
+    FROM clients 
+    WHERE server_panel IS NOT NULL AND server_panel != '' 
+    ORDER BY server_panel ASC
+")->fetchAll(PDO::FETCH_COLUMN);
+
+if (empty($availableServers)) {
+    $availableServers = ['cp.enjaz.cloud', 'panel.enjaz.cloud'];
+}
+
 $countryStatusWhere = "";
 if ($countryFilterStatus === '1') {
     $countryStatusWhere = " AND c.status = 1 ";
 } elseif ($countryFilterStatus === '0') {
     $countryStatusWhere = " AND c.status = 0 ";
 }
+
+$countryServerWhere = "";
+if ($countryFilterServer !== '') {
+    $countryServerWhere = " AND c.server_panel = " . $db->quote($countryFilterServer);
+}
+
+$countryCombinedWhere = " WHERE 1=1 " . $countryStatusWhere . $countryServerWhere;
 
 $countryOverview = $db->query("
     SELECT c.country,
@@ -133,7 +153,7 @@ $countryOverview = $db->query("
     FROM clients c
     LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
     LEFT JOIN services s ON s.id = cs.service_id
-    WHERE 1=1 $countryStatusWhere
+    $countryCombinedWhere
     GROUP BY c.country
     ORDER BY total_clients DESC
 ")->fetchAll();
@@ -146,7 +166,7 @@ $countryServiceStats = $db->query("
     FROM clients c
     JOIN client_subscriptions cs ON cs.client_id = c.id
     JOIN services s ON s.id = cs.service_id
-    WHERE cs.status != 'cancelled' $countryStatusWhere
+    WHERE cs.status != 'cancelled' $countryStatusWhere $countryServerWhere
     GROUP BY c.country, s.id
     ORDER BY total_price DESC
 ")->fetchAll();
@@ -377,36 +397,71 @@ require_once INCLUDES_PATH . '/header.php';
 
 </div>
 
+<?php
+$makeCountryDashUrl = function($newStatus, $newServer) use ($countryFilterStatus, $countryFilterServer) {
+    $st = $newStatus !== null ? $newStatus : $countryFilterStatus;
+    $sv = $newServer !== null ? $newServer : $countryFilterServer;
+    $params = [];
+    if ($st !== '1') $params['country_status'] = $st;
+    if ($sv !== '') $params['country_server'] = $sv;
+    $qs = http_build_query($params);
+    return '?' . ($qs ? $qs : '');
+};
+?>
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
-<!-- بطاقة تقرير توزيع العملاء والخدمات حسب الدولة (Accordion قابل للتوسع) -->
+<!-- بطاقة تقرير توزيع العملاء والخدمات حسب الدولة والسيرفر (Accordion قابل للتوسع) -->
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <div class="card" style="margin-bottom: 24px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
-  <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 20px; background: var(--card-bg); border-bottom: 1px solid var(--border-color);">
+  <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding: 16px 20px; background: var(--card-bg); border-bottom: 1px solid var(--border-color);">
     <div>
       <span class="card-title" style="font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
         <i class="fas fa-globe-americas" style="color: var(--primary);"></i>
-        <span>تقرير توزيع العملاء والخدمات حسب الدولة</span>
+        <span>تقرير توزيع العملاء والخدمات حسب الدولة والسيرفر</span>
       </span>
       <p style="font-size: 12px; color: var(--text-muted); margin: 3px 0 0 0;">اضغط على الدولة لعرض تفاصيل الخدمات والتكاليف وعدد الدومينات المحجوزة من خلالنا</p>
     </div>
 
-    <!-- أزرار فلترة حالة العملاء -->
-    <div style="display: inline-flex; background: rgba(36,86,164,0.06); padding: 3px; border-radius: 8px; gap: 4px;">
-      <a href="?country_status=1" 
-         class="btn btn-sm" 
-         style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === '1' ? 'background: var(--success); color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
-        <i class="fas fa-circle-check" style="margin-left: 4px;"></i> النشطون
-      </a>
-      <a href="?country_status=0" 
-         class="btn btn-sm" 
-         style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === '0' ? 'background: var(--danger); color: #fff; box-shadow: 0 2px 6px rgba(239,68,68,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
-        <i class="fas fa-circle-pause" style="margin-left: 4px;"></i> الموقوفون
-      </a>
-      <a href="?country_status=all" 
-         class="btn btn-sm" 
-         style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === 'all' ? 'background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(36,86,164,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
-        <i class="fas fa-globe" style="margin-left: 4px;"></i> كل العملاء
-      </a>
+    <!-- أدوات الفلترة: السيرفر + حالة العملاء -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      
+      <!-- فلتر السيرفر -->
+      <div style="display: inline-flex; align-items: center; gap: 6px;">
+        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+          <i class="fas fa-server" style="color: var(--primary);"></i> السيرفر:
+        </label>
+        <select onchange="window.location=this.value" class="form-control" style="font-size: 12px; padding: 5px 10px; height: auto; width: auto; font-weight: 700; border-radius: 8px; cursor: pointer; border-color: rgba(36,86,164,0.2);">
+          <option value="<?= $makeCountryDashUrl(null, '') ?>" <?= $countryFilterServer === '' ? 'selected' : '' ?>>🖥️ كل السيرفرات</option>
+          <?php foreach ($availableServers as $srv): 
+            $srvLabel = $srv;
+            if ($srv === 'cp.enjaz.cloud') $srvLabel = 'السيرفر الأول (cp)';
+            elseif ($srv === 'panel.enjaz.cloud') $srvLabel = 'السيرفر الثاني (panel)';
+          ?>
+          <option value="<?= $makeCountryDashUrl(null, $srv) ?>" <?= $countryFilterServer === $srv ? 'selected' : '' ?>>
+            🖥️ <?= e($srvLabel) ?>
+          </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <!-- أزرار فلترة حالة العملاء -->
+      <div style="display: inline-flex; background: rgba(36,86,164,0.06); padding: 3px; border-radius: 8px; gap: 4px;">
+        <a href="<?= $makeCountryDashUrl('1', null) ?>" 
+           class="btn btn-sm" 
+           style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === '1' ? 'background: var(--success); color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
+          <i class="fas fa-circle-check" style="margin-left: 4px;"></i> النشطون
+        </a>
+        <a href="<?= $makeCountryDashUrl('0', null) ?>" 
+           class="btn btn-sm" 
+           style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === '0' ? 'background: var(--danger); color: #fff; box-shadow: 0 2px 6px rgba(239,68,68,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
+          <i class="fas fa-circle-pause" style="margin-left: 4px;"></i> الموقوفون
+        </a>
+        <a href="<?= $makeCountryDashUrl('all', null) ?>" 
+           class="btn btn-sm" 
+           style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === 'all' ? 'background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(36,86,164,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
+          <i class="fas fa-globe" style="margin-left: 4px;"></i> كل العملاء
+        </a>
+      </div>
+
     </div>
   </div>
 
@@ -414,7 +469,8 @@ require_once INCLUDES_PATH . '/header.php';
     <?php if (empty($countryOverview)): ?>
     <div class="empty-state" style="padding: 40px;">
       <div class="empty-icon"><i class="fas fa-users-slash"></i></div>
-      <p class="empty-title">لا يوجد عملاء يطابقون الفلتر المحدد</p>
+      <p class="empty-title">لا يوجد عملاء يطابقون الفلاتر المحددة</p>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">جرب تغيير اختيار السيرفر أو حالة العميل</p>
     </div>
     <?php else: ?>
     <div class="country-accordion-list">
@@ -443,6 +499,11 @@ require_once INCLUDES_PATH . '/header.php';
                 <span class="badge" style="background: rgba(36,86,164,0.08); color: var(--primary); font-size: 11px; padding: 2px 8px; border-radius: 20px;">
                   <?= $cs['total_clients'] ?> <?= $cs['total_clients'] > 1 ? 'عملاء' : 'عميل' ?>
                 </span>
+                <?php if ($countryFilterServer !== ''): ?>
+                <span class="badge" style="background: #e0f2fe; color: #0284c7; font-size: 10.5px; padding: 2px 6px; border-radius: 6px;">
+                  <?= e($countryFilterServer) ?>
+                </span>
+                <?php endif; ?>
               </div>
               <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
                 <span>نشط: <strong style="color: var(--success);"><?= $cs['active_clients'] ?></strong></span> &bull; 
@@ -490,7 +551,7 @@ require_once INCLUDES_PATH . '/header.php';
               <i class="fas fa-list-check" style="color: var(--primary-light);"></i>
               <span>تفاصيل الخدمات والاشتراكات لعملاء <?= e($cInfo['name']) ?> (<?= count($services) ?> خدمات مسجلة):</span>
             </div>
-            <a href="clients/index.php?country=<?= urlencode($cCode) ?>&status=<?= $countryFilterStatus === 'all' ? '' : $countryFilterStatus ?>" 
+            <a href="clients/index.php?country=<?= urlencode($cCode) ?>&status=<?= $countryFilterStatus === 'all' ? '' : $countryFilterStatus ?>&server=<?= urlencode($countryFilterServer) ?>" 
                class="btn btn-sm btn-primary" 
                style="font-size: 11.5px; padding: 3px 10px; border-radius: 6px;">
               <i class="fas fa-users"></i> عرض عملاء <?= e($cInfo['name']) ?> (<?= $cs['total_clients'] ?>) في جدول العملاء &larr;

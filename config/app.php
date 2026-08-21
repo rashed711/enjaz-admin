@@ -99,8 +99,10 @@ try {
         $db->exec("UPDATE clients SET country = 'QA' WHERE mobile LIKE '974%' OR mobile LIKE '+974%';");
         $db->exec("UPDATE clients SET country = 'OM' WHERE mobile LIKE '968%' OR mobile LIKE '+968%';");
         $db->exec("UPDATE clients SET country = 'BH' WHERE mobile LIKE '973%' OR mobile LIKE '+973%';");
-        $db->exec("UPDATE clients SET country = 'OTHER' WHERE mobile LIKE '62%' OR mobile LIKE '+62%';");
+        $db->exec("UPDATE clients SET country = 'ID' WHERE mobile LIKE '62%' OR mobile LIKE '+62%' OR mobile_2 LIKE '62%' OR mobile_2 LIKE '+62%';");
     }
+    // تحديث أي عميل إندونيسي قديم كان مصنف OTHER
+    $db->exec("UPDATE clients SET country = 'ID' WHERE (mobile LIKE '62%' OR mobile LIKE '+62%' OR mobile_2 LIKE '62%' OR mobile_2 LIKE '+62%') AND (country = 'OTHER' OR country = 'EG');");
 } catch (Exception $e) {}
 
 // التأكد من إضافة حقول العملة لجدول الباقات service_plans
