@@ -177,6 +177,26 @@ foreach ($countryServiceStats as $css) {
     $countryServicesMap[$cCode][] = $css;
 }
 
+// ── إجماليات الفلتر الحالي للفوتر ────────────────────────
+$totalFilteredClients   = array_sum(array_column($countryOverview, 'total_clients'));
+$totalFilteredActive    = array_sum(array_column($countryOverview, 'active_clients'));
+$totalFilteredSuspended = array_sum(array_column($countryOverview, 'suspended_clients'));
+$totalFilteredRevenue   = array_sum(array_column($countryOverview, 'total_revenue'));
+$totalFilteredOurDomains= array_sum(array_column($countryOverview, 'our_domains_count'));
+
+$filteredServiceTotals = $db->query("
+    SELECT s.id AS service_id, s.name AS service_name,
+           COUNT(cs.id) AS total_subs,
+           COALESCE(SUM(cs.price), 0) AS total_amount,
+           COUNT(DISTINCT CASE WHEN (s.name LIKE '%دومين%' OR s.name LIKE '%domain%') THEN cs.id END) AS our_domains_count
+    FROM client_subscriptions cs
+    JOIN clients c ON c.id = cs.client_id
+    JOIN services s ON s.id = cs.service_id
+    WHERE cs.status != 'cancelled' $countryStatusWhere $countryServerWhere
+    GROUP BY s.id
+    ORDER BY total_amount DESC
+")->fetchAll();
+
 // ── 8. قائمة العملاء الذين حجزنا الدومين لهم ───────────────────────
 $ourDomainsClients = $db->query("
     SELECT cs.id AS sub_id, c.id, c.name, c.company_name, c.country, c.domain AS client_domain, c.domain_provider,
@@ -338,19 +358,7 @@ require_once INCLUDES_PATH . '/header.php';
 
   <!-- Column 2: Package Distribution & Latest Clients -->
   <div>
-    <!-- Package Distribution Chart -->
-    <div class="card" style="margin-bottom: 20px;">
-      <div class="card-header">
-        <span class="card-title"><i class="fas fa-chart-pie"></i> توزيع باقات الاشتراكات</span>
-      </div>
-      <div class="card-body">
-        <div style="max-height: 220px; position: relative; display: flex; justify-content: center;">
-          <canvas id="packageDistChart"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Latest Clients -->
+       <!-- Latest Clients -->
     <div class="card">
       <div class="card-header">
         <span class="card-title"><i class="fas fa-user-clock"></i> آخر العملاء المضافين</span>
@@ -620,6 +628,97 @@ $makeCountryDashUrl = function($newStatus, $newServer) use ($countryFilterStatus
     </div>
     <?php endif; ?>
   </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- فوتر البطاقة: الإجماليات الشاملة حسب الفلترة الحالية -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <?php if (!empty($countryOverview)): ?>
+  <div class="card-footer" style="padding: 16px 20px; background: rgba(36,86,164,0.03); border-top: 2px solid var(--border-color);">
+    
+    <!-- شريط الإجماليات الرئيسية -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px dashed var(--border-color);">
+      
+      <div style="display: flex; align-items: center; gap: 18px; flex-wrap: wrap;">
+        <!-- إجمالي العملاء -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(36,86,164,0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 14px;">
+            <i class="fas fa-users"></i>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 700;">إجمالي العملاء:</div>
+            <div style="font-size: 14.5px; font-weight: 900; color: var(--text-primary);">
+              <?= $totalFilteredClients ?> عميل
+              <span style="font-size: 11.5px; font-weight: normal; color: var(--text-muted);">
+                ( <span style="color: var(--success); font-weight: 700;"><?= $totalFilteredActive ?> نشط</span> &bull; <span style="color: var(--danger); font-weight: 700;"><?= $totalFilteredSuspended ?> موقوف</span> )
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- إجمالي الدومينات المحجوزة من خلالنا -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(16,185,129,0.1); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 14px;">
+            <i class="fas fa-globe"></i>
+          </div>
+          <div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 700;">دومينات حجزناها نحن:</div>
+            <div style="font-size: 14.5px; font-weight: 900; color: var(--success);">
+              <?= $totalFilteredOurDomains ?> دومين
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- إجمالي قيمة الاشتراكات -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(36,86,164,0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 14px;">
+          <i class="fas fa-coins"></i>
+        </div>
+        <div style="text-align: left;">
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 700;">إجمالي قيمة الاشتراكات:</div>
+          <div style="font-size: 16px; font-weight: 900; color: var(--primary);">
+            <?= formatMoney($totalFilteredRevenue) ?>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- تفصيل إجماليات كل خدمة حسب الفلترة الحالية -->
+    <?php if (!empty($filteredServiceTotals)): ?>
+    <div>
+      <div style="font-size: 12px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+        <i class="fas fa-layer-group" style="color: var(--primary-light);"></i>
+        <span>إجمالي الاشتراكات والتكاليف لكل خدمة (حسب الفلتر الحالي):</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <?php foreach ($filteredServiceTotals as $fst): 
+          $isDom = (mb_strpos(mb_strtolower($fst['service_name']), 'دومين') !== false || mb_strpos(mb_strtolower($fst['service_name']), 'domain') !== false);
+        ?>
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+          <span style="font-weight: 700; color: var(--text-primary);">
+            <i class="fas <?= $isDom ? 'fa-globe text-info' : 'fa-check-circle text-primary' ?>" style="margin-left: 4px;"></i>
+            <?= e($fst['service_name']) ?>:
+          </span>
+          <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">
+            <?= $fst['total_subs'] ?> <?= $fst['total_subs'] > 1 ? 'اشتراكات' : 'اشتراك' ?>
+          </span>
+          <span style="font-weight: 800; color: var(--success);">
+            <?= formatMoney($fst['total_amount']) ?>
+          </span>
+          <?php if ($isDom && $fst['our_domains_count'] > 0): ?>
+          <span class="badge badge-success" style="font-size: 10.5px; padding: 2px 6px;">
+            (<?= $fst['our_domains_count'] ?> حجزناهم)
+          </span>
+          <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+
+  </div>
+  <?php endif; ?>
 </div>
 
 <script>
