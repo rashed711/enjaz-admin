@@ -10,6 +10,7 @@ $db = getDB();
 $warningDays = (int)getSetting('renewal_warning_days','60');
 $filterDays   = (int)($_GET['days'] ?? $warningDays);
 $clientStatus = $_GET['status'] ?? '1'; // '1' = active, '0' = stopped, 'all' = both
+$country      = clean($_GET['country'] ?? '');
 
 $where = ["cs.status='active'", "cs.end_date IS NOT NULL", "cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)"];
 $params = [$filterDays];
@@ -18,10 +19,16 @@ if ($clientStatus !== 'all') {
     $where[] = "c.status = ?";
     $params[] = (int)$clientStatus;
 }
+
+if ($country !== '') {
+    $where[] = "c.country = ?";
+    $params[] = $country;
+}
+
 $whereStr = implode(' AND ', $where);
 
 $stmt = $db->prepare("
-    SELECT cs.*, c.name as client_name, c.mobile, c.company_name,
+    SELECT cs.*, c.name as client_name, c.mobile, c.company_name, c.country,
            s.name as service_name,
            DATEDIFF(cs.end_date, CURDATE()) as days_left
     FROM client_subscriptions cs
@@ -43,6 +50,7 @@ foreach ($renewals as $r) {
             'client_name' => $r['client_name'],
             'mobile' => $r['mobile'],
             'company_name' => $r['company_name'],
+            'country' => $r['country'] ?? 'EG',
             'total_price' => 0,
             'min_days_left' => 999999,
             'min_end_date' => $r['end_date'],
@@ -78,15 +86,20 @@ function renderRenewalsTable($clients) {
       </div>
     </td></tr>
     <?php else: ?>
-    <?php foreach ($clients as $cId => $c): ?>
+    <?php foreach ($clients as $cId => $c): 
+      $cInfo = getCountryInfo($c['country'] ?? 'EG');
+    ?>
     <tr class="client-row" data-client-id="<?= $cId ?>">
       <td style="text-align: center; vertical-align: middle;">
         <input type="checkbox" name="client_ids[]" value="<?= $cId ?>" class="client-checkbox form-check-input" style="cursor: pointer; width: 18px; height: 18px;">
       </td>
       <td>
-        <a href="../clients/view.php?id=<?= $cId ?>" style="font-weight:700; color: var(--primary);">
-          <?= e($c['client_name']) ?>
-        </a>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:16px;" title="<?= e($cInfo['name']) ?>"><?= $cInfo['flag'] ?></span>
+          <a href="../clients/view.php?id=<?= $cId ?>" style="font-weight:700; color: var(--primary);">
+            <?= e($c['client_name']) ?>
+          </a>
+        </div>
         <div style="font-size:11.5px;color:var(--text-muted); margin-top: 2px;">
           <i class="fab fa-whatsapp" style="color:#25D366;"></i> <?= e($c['mobile']) ?>
         </div>
@@ -145,7 +158,7 @@ function renderRenewalsTable($clients) {
                 <tr>
                   <td style="font-weight: 600;"><?= e($sub['service_name']) ?></td>
                   <td class="text-muted"><?= e($sub['plan_name'] ?: '—') ?></td>
-                  <td class="fw-bold"><?= formatMoney($sub['price']) ?></td>
+                  <td class="fw-bold"><?= formatPlanPrice((float)$sub['price'], $sub['currency'] ?? 'EGP', isset($sub['original_price']) && $sub['original_price'] !== null ? (float)$sub['original_price'] : null) ?></td>
                   <td><?= formatDate($sub['end_date']) ?></td>
                   <td>
                     <?php if ($sub['days_left'] <= 0): ?>
@@ -228,8 +241,17 @@ require_once INCLUDES_PATH . '/header.php';
         <?php endforeach; ?>
       </div>
     </div>
-    <div class="page-actions" style="gap: 12px;">
-      <div style="display:flex;gap:10px;align-items:center;" id="filterFormContainer">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;" id="filterFormContainer">
+        <label style="font-size:13px;font-weight:600;">الدولة</label>
+        <select name="country_filter" id="countryFilter" class="form-control" style="width:auto;">
+          <option value="">كل الدول</option>
+          <?php foreach (getSupportedCountries() as $cCode => $cInfo): ?>
+            <option value="<?= e($cCode) ?>" <?= $country === $cCode ? 'selected' : '' ?>>
+              <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+
         <label style="font-size:13px;font-weight:600;">الحالة</label>
         <select name="status_filter" id="statusFilter" class="form-control" style="width:auto;">
           <option value="1" <?= $clientStatus === '1' ? 'selected' : '' ?>>النشطين فقط</option>
@@ -350,17 +372,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    const countrySelect = document.getElementById('countryFilter');
+
     function doSearch() {
         const daysVal = daysSelect.value;
         const statusVal = statusSelect ? statusSelect.value : '1';
+        const countryVal = countrySelect ? countrySelect.value : '';
         const params = new URLSearchParams({
             days: daysVal,
             status: statusVal,
+            country: countryVal,
             ajax: 1
         });
 
         // Update URL
         const cleanParams = new URLSearchParams({ days: daysVal, status: statusVal });
+        if (countryVal) cleanParams.set('country', countryVal);
         const newUrl = window.location.pathname + '?' + cleanParams.toString();
         window.history.replaceState({path: newUrl}, '', newUrl);
 
@@ -374,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update Bulk WhatsApp button url & confirm message
         if (bulkWhatsappBtn) {
-            bulkWhatsappBtn.setAttribute('href', '../whatsapp/bulk.php?type=renewal&days=' + daysVal + '&status=' + statusVal);
+            bulkWhatsappBtn.setAttribute('href', '../whatsapp/bulk.php?type=renewal&days=' + daysVal + '&status=' + statusVal + (countryVal ? '&country=' + encodeURIComponent(countryVal) : ''));
         }
 
         fetch('renewals.php?' + params.toString())
@@ -414,6 +441,9 @@ document.addEventListener('DOMContentLoaded', function() {
     daysSelect.addEventListener('change', doSearch);
     if (statusSelect) {
         statusSelect.addEventListener('change', doSearch);
+    }
+    if (countrySelect) {
+        countrySelect.addEventListener('change', doSearch);
     }
 });
 </script>

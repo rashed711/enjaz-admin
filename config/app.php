@@ -84,6 +84,45 @@ try {
     }
 } catch (Exception $e) {}
 
+// التأكد من إضافة حقل الدولة لجدول العملاء وتعيين الدول للعملاء الحاليين
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM clients LIKE 'country'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE clients ADD COLUMN country VARCHAR(10) NOT NULL DEFAULT 'EG' AFTER activity;");
+        
+        // تعيين الدول للعملاء الحاليين تلقائياً بناءً على مفتاح الهاتف أو الملاحظات
+        $db->exec("UPDATE clients SET country = 'SA' WHERE mobile LIKE '966%' OR mobile LIKE '+966%' OR mobile_2 LIKE '966%' OR name LIKE '%(سعودي)%';");
+        $db->exec("UPDATE clients SET country = 'SD' WHERE mobile LIKE '249%' OR mobile LIKE '+249%';");
+        $db->exec("UPDATE clients SET country = 'AE' WHERE mobile LIKE '971%' OR mobile LIKE '+971%';");
+        $db->exec("UPDATE clients SET country = 'KW' WHERE mobile LIKE '965%' OR mobile LIKE '+965%';");
+        $db->exec("UPDATE clients SET country = 'QA' WHERE mobile LIKE '974%' OR mobile LIKE '+974%';");
+        $db->exec("UPDATE clients SET country = 'OM' WHERE mobile LIKE '968%' OR mobile LIKE '+968%';");
+        $db->exec("UPDATE clients SET country = 'BH' WHERE mobile LIKE '973%' OR mobile LIKE '+973%';");
+        $db->exec("UPDATE clients SET country = 'OTHER' WHERE mobile LIKE '62%' OR mobile LIKE '+62%';");
+    }
+} catch (Exception $e) {}
+
+// التأكد من إضافة حقول العملة لجدول الباقات service_plans
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM service_plans LIKE 'currency'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE service_plans ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'EGP' AFTER description;");
+        $db->exec("ALTER TABLE service_plans ADD COLUMN original_price DECIMAL(12,2) NULL DEFAULT NULL AFTER currency;");
+    }
+} catch (Exception $e) {}
+
+// التأكد من إضافة حقول العملة لجدول الاشتراكات client_subscriptions
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM client_subscriptions LIKE 'currency'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE client_subscriptions ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'EGP' AFTER plan_name;");
+        $db->exec("ALTER TABLE client_subscriptions ADD COLUMN original_price DECIMAL(12,2) NULL DEFAULT NULL AFTER currency;");
+    }
+} catch (Exception $e) {}
+
 
 // التأكد من تعديل جدول المدفوعات لدعم طرق دفع مخصصة وإرفاق ملفات الإيصال
 try {

@@ -7,7 +7,8 @@ requireLogin();
 requirePermission('add_clients');
 
 $errors   = [];
-$formData = ['name'=>'','company_name'=>'','mobile'=>'','mobile_2'=>'','activity'=>'','username_note'=>'','server_panel'=>'cp.enjaz.cloud','domain'=>'','domain_provider'=>'','email'=>'','address'=>'','notes'=>'','status'=>'1'];
+$errors   = [];
+$formData = ['name'=>'','company_name'=>'','country'=>'EG','mobile'=>'','mobile_2'=>'','activity'=>'','username_note'=>'','server_panel'=>'cp.enjaz.cloud','domain'=>'','domain_provider'=>'','email'=>'','address'=>'','notes'=>'','status'=>'1'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $formData[$k] = clean($_POST[$k] ?? '');
         }
         $formData['status'] = ($_POST['status'] ?? '1') === '1' ? 1 : 0;
+        if (empty($formData['country'])) $formData['country'] = 'EG';
 
         if (empty($formData['name']))   $errors[] = 'اسم العميل مطلوب.';
         if (empty($formData['mobile'])) $errors[] = 'رقم الموبايل مطلوب.';
@@ -23,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
             $db = getDB();
             $db->prepare("
-                INSERT INTO clients (name, company_name, mobile, mobile_2, activity, username_note, server_panel, domain, domain_provider, email, address, notes, status, created_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO clients (name, company_name, country, mobile, mobile_2, activity, username_note, server_panel, domain, domain_provider, email, address, notes, status, created_by)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ")->execute([
-                $formData['name'], $formData['company_name'], $formData['mobile'],
+                $formData['name'], $formData['company_name'], $formData['country'], $formData['mobile'],
                 $formData['mobile_2'], $formData['activity'], $formData['username_note'],
                 $formData['server_panel'],
                 $formData['domain'], $formData['domain_provider'],
@@ -75,17 +77,27 @@ require_once INCLUDES_PATH . '/header.php';
 
       <p class="form-section-title"><i class="fas fa-user"></i> بيانات العميل</p>
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group" style="flex:1.5;">
           <label class="form-label" for="name">اسم العميل <span class="required">*</span></label>
           <input type="text" id="name" name="name" class="form-control"
                  value="<?= e($formData['name']) ?>" placeholder="الاسم الكامل للعميل" required>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="flex:1.2;">
           <label class="form-label" for="company_name">اسم الشركة</label>
           <input type="text" id="company_name" name="company_name" class="form-control"
                  value="<?= e($formData['company_name']) ?>" placeholder="اسم الشركة أو المؤسسة">
         </div>
-        <div class="form-group">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="country"><i class="fas fa-globe" style="margin-left:4px;color:var(--primary-light);"></i> الدولة <span class="required">*</span></label>
+          <select id="country" name="country" class="form-control" onchange="onCountryChange(this.value)" required>
+            <?php foreach (getSupportedCountries() as $code => $cInfo): ?>
+              <option value="<?= e($code) ?>" <?= ($formData['country'] === $code) ? 'selected' : '' ?> data-phone-code="<?= e($cInfo['code']) ?>">
+                <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?> (<?= $cInfo['currency_label'] ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
           <label class="form-label" for="activity">النشاط التجاري</label>
           <input type="text" id="activity" name="activity" class="form-control"
                  value="<?= e($formData['activity']) ?>" placeholder="مثال: مطعم، صيدلية...">

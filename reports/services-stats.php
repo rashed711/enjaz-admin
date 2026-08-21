@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * reports/services-stats.php - تقرير احصائيات الخدمات الشهري المتقدم
  */
@@ -9,6 +9,8 @@ requirePermission('view_reports');
 $db          = getDB();
 $year        = (int)($_GET['year'] ?? date('Y'));
 $clientStatus = $_GET['client_status'] ?? 'active';
+
+$country      = clean($_GET['country'] ?? '');
 
 $arabicMonths = [
     1=>'يناير',2=>'فبراير',3=>'مارس',4=>'ابريل',5=>'مايو',6=>'يونيو',
@@ -42,6 +44,9 @@ if(!$primaryServiceId&&!empty($services)){$primaryServiceId=(int)$services[0]['i
 
 $statusJoin  = "JOIN clients c ON c.id=cs.client_id";
 $statusConds = clientStatusWhere('c');
+if ($country !== '') {
+    $statusConds[] = "c.country = " . $db->quote($country);
+}
 $statusSql   = $statusConds ? ' AND '.implode(' AND ',$statusConds) : '';
 
 $subsStmt=$db->prepare("
@@ -55,8 +60,14 @@ $subsByMonthService=[];
 foreach($subsStmt->fetchAll() as $r)
     $subsByMonthService[(int)$r['month']][(int)$r['service_id']]=['clients_count'=>(int)$r['clients_count'],'revenue'=>(float)$r['revenue']];
 
-$payStmt=$db->prepare("SELECT MONTH(payment_date) AS month,SUM(amount) AS collected FROM payments WHERE YEAR(payment_date)=? GROUP BY MONTH(payment_date)");
-$payStmt->execute([$year]);$paymentsByMonth=[];
+if ($country !== '') {
+    $payStmt=$db->prepare("SELECT MONTH(p.payment_date) AS month,SUM(p.amount) AS collected FROM payments p JOIN clients c ON c.id=p.client_id WHERE YEAR(p.payment_date)=? AND c.country=? GROUP BY MONTH(p.payment_date)");
+    $payStmt->execute([$year, $country]);
+} else {
+    $payStmt=$db->prepare("SELECT MONTH(payment_date) AS month,SUM(amount) AS collected FROM payments WHERE YEAR(payment_date)=? GROUP BY MONTH(payment_date)");
+    $payStmt->execute([$year]);
+}
+$paymentsByMonth=[];
 foreach($payStmt->fetchAll() as $r)$paymentsByMonth[(int)$r['month']]=(float)$r['collected'];
 
 $expStmt=$db->prepare("SELECT MONTH(expense_date) AS month,SUM(amount) AS total FROM expenses WHERE YEAR(expense_date)=? GROUP BY MONTH(expense_date)");
@@ -90,10 +101,14 @@ if($detailMonth&&isset($_GET['ajax'])){
     $where=["MONTH(cs.start_date)=?","YEAR(cs.start_date)=?","cs.status!='cancelled'","cs.start_date IS NOT NULL"];
     $params=[$detailMonth,$year];
     foreach(clientStatusWhere('c') as $cond)$where[]=$cond;
+    if ($country !== '') {
+        $where[] = "c.country = ?";
+        $params[] = $country;
+    }
     if($detailService){$where[]="cs.service_id=?";$params[]=$detailService;}
     $dStmt=$db->prepare("
-        SELECT c.id,c.name,c.company_name,c.status as client_status,
-               cs.plan_name,cs.price,cs.start_date,cs.end_date,cs.status as sub_status,s.name as service_name
+        SELECT c.id,c.name,c.company_name,c.country,c.status as client_status,
+               cs.plan_name,cs.price,cs.currency,cs.original_price,cs.start_date,cs.end_date,cs.status as sub_status,s.name as service_name
         FROM client_subscriptions cs JOIN clients c ON c.id=cs.client_id JOIN services s ON s.id=cs.service_id
         WHERE ".implode(' AND ',$where)." ORDER BY cs.start_date ASC");
     $dStmt->execute($params);
@@ -176,17 +191,35 @@ require_once dirname(__DIR__).'/includes/header.php';
 .status-banner.all{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;}
 @media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.stats-tbl{font-size:11px;}.stats-tbl th,.stats-tbl td{padding:8px 6px;}}
 </style>
-<?php $makeUrl=function(string $s) use($year):string{return '?'.http_build_query(['year'=>$year,'client_status'=>$s]);}; ?>
+<?php 
+$makeUrl = function(string $s, ?string $cnt = null) use ($year, $country): string {
+    $c = $cnt !== null ? $cnt : $country;
+    $params = ['year' => $year, 'client_status' => $s];
+    if ($c !== '') $params['country'] = $c;
+    return '?' . http_build_query($params);
+}; 
+?>
 <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px;">
   <div>
     <h1 style="font-size:22px;font-weight:900;margin:0;"><i class="fas fa-chart-line" style="color:var(--accent);"></i> تقرير احصائيات الخدمات</h1>
     <p style="color:var(--text-muted);font-size:12.5px;margin:4px 0 0;">تفاصيل شهرية لكل خدمة &mdash; عملاء &middot; ايرادات &middot; مصروفات &middot; صافي ربح</p>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
-    <div class="yr-sel">
-      <a href="<?= $makeUrl($clientStatus).'&year='.($year-1) ?>" class="yr-btn"><i class="fas fa-chevron-right"></i></a>
-      <span class="yr-disp"><?= $year ?></span>
-      <a href="<?= $makeUrl($clientStatus).'&year='.($year+1) ?>" class="yr-btn"><i class="fas fa-chevron-left"></i></a>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select onchange="window.location='<?= $makeUrl($clientStatus, '__CNT__') ?>'.replace('__CNT__', encodeURIComponent(this.value))" 
+              class="form-control" style="font-size:12.5px;padding:6px 12px;width:auto;height:auto;">
+        <option value="">🌐 كل الدول</option>
+        <?php foreach (getSupportedCountries() as $cCode => $cInfo): ?>
+          <option value="<?= e($cCode) ?>" <?= $country === $cCode ? 'selected' : '' ?>>
+            <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+      <div class="yr-sel">
+        <a href="<?= $makeUrl($clientStatus).'&year='.($year-1) ?>" class="yr-btn"><i class="fas fa-chevron-right"></i></a>
+        <span class="yr-disp"><?= $year ?></span>
+        <a href="<?= $makeUrl($clientStatus).'&year='.($year+1) ?>" class="yr-btn"><i class="fas fa-chevron-left"></i></a>
+      </div>
     </div>
     <div class="status-tabs">
       <span style="font-size:12px;color:var(--text-muted);font-weight:600;">عرض:</span>
@@ -199,8 +232,8 @@ require_once dirname(__DIR__).'/includes/header.php';
 
 <div class="status-banner <?= $clientStatus ?>">
   <i class="fas <?= $statusIcons[$clientStatus] ?>"></i>
-  <span>تعرض الارقام حالياً: <strong><?= $statusLabels[$clientStatus] ?></strong></span>
-  <?php if($clientStatus!=='all'): ?><a href="<?= $makeUrl('all') ?>" style="margin-right:auto;font-size:11.5px;color:inherit;opacity:.7;text-decoration:underline;">عرض الكل</a><?php endif; ?>
+  <span>تعرض الارقام حالياً: <strong><?= $statusLabels[$clientStatus] ?></strong> <?= $country ? '— دولة: <strong>' . e(getCountryInfo($country)['name']) . ' ' . getCountryInfo($country)['flag'] . '</strong>' : '' ?></span>
+  <?php if($clientStatus!=='all' || $country !== ''): ?><a href="?year=<?= $year ?>&client_status=all" style="margin-right:auto;font-size:11.5px;color:inherit;opacity:.7;text-decoration:underline;">عرض الكل بدون فلاتر</a><?php endif; ?>
 </div>
 
 <div class="kpi-grid">
@@ -426,10 +459,16 @@ function renderDrawer(data){
     const body=document.getElementById('drawerBody'),clients=data.clients||[];
     if(!clients.length){body.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-muted);"><i class="fas fa-users-slash" style="font-size:28px;display:block;margin-bottom:10px;"></i><p>لا يوجد عملاء</p></div>';return;}
     let html=`<div style="padding:10px 16px;background:#f8fafc;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border-color);"><i class="fas fa-users"></i> ${clients.length} عميل</div><div style="overflow-x:auto;"><table class="mini-tbl"><thead><tr><th>#</th><th>اسم العميل</th><th>الشركة</th><th>الخدمة</th><th>الباقة</th><th>القيمة</th><th>بداية</th><th>نهاية</th><th>الحالة</th></tr></thead><tbody>`;
+    const flags = { 'EG':'🇪🇬', 'SA':'🇸🇦', 'AE':'🇦🇪', 'KW':'🇰🇼', 'QA':'🇶🇦', 'OM':'🇴🇲', 'BH':'🇧🇭', 'SD':'🇸🇩', 'OTHER':'🌐' };
     clients.forEach((c,i)=>{
+        const flag = flags[c.country] || '🇪🇬';
         const sb=c.client_status==1?'<span style="background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:99px;font-size:10.5px;font-weight:700;">نشط</span>':'<span style="background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:99px;font-size:10.5px;font-weight:700;">موقوف</span>';
         const ss=c.sub_status==='active'?'<span style="background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:99px;font-size:10px;">نشط</span>':`<span style="background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:99px;font-size:10px;">${c.sub_status}</span>`;
-        html+=`<tr><td style="color:var(--text-muted);font-size:11px;">${i+1}</td><td style="font-weight:700;"><a href="../clients/view.php?id=${c.id}" style="color:var(--primary-light);">${esc(c.name)}</a> ${sb}</td><td style="color:var(--text-muted);">${esc(c.company_name||'—')}</td><td style="font-size:12px;color:var(--primary-light);">${esc(c.service_name||'—')}</td><td style="font-size:12px;">${esc(c.plan_name||'—')}</td><td style="font-weight:700;color:var(--success);">${Number(c.price).toLocaleString('ar-EG')} ج.م</td><td style="color:var(--text-muted);font-size:12px;">${c.start_date||'—'}</td><td style="color:var(--text-muted);font-size:12px;">${c.end_date||'—'}</td><td>${ss}</td></tr>`;
+        let priceStr = Number(c.price).toLocaleString('ar-EG') + ' ج.م';
+        if (c.currency && c.currency !== 'EGP' && c.original_price) {
+            priceStr = Number(c.original_price).toLocaleString('ar-EG') + ' ' + c.currency + ` <span style="font-size:10.5px;color:var(--text-muted);">(${Number(c.price).toLocaleString('ar-EG')} ج.م)</span>`;
+        }
+        html+=`<tr><td style="color:var(--text-muted);font-size:11px;">${i+1}</td><td style="font-weight:700;"><span style="margin-left:5px;font-size:15px;">${flag}</span><a href="../clients/view.php?id=${c.id}" style="color:var(--primary-light);">${esc(c.name)}</a> ${sb}</td><td style="color:var(--text-muted);">${esc(c.company_name||'—')}</td><td style="font-size:12px;color:var(--primary-light);">${esc(c.service_name||'—')}</td><td style="font-size:12px;">${esc(c.plan_name||'—')}</td><td style="font-weight:700;color:var(--success);">${priceStr}</td><td style="color:var(--text-muted);font-size:12px;">${c.start_date||'—'}</td><td style="color:var(--text-muted);font-size:12px;">${c.end_date||'—'}</td><td>${ss}</td></tr>`;
     });
     html+='</tbody></table></div>';body.innerHTML=html;
 }

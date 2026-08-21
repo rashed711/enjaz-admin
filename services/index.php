@@ -113,8 +113,8 @@ require_once INCLUDES_PATH . '/header.php';
       <?php if ($plan['description']): ?>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;"><?= e($plan['description']) ?></div>
       <?php endif; ?>
-      <div style="font-size:20px;font-weight:900;color:var(--primary-light);">
-        <?= formatMoney($plan['price']) ?>
+      <div style="font-size:17px;font-weight:900;color:var(--primary-light);">
+        <?= formatPlanPrice((float)$plan['price'], $plan['currency'] ?? 'EGP', isset($plan['original_price']) && $plan['original_price'] !== null ? (float)$plan['original_price'] : null) ?>
       </div>
       <!-- Actions -->
       <div style="display:flex;gap:6px;margin-top:10px;">
@@ -223,12 +223,31 @@ require_once INCLUDES_PATH . '/header.php';
                  placeholder="مثال: مساحة 1 GB, 10 حسابات بريد">
         </div>
 
+        <!-- اختيار العملة -->
+        <div class="form-group">
+          <label class="form-label" for="plan_currency"><i class="fas fa-coins" style="margin-left:4px;color:var(--primary-light);"></i> العملة</label>
+          <select id="plan_currency" name="currency" class="form-control" onchange="onPlanCurrencyChange(this.value)">
+            <?php foreach (getSupportedCurrencies() as $cCode => $cData): ?>
+              <option value="<?= e($cCode) ?>"><?= e($cData['label']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
         <div class="form-row">
-          <div class="form-group">
-            <label class="form-label" for="plan_price">السعر <span class="required">*</span></label>
-            <input type="number" id="plan_price" name="price" class="form-control"
-                   step="0.01" min="0" required placeholder="0.00">
+          <div class="form-group" id="group_original_price" style="display:none;">
+            <label class="form-label" for="plan_orig_price" id="label_orig_price">السعر بالريال <span class="required">*</span></label>
+            <input type="number" id="plan_orig_price" name="original_price" class="form-control"
+                   step="0.01" min="0" placeholder="مثال: 190">
           </div>
+          <div class="form-group" id="group_egp_price">
+            <label class="form-label" for="plan_price" id="label_plan_price">السعر بالجنيه المصري <span class="required">*</span></label>
+            <input type="number" id="plan_price" name="price" class="form-control"
+                   step="0.01" min="0" required placeholder="مثال: 2000">
+            <span class="form-hint" id="hint_plan_price" style="display:none;">المبلغ المعتمد للحسابات والتقارير المالية بالنظام</span>
+          </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="plan_sort">ترتيب الظهور</label>
             <input type="number" id="plan_sort" name="sort_order" class="form-control" min="0" value="0">
@@ -287,18 +306,53 @@ function editService(srv) {
   openModal('addServiceModal');
 }
 
+// ── Currency toggle for Plan Modal ───────────────────
+function onPlanCurrencyChange(curr) {
+  const origGroup = document.getElementById('group_original_price');
+  const origInput = document.getElementById('plan_orig_price');
+  const origLabel = document.getElementById('label_orig_price');
+  const egpLabel  = document.getElementById('label_plan_price');
+  const egpHint   = document.getElementById('hint_plan_price');
+
+  const currLabels = {
+    'SAR': 'السعر بالريال السعودي',
+    'AED': 'السعر بالدرهم الإماراتي',
+    'USD': 'السعر بالدولار الأمريكي',
+    'KWD': 'السعر بالدينار الكويتي',
+    'QAR': 'السعر بالريال القطري',
+    'OMR': 'السعر بالريال العماني',
+    'BHD': 'السعر بالدينار البحريني',
+  };
+
+  if (curr === 'EGP' || !curr) {
+    origGroup.style.display = 'none';
+    origInput.required = false;
+    origInput.value = '';
+    egpLabel.innerHTML = 'السعر بالجنيه المصري <span class="required">*</span>';
+    egpHint.style.display = 'none';
+  } else {
+    origGroup.style.display = 'block';
+    origInput.required = true;
+    origLabel.innerHTML = (currLabels[curr] || 'السعر بالعملة') + ' <span class="required">*</span>';
+    egpLabel.innerHTML = 'المقابل بالجنيه المصري <span class="required">*</span>';
+    egpHint.style.display = 'block';
+  }
+}
+
 // ── Plan Modal ───────────────────────────────────────
 function openAddPlanModal(serviceId, serviceName) {
-  document.getElementById('planModalTitle').querySelector('i').className = 'fas fa-tags';
   document.getElementById('planModalTitle').innerHTML =
     '<i class="fas fa-tags" style="color:var(--primary-light);"></i> إضافة باقة لـ <strong>' + serviceName + '</strong>';
   document.getElementById('planId').value         = '';
   document.getElementById('planSrvId').value      = serviceId;
   document.getElementById('plan_name_input').value= '';
   document.getElementById('plan_desc').value      = '';
+  document.getElementById('plan_currency').value  = 'EGP';
+  document.getElementById('plan_orig_price').value= '';
   document.getElementById('plan_price').value     = '';
   document.getElementById('plan_sort').value      = '0';
   document.getElementById('plan_status').value    = '1';
+  onPlanCurrencyChange('EGP');
   openModal('addPlanModal');
 }
 
@@ -309,9 +363,13 @@ function editPlan(plan) {
   document.getElementById('planSrvId').value      = plan.service_id;
   document.getElementById('plan_name_input').value= plan.name;
   document.getElementById('plan_desc').value      = plan.description || '';
+  const curr = plan.currency || 'EGP';
+  document.getElementById('plan_currency').value  = curr;
+  document.getElementById('plan_orig_price').value= plan.original_price || '';
   document.getElementById('plan_price').value     = plan.price;
   document.getElementById('plan_sort').value      = plan.sort_order || 0;
   document.getElementById('plan_status').value    = plan.status;
+  onPlanCurrencyChange(curr);
   openModal('addPlanModal');
 }
 </script>

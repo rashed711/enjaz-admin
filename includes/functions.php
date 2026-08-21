@@ -38,6 +38,82 @@ function redirect(string $path): void {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// الدول والعملات
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * قائمة الدول المدعومة في النظام
+ */
+function getSupportedCountries(): array {
+    return [
+        'EG' => ['name' => 'مصر', 'flag' => '🇪🇬', 'code' => '+20', 'currency' => 'EGP', 'currency_label' => 'جنيه'],
+        'SA' => ['name' => 'السعودية', 'flag' => '🇸🇦', 'code' => '+966', 'currency' => 'SAR', 'currency_label' => 'ريال'],
+        'AE' => ['name' => 'الإمارات', 'flag' => '🇦🇪', 'code' => '+971', 'currency' => 'AED', 'currency_label' => 'درهم'],
+        'KW' => ['name' => 'الكويت', 'flag' => '🇰🇼', 'code' => '+965', 'currency' => 'KWD', 'currency_label' => 'دينار كويتي'],
+        'QA' => ['name' => 'قطر', 'flag' => '🇶🇦', 'code' => '+974', 'currency' => 'QAR', 'currency_label' => 'ريال قطري'],
+        'OM' => ['name' => 'سلطنة عمان', 'flag' => '🇴🇲', 'code' => '+968', 'currency' => 'OMR', 'currency_label' => 'ريال عماني'],
+        'BH' => ['name' => 'البحرين', 'flag' => '🇧🇭', 'code' => '+973', 'currency' => 'BHD', 'currency_label' => 'دينار بحريني'],
+        'SD' => ['name' => 'السودان', 'flag' => '🇸🇩', 'code' => '+249', 'currency' => 'SDG', 'currency_label' => 'جنيه سوداني'],
+        'OTHER' => ['name' => 'دولة أخرى', 'flag' => '🌐', 'code' => '', 'currency' => 'USD', 'currency_label' => 'دولار / أخرى'],
+    ];
+}
+
+/**
+ * جلب معلومات دولة معينة
+ */
+function getCountryInfo(?string $countryCode): array {
+    $code = strtoupper(trim($countryCode ?? 'EG'));
+    $countries = getSupportedCountries();
+    return $countries[$code] ?? $countries['OTHER'];
+}
+
+/**
+ * عرض علم أو رمز الدولة كـ HTML أنيق
+ */
+function getCountryFlagBadge(?string $countryCode, bool $withName = false, string $customStyle = ''): string {
+    $info = getCountryInfo($countryCode);
+    $code = strtoupper(trim($countryCode ?? 'EG'));
+    if ($withName) {
+        return '<span class="country-badge" style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;background:rgba(36,86,164,0.06);font-size:12px;font-weight:600;color:var(--text-primary);' . $customStyle . '" title="' . e($info['name']) . '">'
+             . '<span style="font-size:15px;line-height:1;">' . $info['flag'] . '</span>'
+             . '<span>' . e($info['name']) . '</span>'
+             . '</span>';
+    }
+    return '<span class="country-flag-icon" style="display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;' . $customStyle . '" title="' . e($info['name']) . '">' . $info['flag'] . '</span>';
+}
+
+/**
+ * قائمة العملات المدعومة
+ */
+function getSupportedCurrencies(): array {
+    return [
+        'EGP' => ['label' => 'جنيه مصري (EGP)', 'symbol' => 'ج.م', 'name' => 'جنيه'],
+        'SAR' => ['label' => 'ريال سعودي (SAR)', 'symbol' => 'ر.س', 'name' => 'ريال'],
+        'AED' => ['label' => 'درهم إماراتي (AED)', 'symbol' => 'د.إ', 'name' => 'درهم'],
+        'USD' => ['label' => 'دولار أمريكي (USD)', 'symbol' => '$', 'name' => 'دولار'],
+        'KWD' => ['label' => 'دينار كويتي (KWD)', 'symbol' => 'د.ك', 'name' => 'دينار كويتي'],
+        'QAR' => ['label' => 'ريال قطري (QAR)', 'symbol' => 'ر.ق', 'name' => 'ريال قطري'],
+        'OMR' => ['label' => 'ريال عماني (OMR)', 'symbol' => 'ر.ع', 'name' => 'ريال عماني'],
+        'BHD' => ['label' => 'دينار بحريني (BHD)', 'symbol' => 'د.ب', 'name' => 'دينار بحريني'],
+    ];
+}
+
+/**
+ * تنسيق سعر الباقة لعرض العملة الأصلية والمقابل بالجنيه المصري
+ */
+function formatPlanPrice(float $egpPrice, ?string $currency = 'EGP', ?float $originalPrice = null): string {
+    $curr = strtoupper(trim($currency ?? 'EGP'));
+    $currencies = getSupportedCurrencies();
+    $currInfo = $currencies[$curr] ?? ['symbol' => $curr, 'name' => $curr];
+    
+    if ($curr !== 'EGP' && $originalPrice !== null && $originalPrice > 0) {
+        return number_format($originalPrice, 2) . ' ' . $currInfo['symbol'] . ' <span style="font-size:12px;opacity:0.8;font-weight:normal;">(يعادل ' . number_format($egpPrice, 2) . ' ج.م)</span>';
+    }
+    
+    return formatMoney($egpPrice);
+}
+
+// ─────────────────────────────────────────────────────────────────
 // تنسيق البيانات
 // ─────────────────────────────────────────────────────────────────
 

@@ -114,7 +114,17 @@ $serviceDist = $db->query("
     ORDER BY count DESC
 ")->fetchAll();
 
-// ── 7. قائمة العملاء الذين حجزنا الدومين لهم ───────────────────────
+// ── 7. توزيع العملاء حسب الدولة ────────────────────────
+$countryStats = $db->query("
+    SELECT c.country, COUNT(DISTINCT c.id) as client_count,
+           COALESCE(SUM(cs.price), 0) as total_value
+    FROM clients c
+    LEFT JOIN client_subscriptions cs ON cs.client_id = c.id AND cs.status != 'cancelled'
+    GROUP BY c.country
+    ORDER BY client_count DESC
+")->fetchAll();
+
+// ── 8. قائمة العملاء الذين حجزنا الدومين لهم ───────────────────────
 $ourDomainsClients = $db->query("
     SELECT cs.id AS sub_id, c.id, c.name, c.company_name, c.domain AS client_domain, c.domain_provider,
            cs.plan_name AS sub_plan_name, cs.notes AS sub_notes
@@ -296,12 +306,15 @@ require_once INCLUDES_PATH . '/header.php';
       <div class="card-body" style="padding:0;">
         <?php foreach ($latestClients as $cl):
           $remaining = $cl['total'] - $cl['paid'];
+          $cCode = $cl['country'] ?? 'EG';
+          $cInfo = getCountryInfo($cCode);
         ?>
         <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f1f5f9;transition:.15s;"
              onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
-          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--primary-light),var(--primary));
-                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0;">
-            <?= e(mb_substr($cl['name'],0,1,'UTF-8')) ?>
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.06);border:1px solid rgba(36,86,164,0.12);
+                      display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.02);"
+               title="<?= e($cInfo['name']) ?>">
+            <?= $cInfo['flag'] ?>
           </div>
           <div style="flex:1;min-width:0;">
             <a href="clients/view.php?id=<?= $cl['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -331,7 +344,46 @@ require_once INCLUDES_PATH . '/header.php';
 </div>
 
 <!-- Breakdown Lists & Hosted Domains (Full Width Dashboard Tables) -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-bottom: 24px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; margin-bottom: 24px;">
+
+  <!-- Country Stats -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fas fa-globe"></i> توزيع العملاء حسب الدولة</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>الدولة</th>
+            <th style="text-align: center;">عدد العملاء</th>
+            <th style="text-align: left;">قيمة الاشتراكات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($countryStats as $cs): 
+            $cCode = $cs['country'] ?: 'EG';
+            $cInfo = getCountryInfo($cCode);
+          ?>
+          <tr onclick="window.location='clients/index.php?country=<?= urlencode($cCode) ?>';" style="cursor:pointer;" onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:18px;"><?= $cInfo['flag'] ?></span>
+                <span style="font-weight:700;color:var(--text-primary);"><?= e($cInfo['name']) ?></span>
+              </div>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge badge-info" style="font-size:12px;"><?= $cs['client_count'] ?> عميل</span>
+            </td>
+            <td style="text-align: left; font-weight:700; color:var(--success);">
+              <?= formatMoney($cs['total_value']) ?>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- Service Stats -->
   <div class="card">

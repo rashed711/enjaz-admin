@@ -19,19 +19,20 @@ $formData = $client;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $fields = ['name','company_name','mobile','mobile_2','activity','username_note','server_panel','domain','domain_provider','email','address','notes'];
+        $fields = ['name','company_name','country','mobile','mobile_2','activity','username_note','server_panel','domain','domain_provider','email','address','notes'];
         foreach ($fields as $f) $formData[$f] = clean($_POST[$f] ?? '');
         $formData['status'] = ($_POST['status'] ?? '1') === '1' ? 1 : 0;
+        if (empty($formData['country'])) $formData['country'] = 'EG';
 
         if (empty($formData['name']))   $errors[] = 'اسم العميل مطلوب.';
         if (empty($formData['mobile'])) $errors[] = 'رقم الموبايل مطلوب.';
 
         if (empty($errors)) {
             $db->prepare("
-                UPDATE clients SET name=?,company_name=?,mobile=?,mobile_2=?,activity=?,
+                UPDATE clients SET name=?,company_name=?,country=?,mobile=?,mobile_2=?,activity=?,
                 username_note=?,server_panel=?,domain=?,domain_provider=?,email=?,address=?,notes=?,status=? WHERE id=?
             ")->execute([
-                $formData['name'],$formData['company_name'],$formData['mobile'],
+                $formData['name'],$formData['company_name'],$formData['country'],$formData['mobile'],
                 $formData['mobile_2'],$formData['activity'],$formData['username_note'],
                 $formData['server_panel'],
                 $formData['domain'],$formData['domain_provider'],
@@ -71,15 +72,28 @@ require_once INCLUDES_PATH . '/header.php';
     <div class="card-header"><span class="card-title"><i class="fas fa-id-card"></i> بيانات العميل</span></div>
     <div class="card-body">
       <div class="form-row">
-        <div class="form-group">
+        <div class="form-group" style="flex:1.5;">
           <label class="form-label" for="name">الاسم <span class="required">*</span></label>
           <input type="text" id="name" name="name" class="form-control" value="<?= e($formData['name']) ?>" required>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="flex:1.2;">
           <label class="form-label" for="company_name">الشركة</label>
           <input type="text" id="company_name" name="company_name" class="form-control" value="<?= e($formData['company_name']) ?>">
         </div>
-        <div class="form-group">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" for="country"><i class="fas fa-globe" style="margin-left:4px;color:var(--primary-light);"></i> الدولة <span class="required">*</span></label>
+          <select id="country" name="country" class="form-control" required>
+            <?php 
+            $currentCountry = $formData['country'] ?? 'EG';
+            foreach (getSupportedCountries() as $code => $cInfo): 
+            ?>
+              <option value="<?= e($code) ?>" <?= ($currentCountry === $code) ? 'selected' : '' ?>>
+                <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?> (<?= $cInfo['currency_label'] ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;">
           <label class="form-label" for="activity">النشاط</label>
           <input type="text" id="activity" name="activity" class="form-control" value="<?= e($formData['activity']) ?>">
         </div>

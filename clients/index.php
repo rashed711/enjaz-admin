@@ -10,11 +10,12 @@ $db = getDB();
 $warningDays = (int)getSetting('renewal_warning_days','60');
 
 // Search & Filter
-$search = clean($_GET['search'] ?? '');
-$status = isset($_GET['status']) ? $_GET['status'] : '1';
-$filter = $_GET['filter'] ?? '';
-$plan   = clean($_GET['plan'] ?? '');
-$page   = max(1, (int)($_GET['page'] ?? 1));
+$search  = clean($_GET['search'] ?? '');
+$status  = isset($_GET['status']) ? $_GET['status'] : '1';
+$filter  = $_GET['filter'] ?? '';
+$plan    = clean($_GET['plan'] ?? '');
+$country = clean($_GET['country'] ?? '');
+$page    = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 
 $where  = ['1=1'];
@@ -27,6 +28,11 @@ if ($search) {
 if ($status !== '') {
     $where[]  = "c.status = ?";
     $params[] = (int)$status;
+}
+
+if ($country !== '') {
+    $where[]  = "c.country = ?";
+    $params[] = $country;
 }
 
 if ($filter === 'website') {
@@ -280,6 +286,8 @@ if (isset($_GET['ajax'])) {
     <?php else: ?>
     <?php foreach ($clients as $i => $client):
       $remaining = $client['total_services'] - $client['total_paid'];
+      $cCode = $client['country'] ?? 'EG';
+      $cInfo = getCountryInfo($cCode);
     ?>
     <tr onclick="if(!event.target.closest('a') && !event.target.closest('button') && !event.target.closest('input')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
       <td style="text-align: center;" onclick="event.stopPropagation();">
@@ -288,9 +296,10 @@ if (isset($_GET['ajax'])) {
       <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--primary-light),var(--primary));
-                      display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0;">
-            <?= e(mb_substr($client['name'], 0, 1, 'UTF-8')) ?>
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.06);border:1px solid rgba(36,86,164,0.12);
+                      display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.02);"
+               title="<?= e($cInfo['name']) ?>">
+            <?= $cInfo['flag'] ?>
           </div>
           <div>
             <a href="view.php?id=<?= $client['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;">
@@ -391,7 +400,7 @@ if (isset($_GET['ajax'])) {
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan, 'country' => $country]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -541,6 +550,15 @@ require_once INCLUDES_PATH . '/header.php';
         <option value="0" <?= $status === '0' ? 'selected' : '' ?>>موقوف</option>
       </select>
 
+      <select name="country" class="form-control" style="width:auto;">
+        <option value="">كل الدول</option>
+        <?php foreach (getSupportedCountries() as $cCode => $cInfo): ?>
+          <option value="<?= e($cCode) ?>" <?= $country === $cCode ? 'selected' : '' ?>>
+            <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+
       <select name="filter" class="form-control" style="width:auto;">
         <option value="">كل التصنيفات المخصصة</option>
         <option value="debt" <?= $filter === 'debt' ? 'selected' : '' ?>>عملاء عليهم مديونية</option>
@@ -551,7 +569,7 @@ require_once INCLUDES_PATH . '/header.php';
       </select>
 
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
-      <?php if ($search || $status !== '1' || $filter !== '' || $plan !== ''): ?>
+      <?php if ($search || $status !== '1' || $filter !== '' || $plan !== '' || $country !== ''): ?>
       <a href="index.php" class="btn btn-outline" id="clearSearchBtn"><i class="fas fa-times"></i> مسح</a>
       <?php endif; ?>
     </form>
@@ -605,6 +623,8 @@ require_once INCLUDES_PATH . '/header.php';
         <?php else: ?>
         <?php foreach ($clients as $i => $client):
           $remaining = $client['total_services'] - $client['total_paid'];
+          $cCode = $client['country'] ?? 'EG';
+          $cInfo = getCountryInfo($cCode);
         ?>
         <tr onclick="if(!event.target.closest('a') && !event.target.closest('button') && !event.target.closest('input')) window.location='view.php?id=<?= $client['id'] ?>';" style="cursor:pointer;">
           <td style="text-align: center;" onclick="event.stopPropagation();">
@@ -613,9 +633,10 @@ require_once INCLUDES_PATH . '/header.php';
           <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--primary-light),var(--primary));
-                          display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;flex-shrink:0;">
-                <?= e(mb_substr($client['name'], 0, 1, 'UTF-8')) ?>
+              <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.06);border:1px solid rgba(36,86,164,0.12);
+                          display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.02);"
+                   title="<?= e($cInfo['name']) ?>">
+                <?= $cInfo['flag'] ?>
               </div>
               <div>
                 <a href="view.php?id=<?= $client['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;">

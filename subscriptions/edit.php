@@ -36,12 +36,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($planName === 'custom') {
             $planName = clean($_POST['custom_plan_name'] ?? '');
         }
-        $formData['plan_name']  = $planName;
-        $formData['price']      = (float)($_POST['price'] ?? 0);
-        $formData['start_date'] = clean($_POST['start_date'] ?? '');
-        $formData['end_date']   = clean($_POST['end_date'] ?? '');
-        $formData['status']     = clean($_POST['status'] ?? 'active');
-        $formData['notes']      = clean($_POST['notes'] ?? '');
+        $formData['plan_name']      = $planName;
+        $formData['currency']       = clean($_POST['currency'] ?? 'EGP');
+        $formData['original_price'] = isset($_POST['original_price']) && $_POST['original_price'] !== '' ? (float)$_POST['original_price'] : null;
+        $formData['price']          = (float)($_POST['price'] ?? 0);
+        $formData['start_date']     = clean($_POST['start_date'] ?? '');
+        $formData['end_date']       = clean($_POST['end_date'] ?? '');
+        $formData['status']         = clean($_POST['status'] ?? 'active');
+        $formData['notes']          = clean($_POST['notes'] ?? '');
+
+        if ($formData['currency'] === 'EGP' && $formData['original_price'] === null) {
+            $formData['original_price'] = $formData['price'];
+        }
 
         if ($formData['price'] < 0) $errors[] = 'السعر لا يمكن أن يكون أقل من صفر.';
 
@@ -65,9 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (empty($errors)) {
-            $db->prepare("UPDATE client_subscriptions SET plan_name=?,price=?,start_date=?,end_date=?,status=?,notes=? WHERE id=?")
-               ->execute([$formData['plan_name'],$formData['price'],$dbValStartDate,$dbValEndDate,$formData['status'],$formData['notes'],$id]);
-
+            $db->prepare("UPDATE client_subscriptions SET plan_name=?,currency=?,original_price=?,price=?,start_date=?,end_date=?,status=?,notes=? WHERE id=?")
+               ->execute([$formData['plan_name'],$formData['currency'],$formData['original_price'],$formData['price'],$dbValStartDate,$dbValEndDate,$formData['status'],$formData['notes'],$id]);
 
             setFlash('success','تم تحديث الاشتراك بنجاح.');
             header("Location: ../clients/view.php?id={$sub['client_id']}");
@@ -110,13 +115,17 @@ require_once INCLUDES_PATH . '/header.php';
               $isCustom = !empty($formData['plan_name']) && !in_array($formData['plan_name'], $planNames);
           ?>
             <select id="plan_name" name="plan_name" class="form-control" onchange="updatePriceFromPlan(this)">
-              <option value="" data-price="0.00">— اختر باقة —</option>
+              <option value="" data-price="0.00" data-currency="EGP" data-orig-price="">— اختر باقة —</option>
               <?php foreach ($plans as $p): ?>
-                <option value="<?= e($p['name']) ?>" data-price="<?= $p['price'] ?>" <?= $formData['plan_name'] === $p['name'] ? 'selected' : '' ?>>
-                  <?= e($p['name']) ?> (<?= formatMoney($p['price']) ?>)
+                <option value="<?= e($p['name']) ?>" 
+                        data-price="<?= $p['price'] ?>" 
+                        data-currency="<?= e($p['currency'] ?? 'EGP') ?>" 
+                        data-orig-price="<?= e($p['original_price'] ?? '') ?>"
+                        <?= $formData['plan_name'] === $p['name'] ? 'selected' : '' ?>>
+                  <?= e($p['name']) ?> (<?= formatPlanPrice((float)$p['price'], $p['currency'] ?? 'EGP', isset($p['original_price']) ? (float)$p['original_price'] : null) ?>)
                 </option>
               <?php endforeach; ?>
-              <option value="custom" data-price="" <?= $isCustom ? 'selected' : '' ?>><?= $isDomainService ? 'اسم دومين مخصص...' : 'باقة مخصصة...' ?></option>
+              <option value="custom" data-price="" data-currency="EGP" data-orig-price="" <?= $isCustom ? 'selected' : '' ?>><?= $isDomainService ? 'اسم دومين مخصص...' : 'باقة مخصصة...' ?></option>
             </select>
             <input type="text" id="custom_plan_name" name="custom_plan_name" class="form-control" 
                    style="margin-top:8px; display: <?= $isCustom ? 'block' : 'none' ?>;" 
@@ -130,6 +139,8 @@ require_once INCLUDES_PATH . '/header.php';
         function updatePriceFromPlan(selectEl) {
           const selectedOpt = selectEl.options[selectEl.selectedIndex];
           const price = selectedOpt.getAttribute('data-price');
+          const curr = selectedOpt.getAttribute('data-currency') || 'EGP';
+          const origPrice = selectedOpt.getAttribute('data-orig-price') || '';
           const customInput = document.getElementById('custom_plan_name');
           
           if (selectEl.value === 'custom') {
@@ -143,15 +154,53 @@ require_once INCLUDES_PATH . '/header.php';
               customInput.style.display = 'none';
               customInput.value = selectEl.value;
             }
-            if (price && parseFloat(price) > 0) {
+            if (price && parseFloat(price) >= 0) {
               document.getElementById('price').value = parseFloat(price);
             }
+            if (document.getElementById('sub_currency')) {
+              document.getElementById('sub_currency').value = curr;
+              onSubCurrencyChange(curr);
+            }
+            if (document.getElementById('original_price') && origPrice) {
+              document.getElementById('original_price').value = origPrice;
+            }
+          }
+        }
+
+        function onSubCurrencyChange(curr) {
+          const origGroup = document.getElementById('group_sub_orig_price');
+          const origInput = document.getElementById('original_price');
+          const priceLabel = document.getElementById('label_sub_price');
+
+          if (curr === 'EGP' || !curr) {
+            if (origGroup) origGroup.style.display = 'none';
+            if (origInput) origInput.required = false;
+            if (priceLabel) priceLabel.innerHTML = 'السعر (بالجنيه المصري) <span class="required">*</span>';
+          } else {
+            if (origGroup) origGroup.style.display = 'block';
+            if (origInput) origInput.required = true;
+            if (priceLabel) priceLabel.innerHTML = 'المقابل بالجنيه المصري <span class="required">*</span>';
           }
         }
       </script>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="price">السعر <span class="required">*</span></label>
+          <label class="form-label" for="sub_currency"><i class="fas fa-coins" style="margin-left:4px;color:var(--primary-light);"></i> العملة</label>
+          <select id="sub_currency" name="currency" class="form-control" onchange="onSubCurrencyChange(this.value)">
+            <?php 
+            $subCurr = $formData['currency'] ?? 'EGP';
+            foreach (getSupportedCurrencies() as $cCode => $cData): 
+            ?>
+              <option value="<?= e($cCode) ?>" <?= $subCurr === $cCode ? 'selected' : '' ?>><?= e($cData['label']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="form-group" id="group_sub_orig_price" style="display:<?= $subCurr !== 'EGP' ? 'block' : 'none' ?>;">
+          <label class="form-label" for="original_price">السعر بالعملة المختارة <span class="required">*</span></label>
+          <input type="number" id="original_price" name="original_price" class="form-control" step="0.01" min="0" value="<?= $formData['original_price'] ?? '' ?>">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="price" id="label_sub_price"><?= $subCurr !== 'EGP' ? 'المقابل بالجنيه المصري' : 'السعر (بالجنيه المصري)' ?> <span class="required">*</span></label>
           <input type="number" id="price" name="price" class="form-control" step="0.01" min="0" value="<?= $formData['price'] ?>" required>
         </div>
         <div class="form-group">

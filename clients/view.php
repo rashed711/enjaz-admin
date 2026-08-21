@@ -62,31 +62,39 @@ $depth      = 1;
 require_once INCLUDES_PATH . '/header.php';
 ?>
 
+<?php $countryInfo = getCountryInfo($client['country'] ?? 'EG'); ?>
 <!-- Client Header -->
 <div class="client-header-card" <?= !$client['status'] ? 'style="background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);"' : '' ?>>
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;position:relative;z-index:1;">
-    <div>
-      <div class="client-avatar-lg"><?= e(mb_substr($client['name'], 0, 1, 'UTF-8')) ?></div>
-      <h1 style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:10px;">
-        <?= e($client['name']) ?>
-        <?= !$client['status'] ? '<span class="badge badge-danger" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4);font-size:11.5px;padding:3px 10px;border-radius:20px;">موقوف</span>' : '' ?>
-      </h1>
-      <?php if ($client['company_name']): ?>
-      <p style="color:rgba(255,255,255,.75);font-size:14px;margin-bottom:4px;">
-        <i class="fas fa-building" style="margin-left:6px;opacity:.7;"></i><?= e($client['company_name']) ?>
-      </p>
-      <?php endif; ?>
-      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
-        <a href="https://wa.me/<?= preg_replace('/\D/', '', $client['mobile']) ?>" target="_blank"
-           style="color:rgba(255,255,255,.85);font-size:13.5px;text-decoration:none;display:flex;align-items:center;gap:6px;">
-          <i class="fab fa-whatsapp" style="color:#25D366;font-size:16px;"></i>
-          <?= e($client['mobile']) ?>
-        </a>
-        <?php if ($client['activity']): ?>
-        <span style="color:rgba(255,255,255,.65);font-size:13px;">
-          <i class="fas fa-briefcase" style="margin-left:5px;opacity:.7;"></i><?= e($client['activity']) ?>
-        </span>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div class="client-avatar-lg" style="font-size:34px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.18);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,0.3);box-shadow:0 6px 16px rgba(0,0,0,0.1);" title="<?= e($countryInfo['name']) ?>">
+        <?= $countryInfo['flag'] ?>
+      </div>
+      <div>
+        <h1 style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <?= e($client['name']) ?>
+          <span class="badge" style="background:rgba(255,255,255,0.22);color:#fff;border:1px solid rgba(255,255,255,0.35);font-size:12px;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;">
+            <?= $countryInfo['flag'] ?> <?= e($countryInfo['name']) ?>
+          </span>
+          <?= !$client['status'] ? '<span class="badge badge-danger" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4);font-size:11.5px;padding:3px 10px;border-radius:20px;">موقوف</span>' : '' ?>
+        </h1>
+        <?php if ($client['company_name']): ?>
+        <p style="color:rgba(255,255,255,.85);font-size:14px;margin-bottom:4px;">
+          <i class="fas fa-building" style="margin-left:6px;opacity:.7;"></i><?= e($client['company_name']) ?>
+        </p>
         <?php endif; ?>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;">
+          <a href="https://wa.me/<?= preg_replace('/\D/', '', $client['mobile']) ?>" target="_blank"
+             style="color:rgba(255,255,255,.9);font-size:13.5px;text-decoration:none;display:flex;align-items:center;gap:6px;">
+            <i class="fab fa-whatsapp" style="color:#25D366;font-size:16px;"></i>
+            <?= e($client['mobile']) ?>
+          </a>
+          <?php if ($client['activity']): ?>
+          <span style="color:rgba(255,255,255,.75);font-size:13px;">
+            <i class="fas fa-briefcase" style="margin-left:5px;opacity:.7;"></i><?= e($client['activity']) ?>
+          </span>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
     <!-- Action Buttons -->
@@ -190,7 +198,7 @@ require_once INCLUDES_PATH . '/header.php';
               <td class="text-muted"><?= e($sub['plan_name'] ?: '—') ?></td>
               <td><?= formatDate($sub['start_date']) ?></td>
               <td><?= formatDate($sub['end_date']) ?></td>
-              <td class="fw-bold"><?= formatMoney($sub['price']) ?></td>
+              <td class="fw-bold"><?= formatPlanPrice((float)$sub['price'], $sub['currency'] ?? 'EGP', isset($sub['original_price']) && $sub['original_price'] !== null ? (float)$sub['original_price'] : null) ?></td>
               <td><?= subscriptionStatusBadge($sub['status'], $sub['end_date']) ?></td>
               <td class="text-muted fs-sm"><?= e($sub['notes'] ?: '—') ?></td>
               <?php if (hasPermission('edit_subscriptions')): ?>
@@ -450,15 +458,35 @@ require_once INCLUDES_PATH . '/header.php';
         <!-- سعر مخصص (يظهر لو الخدمة بدون باقات أو اختار "سعر آخر") -->
         <div id="customPriceSection">
           <div class="form-row">
-            <div class="form-group">
+            <div class="form-group" style="flex:1.5;">
               <label class="form-label" for="plan_name" id="plan_name_label">اسم الباقة / الخطة</label>
               <input type="text" id="plan_name" name="plan_name" class="form-control"
                      placeholder="مثال: باقة 5 جيجا، أساسية...">
             </div>
-            <div class="form-group">
-              <label class="form-label" for="price">السعر <span class="required">*</span></label>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label" for="sub_currency"><i class="fas fa-coins" style="margin-left:4px;color:var(--primary-light);"></i> العملة</label>
+              <select id="sub_currency" name="currency" class="form-control" onchange="onSubModalCurrencyChange(this.value)">
+                <?php 
+                $clientCountry = $client['country'] ?? 'EG';
+                $defaultSubCurr = getCountryInfo($clientCountry)['currency'] ?? 'EGP';
+                foreach (getSupportedCurrencies() as $cCode => $cData): 
+                ?>
+                  <option value="<?= e($cCode) ?>" <?= ($cCode === 'EGP' ? 'selected' : '') ?>><?= e($cData['label']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" id="group_sub_orig_price" style="display:none;">
+              <label class="form-label" for="sub_original_price" id="label_sub_orig_price">السعر بالعملة المختارة <span class="required">*</span></label>
+              <input type="number" id="sub_original_price" name="original_price" class="form-control"
+                     step="0.01" min="0" placeholder="مثال: 190">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label" for="price" id="label_sub_price">السعر (بالجنيه المصري) <span class="required">*</span></label>
               <input type="number" id="price" name="price" class="form-control"
                      step="0.01" min="0" placeholder="0.00" required>
+              <span class="form-hint" id="hint_sub_price" style="display:none;">المبلغ المعتمد للحسابات والتقارير المالية بالنظام</span>
             </div>
           </div>
         </div>
@@ -727,20 +755,53 @@ function onSubProviderChange(sel) {
   }
 }
 
+function onSubModalCurrencyChange(curr) {
+  const origGroup = document.getElementById('group_sub_orig_price');
+  const origInput = document.getElementById('sub_original_price');
+  const origLabel = document.getElementById('label_sub_orig_price');
+  const egpLabel  = document.getElementById('label_sub_price');
+  const egpHint   = document.getElementById('hint_sub_price');
+
+  const currLabels = {
+    'SAR': 'السعر بالريال السعودي',
+    'AED': 'السعر بالدرهم الإماراتي',
+    'USD': 'السعر بالدولار الأمريكي',
+    'KWD': 'السعر بالدينار الكويتي',
+    'QAR': 'السعر بالريال القطري',
+    'OMR': 'السعر بالريال العماني',
+    'BHD': 'السعر بالدينار البحريني',
+  };
+
+  if (curr === 'EGP' || !curr) {
+    if (origGroup) origGroup.style.display = 'none';
+    if (origInput) { origInput.required = false; origInput.value = ''; }
+    if (egpLabel) egpLabel.innerHTML = 'السعر (بالجنيه المصري) <span class="required">*</span>';
+    if (egpHint) egpHint.style.display = 'none';
+  } else {
+    if (origGroup) origGroup.style.display = 'block';
+    if (origInput) origInput.required = true;
+    if (origLabel) origLabel.innerHTML = (currLabels[curr] || 'السعر بالعملة المختارة') + ' <span class="required">*</span>';
+    if (egpLabel) egpLabel.innerHTML = 'المقابل بالجنيه المصري <span class="required">*</span>';
+    if (egpHint) egpHint.style.display = 'block';
+  }
+}
+
 function renderPlans(plans) {
   const grid = document.getElementById('plansGrid');
   grid.innerHTML = '';
-  // كارت "سعر آخر"
+  // كروت الباقات
   plans.forEach(p => {
     const card = document.createElement('div');
     card.className = 'plan-select-card';
     card.dataset.planId    = p.id;
     card.dataset.planName  = p.name;
     card.dataset.planPrice = p.price;
+    card.dataset.currency  = p.currency || 'EGP';
+    card.dataset.origPrice = p.original_price || '';
     card.innerHTML = `
       <div class="plan-card-name">${p.name}</div>
       ${p.description ? '<div class="plan-card-desc">' + p.description + '</div>' : ''}
-      <div class="plan-card-price">${parseFloat(p.price).toLocaleString('en-US', {minimumFractionDigits:2})} <?= getSetting('currency','جنيه') ?></div>
+      <div class="plan-card-price">${p.formatted_price || parseFloat(p.price).toLocaleString('en-US', {minimumFractionDigits:2}) + ' جنيه'}</div>
     `;
     card.addEventListener('click', () => selectPlan(p));
     grid.appendChild(card);
@@ -769,6 +830,17 @@ function selectPlan(plan) {
   document.getElementById('selectedPlanId').value = plan.id;
   document.getElementById('plan_name').value      = plan.name;
   document.getElementById('price').value          = plan.price;
+  
+  const curr = plan.currency || 'EGP';
+  const currSel = document.getElementById('sub_currency');
+  if (currSel) {
+    currSel.value = curr;
+    onSubModalCurrencyChange(curr);
+  }
+  const origInput = document.getElementById('sub_original_price');
+  if (origInput) {
+    origInput.value = plan.original_price || '';
+  }
 }
 
 function selectCustomPlan() {
@@ -778,6 +850,8 @@ function selectCustomPlan() {
   document.getElementById('selectedPlanId').value = '';
   document.getElementById('plan_name').value      = '';
   document.getElementById('price').value          = '';
+  const origInput = document.getElementById('sub_original_price');
+  if (origInput) origInput.value = '';
   document.getElementById('price').focus();
 }
 
