@@ -215,195 +215,36 @@ $depth      = 0;
 require_once INCLUDES_PATH . '/header.php';
 ?>
 
-<!-- stats-grid rows -->
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-bottom:20px;">
-  
-  <!-- 👥 العملاء والاشتراكات -->
-  <div class="card" style="border-right: 4px solid var(--primary); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
-    <h3 style="font-size:14px; font-weight:800; color:var(--primary); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
-      <i class="fas fa-users" style="margin-left:6px;"></i> العملاء والاشتراكات
-    </h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي العملاء</div>
-        <div style="font-size:16px; font-weight:800; color:var(--primary); margin-top:4px;"><?= number_format($totalClients) ?></div>
-        <?php if ($newClientsMonth > 0): ?>
-        <div style="font-size:10px; color:var(--success); margin-top:2px;"><i class="fas fa-plus"></i> <?= $newClientsMonth ?></div>
-        <?php endif; ?>
-      </div>
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">العملاء النشطين</div>
-        <div style="font-size:16px; font-weight:800; color:#10b981; margin-top:4px;"><?= number_format($activeClients) ?></div>
-      </div>
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">الاشتراكات النشطة</div>
-        <div style="font-size:16px; font-weight:800; color:#8b5cf6; margin-top:4px;"><?= number_format($activeSubs) ?></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 💰 الموقف المالي -->
-  <div class="card" style="border-right: 4px solid var(--success); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
-    <h3 style="font-size:14px; font-weight:800; color:var(--success); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
-      <i class="fas fa-coins" style="margin-left:6px;"></i> الموقف المالي العام
-    </h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي الإيرادات</div>
-        <div style="font-size:15px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalRevenue) ?></div>
-      </div>
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تحصيلات الشهر</div>
-        <div style="font-size:15px; font-weight:800; color:#10b981; margin-top:4px;"><?= formatMoney($thisMonthRevenue) ?></div>
-      </div>
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">المبالغ المستحقة</div>
-        <div style="font-size:15px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney(max(0,$totalDebt)) ?></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ⚙️ التشغيل والمتابعة -->
-  <div class="card" style="border-right: 4px solid var(--warning); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
-    <h3 style="font-size:14px; font-weight:800; color:var(--warning); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
-      <i class="fas fa-sliders" style="margin-left:6px;"></i> المتابعة والتشغيل
-    </h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:10px; text-align:center;">
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تجديدات قريبة</div>
-        <div style="font-size:16px; font-weight:800; color:var(--warning); margin-top:4px;"><?= $renewalsSoon ?></div>
-      </div>
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">دومينات محجوزة</div>
-        <div style="font-size:16px; font-weight:800; color:#06b6d4; margin-top:4px;"><?= $ourDomainsCount ?></div>
-      </div>
-      <div>
-        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تصميم المواقع</div>
-        <div style="font-size:12px; font-weight:800; color:#3b82f6; margin-top:4px; line-height:1.2;"><?= $designPaid ?> مدفوع<br><?= $designFree ?> مجاني</div>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- Primary Dashboard Layout -->
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;margin-bottom: 24px;">
-
-  <!-- Column 1: Charts & Renewals -->
-  <div>
-    <!-- Interactive Charts Card -->
-    <div class="card" style="margin-bottom:20px; display:flex; flex-direction:column;">
-      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:inline-flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:8px;">
-          <button type="button" id="btnRevenueChart" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:var(--primary); color:#fff; border:none; cursor:pointer;" onclick="switchDashboardChart('revenue')">
-            <i class="fas fa-chart-bar" style="margin-left:4px;"></i> الإيرادات المحصلة شهرياً
-          </button>
-          <button type="button" id="btnTrendChart" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:transparent; color:var(--text-primary); border:none; cursor:pointer;" onclick="switchDashboardChart('trend')">
-            <i class="fas fa-chart-line" style="margin-left:4px;"></i> نمو الاشتراكات الجديدة
-          </button>
-        </div>
-      </div>
-      <div class="card-body" id="revenueChartContainer">
-        <div style="height:250px; position:relative;"><canvas id="revenueChart"></canvas></div>
-      </div>
-      <div class="card-body" id="trendChartContainer" style="display:none;">
-        <div style="height:250px; position:relative;"><canvas id="monthlyTrendChart"></canvas></div>
-      </div>
-    </div>
-
-    <!-- Upcoming Renewals -->
-    <?php if (!empty($upcomingRenewals)): ?>
-    <div class="card" style="margin-bottom: 20px;">
-      <div class="card-header">
-        <span class="card-title"><i class="fas fa-bell" style="color:var(--warning);"></i> اشتراكات تنتهي قريباً</span>
-        <a href="reports/renewals.php" class="btn btn-sm btn-outline">عرض الكل</a>
-      </div>
-      <div class="table-wrapper">
-        <table class="data-table">
-          <thead>
-            <tr><th>العميل</th><th>الخدمة</th><th>تاريخ الانتهاء</th><th>المتبقي</th><th></th></tr>
-          </thead>
-          <tbody>
-            <?php foreach ($upcomingRenewals as $r): ?>
-            <tr>
-              <td>
-                <a href="clients/view.php?id=<?= $r['client_id'] ?>" style="font-weight:600;">
-                  <?= e($r['client_name']) ?>
-                </a>
-              </td>
-              <td class="text-muted"><?= e($r['service_name']) ?></td>
-              <td><?= formatDate($r['end_date']) ?></td>
-              <td>
-                <?php if ($r['days_left'] <= 7): ?>
-                  <span class="badge badge-danger"><?= $r['days_left'] ?> يوم</span>
-                <?php elseif ($r['days_left'] <= 14): ?>
-                  <span class="badge badge-warning"><?= $r['days_left'] ?> يوم</span>
-                <?php else: ?>
-                  <span class="badge badge-info"><?= $r['days_left'] ?> يوم</span>
-                <?php endif; ?>
-              </td>
-              <td>
-                <a href="subscriptions/renew.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-success">
-                  <i class="fas fa-redo"></i> تجديد
-                </a>
-              </td>
-            </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <?php endif; ?>
-  </div>
-
-  <!-- Column 2: Package Distribution & Latest Clients -->
-  <div>
-       <!-- Latest Clients -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title"><i class="fas fa-user-clock"></i> آخر العملاء المضافين</span>
-        <a href="clients/index.php" class="btn btn-sm btn-outline">عرض الكل</a>
-      </div>
-      <div class="card-body" style="padding:0;">
-<!-- Latest Clients Avatar fix -->
-        <?php foreach ($latestClients as $cl):
-          $remaining = $cl['total'] - $cl['paid'];
-          $cCode = $cl['country'] ?? 'EG';
-          $cInfo = getCountryInfo($cCode);
-        ?>
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f1f5f9;transition:.15s;"
-             onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.05);border:1px solid rgba(36,86,164,0.12);
-                      display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.02);"
-               title="<?= e($cInfo['name']) ?>">
-            <?= getCountryFlagSvg($cCode, 24, 16) ?>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <a href="clients/view.php?id=<?= $cl['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <?= e($cl['name']) ?>
-            </a>
-            <?php if ($cl['company_name']): ?>
-            <div style="font-size:11.5px;color:var(--text-muted);"><?= e($cl['company_name']) ?></div>
-            <?php endif; ?>
-          </div>
-          <div style="text-align:left;flex-shrink:0;">
-            <?php if ($remaining > 0): ?>
-            <div style="font-size:12px;color:var(--danger);font-weight:700;"><?= formatMoney($remaining) ?></div>
-            <div style="font-size:10.5px;color:var(--text-muted);">متبقي</div>
-            <?php else: ?>
-            <span class="badge badge-success">مسدّد</span>
-            <?php endif; ?>
-          </div>
-        </div>
-        <?php endforeach; ?>
-        <?php if (empty($latestClients)): ?>
-        <div class="empty-state" style="padding:40px;"><div class="empty-icon"><i class="fas fa-users"></i></div><p class="empty-title">لا يوجد عملاء بعد</p></div>
-        <?php endif; ?>
-      </div>
-    </div>
-  </div>
-
-</div>
+<style>
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.dash-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+.dash-equal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+@media (max-width: 992px) {
+  .dash-main-grid {
+    grid-template-columns: 1fr;
+  }
+  .dash-equal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 
 <?php
 $makeCountryDashUrl = function($newStatus, $newServer) use ($countryFilterStatus, $countryFilterServer) {
@@ -416,8 +257,9 @@ $makeCountryDashUrl = function($newStatus, $newServer) use ($countryFilterStatus
     return '?' . ($qs ? $qs : '');
 };
 ?>
+
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
-<!-- بطاقة تقرير توزيع العملاء والخدمات حسب الدولة والسيرفر (Accordion قابل للتوسع) -->
+<!-- 1. بطاقة تقرير توزيع العملاء والخدمات حسب الدولة والسيرفر (في المقدمة) -->
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <div class="card" style="margin-bottom: 24px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
   <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding: 16px 20px; background: var(--card-bg); border-bottom: 1px solid var(--border-color);">
@@ -737,8 +579,202 @@ function toggleCountryAccordion(id) {
 }
 </script>
 
-<!-- Breakdown Lists (Service & Package) -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-bottom: 24px;">
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- 2. كروت الإحصائيات السريعة (KPI Overview Cards) -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="dash-kpi-grid">
+  
+  <!-- 👥 العملاء والاشتراكات -->
+  <div class="card" style="border-right: 4px solid var(--primary); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
+    <h3 style="font-size:14px; font-weight:800; color:var(--primary); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+      <i class="fas fa-users" style="margin-left:6px;"></i> العملاء والاشتراكات
+    </h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي العملاء</div>
+        <div style="font-size:16px; font-weight:800; color:var(--primary); margin-top:4px;"><?= number_format($totalClients) ?></div>
+        <?php if ($newClientsMonth > 0): ?>
+        <div style="font-size:10px; color:var(--success); margin-top:2px;"><i class="fas fa-plus"></i> <?= $newClientsMonth ?></div>
+        <?php endif; ?>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">العملاء النشطين</div>
+        <div style="font-size:16px; font-weight:800; color:#10b981; margin-top:4px;"><?= number_format($activeClients) ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">الاشتراكات النشطة</div>
+        <div style="font-size:16px; font-weight:800; color:#8b5cf6; margin-top:4px;"><?= number_format($activeSubs) ?></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 💰 الموقف المالي -->
+  <div class="card" style="border-right: 4px solid var(--success); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
+    <h3 style="font-size:14px; font-weight:800; color:var(--success); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+      <i class="fas fa-coins" style="margin-left:6px;"></i> الموقف المالي العام
+    </h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center;">
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">إجمالي الإيرادات</div>
+        <div style="font-size:15px; font-weight:800; color:var(--success); margin-top:4px;"><?= formatMoney($totalRevenue) ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تحصيلات الشهر</div>
+        <div style="font-size:15px; font-weight:800; color:#10b981; margin-top:4px;"><?= formatMoney($thisMonthRevenue) ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">المبالغ المستحقة</div>
+        <div style="font-size:15px; font-weight:800; color:var(--danger); margin-top:4px;"><?= formatMoney(max(0,$totalDebt)) ?></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⚙️ التشغيل والمتابعة -->
+  <div class="card" style="border-right: 4px solid var(--warning); padding:20px; background:#fff; margin:0; display:flex; flex-direction:column; gap:12px; justify-content: space-between;">
+    <h3 style="font-size:14px; font-weight:800; color:var(--warning); border-bottom:1px solid #f1f5f9; padding-bottom:8px; margin:0;">
+      <i class="fas fa-sliders" style="margin-left:6px;"></i> المتابعة والتشغيل
+    </h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:10px; text-align:center;">
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تجديدات قريبة</div>
+        <div style="font-size:16px; font-weight:800; color:var(--warning); margin-top:4px;"><?= $renewalsSoon ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">دومينات محجوزة</div>
+        <div style="font-size:16px; font-weight:800; color:#06b6d4; margin-top:4px;"><?= $ourDomainsCount ?></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">تصميم المواقع</div>
+        <div style="font-size:12px; font-weight:800; color:#3b82f6; margin-top:4px; line-height:1.2;"><?= $designPaid ?> مدفوع<br><?= $designFree ?> مجاني</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- 3. الرسوم البيانية التفاعلية وقائمة آخر العملاء -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="dash-main-grid">
+
+  <!-- Column 1: Charts & Renewals -->
+  <div>
+    <!-- Interactive Charts Card -->
+    <div class="card" style="margin-bottom:20px; display:flex; flex-direction:column;">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:inline-flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:8px;">
+          <button type="button" id="btnRevenueChart" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:var(--primary); color:#fff; border:none; cursor:pointer;" onclick="switchDashboardChart('revenue')">
+            <i class="fas fa-chart-bar" style="margin-left:4px;"></i> الإيرادات المحصلة شهرياً
+          </button>
+          <button type="button" id="btnTrendChart" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:transparent; color:var(--text-primary); border:none; cursor:pointer;" onclick="switchDashboardChart('trend')">
+            <i class="fas fa-chart-line" style="margin-left:4px;"></i> نمو الاشتراكات الجديدة
+          </button>
+        </div>
+      </div>
+      <div class="card-body" id="revenueChartContainer">
+        <div style="height:250px; position:relative;"><canvas id="revenueChart"></canvas></div>
+      </div>
+      <div class="card-body" id="trendChartContainer" style="display:none;">
+        <div style="height:250px; position:relative;"><canvas id="monthlyTrendChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Upcoming Renewals -->
+    <?php if (!empty($upcomingRenewals)): ?>
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-bell" style="color:var(--warning);"></i> اشتراكات تنتهي قريباً</span>
+        <a href="reports/renewals.php" class="btn btn-sm btn-outline">عرض الكل</a>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr><th>العميل</th><th>الخدمة</th><th>تاريخ الانتهاء</th><th>المتبقي</th><th></th></tr>
+          </thead>
+          <tbody>
+            <?php foreach ($upcomingRenewals as $r): ?>
+            <tr>
+              <td>
+                <a href="clients/view.php?id=<?= $r['client_id'] ?>" style="font-weight:600;">
+                  <?= e($r['client_name']) ?>
+                </a>
+              </td>
+              <td class="text-muted"><?= e($r['service_name']) ?></td>
+              <td><?= formatDate($r['end_date']) ?></td>
+              <td>
+                <?php if ($r['days_left'] <= 7): ?>
+                  <span class="badge badge-danger"><?= $r['days_left'] ?> يوم</span>
+                <?php elseif ($r['days_left'] <= 14): ?>
+                  <span class="badge badge-warning"><?= $r['days_left'] ?> يوم</span>
+                <?php else: ?>
+                  <span class="badge badge-info"><?= $r['days_left'] ?> يوم</span>
+                <?php endif; ?>
+              </td>
+              <td>
+                <a href="subscriptions/renew.php?id=<?= $r['id'] ?>" class="btn btn-sm btn-success">
+                  <i class="fas fa-redo"></i> تجديد
+                </a>
+              </td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <?php endif; ?>
+  </div>
+
+  <!-- Column 2: Latest Clients -->
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><i class="fas fa-user-clock"></i> آخر العملاء المضافين</span>
+        <a href="clients/index.php" class="btn btn-sm btn-outline">عرض الكل</a>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <?php foreach ($latestClients as $cl):
+          $remaining = $cl['total'] - $cl['paid'];
+          $cCode = $cl['country'] ?? 'EG';
+          $cInfo = getCountryInfo($cCode);
+        ?>
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f1f5f9;transition:.15s;"
+             onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.05);border:1px solid rgba(36,86,164,0.12);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.02);"
+               title="<?= e($cInfo['name']) ?>">
+            <?= getCountryFlagSvg($cCode, 24, 16) ?>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <a href="clients/view.php?id=<?= $cl['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <?= e($cl['name']) ?>
+            </a>
+            <?php if ($cl['company_name']): ?>
+            <div style="font-size:11.5px;color:var(--text-muted);"><?= e($cl['company_name']) ?></div>
+            <?php endif; ?>
+          </div>
+          <div style="text-align:left;flex-shrink:0;">
+            <?php if ($remaining > 0): ?>
+            <div style="font-size:12px;color:var(--danger);font-weight:700;"><?= formatMoney($remaining) ?></div>
+            <div style="font-size:10.5px;color:var(--text-muted);">متبقي</div>
+            <?php else: ?>
+            <span class="badge badge-success">مسدّد</span>
+            <?php endif; ?>
+          </div>
+        </div>
+        <?php endforeach; ?>
+        <?php if (empty($latestClients)): ?>
+        <div class="empty-state" style="padding:40px;"><div class="empty-icon"><i class="fas fa-users"></i></div><p class="empty-title">لا يوجد عملاء بعد</p></div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- 4. إحصائيات الخدمات وتوزيع الباقات -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="dash-equal-grid">
 
   <!-- Service Stats -->
   <div class="card">
