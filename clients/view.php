@@ -67,14 +67,14 @@ require_once INCLUDES_PATH . '/header.php';
 <div class="client-header-card" <?= !$client['status'] ? 'style="background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);"' : '' ?>>
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;position:relative;z-index:1;">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-      <div class="client-avatar-lg" style="font-size:34px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.18);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,0.3);box-shadow:0 6px 16px rgba(0,0,0,0.1);" title="<?= e($countryInfo['name']) ?>">
-        <?= $countryInfo['flag'] ?>
+      <div class="client-avatar-lg" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.18);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,0.3);box-shadow:0 6px 16px rgba(0,0,0,0.1);padding:4px;" title="<?= e($countryInfo['name']) ?>">
+        <?= getCountryFlagSvg($client['country'] ?? 'EG', 46, 32) ?>
       </div>
       <div>
         <h1 style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <?= e($client['name']) ?>
-          <span class="badge" style="background:rgba(255,255,255,0.22);color:#fff;border:1px solid rgba(255,255,255,0.35);font-size:12px;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px;">
-            <?= $countryInfo['flag'] ?> <?= e($countryInfo['name']) ?>
+          <span class="badge" style="background:rgba(255,255,255,0.22);color:#fff;border:1px solid rgba(255,255,255,0.35);font-size:12px;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;">
+            <?= getCountryFlagSvg($client['country'] ?? 'EG', 18, 12) ?> <?= e($countryInfo['name']) ?>
           </span>
           <?= !$client['status'] ? '<span class="badge badge-danger" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4);font-size:11.5px;padding:3px 10px;border-radius:20px;">موقوف</span>' : '' ?>
         </h1>

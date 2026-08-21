@@ -296,10 +296,10 @@ if (isset($_GET['ajax'])) {
       <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.06);border:1px solid rgba(36,86,164,0.12);
-                      display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.02);"
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.05);border:1px solid rgba(36,86,164,0.12);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.02);"
                title="<?= e($cInfo['name']) ?>">
-            <?= $cInfo['flag'] ?>
+            <?= getCountryFlagSvg($cCode, 26, 18) ?>
           </div>
           <div>
             <a href="view.php?id=<?= $client['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;">
@@ -633,10 +633,10 @@ require_once INCLUDES_PATH . '/header.php';
           <td class="text-muted"><?= $pager['offset'] + $i + 1 ?></td>
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
-              <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.06);border:1px solid rgba(36,86,164,0.12);
-                          display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.02);"
+              <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.05);border:1px solid rgba(36,86,164,0.12);
+                          display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.02);"
                    title="<?= e($cInfo['name']) ?>">
-                <?= $cInfo['flag'] ?>
+                <?= getCountryFlagSvg($cCode, 26, 18) ?>
               </div>
               <div>
                 <a href="view.php?id=<?= $client['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;">

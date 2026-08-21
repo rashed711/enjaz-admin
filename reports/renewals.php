@@ -94,8 +94,8 @@ function renderRenewalsTable($clients) {
         <input type="checkbox" name="client_ids[]" value="<?= $cId ?>" class="client-checkbox form-check-input" style="cursor: pointer; width: 18px; height: 18px;">
       </td>
       <td>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:16px;" title="<?= e($cInfo['name']) ?>"><?= $cInfo['flag'] ?></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span title="<?= e($cInfo['name']) ?>" style="display:inline-flex;align-items:center;"><?= getCountryFlagSvg($c['country'] ?? 'EG', 22, 15) ?></span>
           <a href="../clients/view.php?id=<?= $cId ?>" style="font-weight:700; color: var(--primary);">
             <?= e($c['client_name']) ?>
           </a>

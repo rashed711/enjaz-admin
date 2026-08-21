@@ -114,19 +114,52 @@ $serviceDist = $db->query("
     ORDER BY count DESC
 ")->fetchAll();
 
-// ── 7. توزيع العملاء حسب الدولة ────────────────────────
-$countryStats = $db->query("
-    SELECT c.country, COUNT(DISTINCT c.id) as client_count,
-           COALESCE(SUM(cs.price), 0) as total_value
+// ── 7. توزيع العملاء حسب الدولة والخدمات ────────────────────────
+$countryFilterStatus = $_GET['country_status'] ?? '1'; // '1' = active (default), '0' = suspended, 'all' = all
+$countryStatusWhere = "";
+if ($countryFilterStatus === '1') {
+    $countryStatusWhere = " AND c.status = 1 ";
+} elseif ($countryFilterStatus === '0') {
+    $countryStatusWhere = " AND c.status = 0 ";
+}
+
+$countryOverview = $db->query("
+    SELECT c.country,
+           COUNT(DISTINCT c.id) AS total_clients,
+           COUNT(DISTINCT CASE WHEN c.status = 1 THEN c.id END) AS active_clients,
+           COUNT(DISTINCT CASE WHEN c.status = 0 THEN c.id END) AS suspended_clients,
+           COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_revenue,
+           COUNT(DISTINCT CASE WHEN cs.status != 'cancelled' AND (s.name LIKE '%دومين%' OR s.name LIKE '%domain%') THEN cs.id END) AS our_domains_count
     FROM clients c
-    LEFT JOIN client_subscriptions cs ON cs.client_id = c.id AND cs.status != 'cancelled'
+    LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
+    LEFT JOIN services s ON s.id = cs.service_id
+    WHERE 1=1 $countryStatusWhere
     GROUP BY c.country
-    ORDER BY client_count DESC
+    ORDER BY total_clients DESC
 ")->fetchAll();
+
+$countryServiceStats = $db->query("
+    SELECT c.country, s.id AS service_id, s.name AS service_name,
+           COUNT(cs.id) AS subs_count,
+           SUM(cs.price) AS total_price,
+           COUNT(DISTINCT CASE WHEN (s.name LIKE '%دومين%' OR s.name LIKE '%domain%') THEN cs.id END) AS our_domains_in_service
+    FROM clients c
+    JOIN client_subscriptions cs ON cs.client_id = c.id
+    JOIN services s ON s.id = cs.service_id
+    WHERE cs.status != 'cancelled' $countryStatusWhere
+    GROUP BY c.country, s.id
+    ORDER BY total_price DESC
+")->fetchAll();
+
+$countryServicesMap = [];
+foreach ($countryServiceStats as $css) {
+    $cCode = $css['country'] ?: 'EG';
+    $countryServicesMap[$cCode][] = $css;
+}
 
 // ── 8. قائمة العملاء الذين حجزنا الدومين لهم ───────────────────────
 $ourDomainsClients = $db->query("
-    SELECT cs.id AS sub_id, c.id, c.name, c.company_name, c.domain AS client_domain, c.domain_provider,
+    SELECT cs.id AS sub_id, c.id, c.name, c.company_name, c.country, c.domain AS client_domain, c.domain_provider,
            cs.plan_name AS sub_plan_name, cs.notes AS sub_notes
     FROM client_subscriptions cs
     JOIN clients c ON c.id = cs.client_id
@@ -304,6 +337,7 @@ require_once INCLUDES_PATH . '/header.php';
         <a href="clients/index.php" class="btn btn-sm btn-outline">عرض الكل</a>
       </div>
       <div class="card-body" style="padding:0;">
+<!-- Latest Clients Avatar fix -->
         <?php foreach ($latestClients as $cl):
           $remaining = $cl['total'] - $cl['paid'];
           $cCode = $cl['country'] ?? 'EG';
@@ -311,10 +345,10 @@ require_once INCLUDES_PATH . '/header.php';
         ?>
         <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f1f5f9;transition:.15s;"
              onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.06);border:1px solid rgba(36,86,164,0.12);
-                      display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.02);"
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(36,86,164,0.05);border:1px solid rgba(36,86,164,0.12);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.02);"
                title="<?= e($cInfo['name']) ?>">
-            <?= $cInfo['flag'] ?>
+            <?= getCountryFlagSvg($cCode, 24, 16) ?>
           </div>
           <div style="flex:1;min-width:0;">
             <a href="clients/view.php?id=<?= $cl['id'] ?>" style="font-weight:700;color:var(--text-primary);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -343,47 +377,208 @@ require_once INCLUDES_PATH . '/header.php';
 
 </div>
 
-<!-- Breakdown Lists & Hosted Domains (Full Width Dashboard Tables) -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; margin-bottom: 24px;">
-
-  <!-- Country Stats -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title"><i class="fas fa-globe"></i> توزيع العملاء حسب الدولة</span>
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- بطاقة تقرير توزيع العملاء والخدمات حسب الدولة (Accordion قابل للتوسع) -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom: 24px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.03);">
+  <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 20px; background: var(--card-bg); border-bottom: 1px solid var(--border-color);">
+    <div>
+      <span class="card-title" style="font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-globe-americas" style="color: var(--primary);"></i>
+        <span>تقرير توزيع العملاء والخدمات حسب الدولة</span>
+      </span>
+      <p style="font-size: 12px; color: var(--text-muted); margin: 3px 0 0 0;">اضغط على الدولة لعرض تفاصيل الخدمات والتكاليف وعدد الدومينات المحجوزة من خلالنا</p>
     </div>
-    <div class="card-body" style="padding: 0;">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>الدولة</th>
-            <th style="text-align: center;">عدد العملاء</th>
-            <th style="text-align: left;">قيمة الاشتراكات</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($countryStats as $cs): 
-            $cCode = $cs['country'] ?: 'EG';
-            $cInfo = getCountryInfo($cCode);
-          ?>
-          <tr onclick="window.location='clients/index.php?country=<?= urlencode($cCode) ?>';" style="cursor:pointer;" onmouseover="this.style.background='#f8fbff'" onmouseout="this.style.background=''">
-            <td>
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:18px;"><?= $cInfo['flag'] ?></span>
-                <span style="font-weight:700;color:var(--text-primary);"><?= e($cInfo['name']) ?></span>
-              </div>
-            </td>
-            <td style="text-align: center;">
-              <span class="badge badge-info" style="font-size:12px;"><?= $cs['client_count'] ?> عميل</span>
-            </td>
-            <td style="text-align: left; font-weight:700; color:var(--success);">
-              <?= formatMoney($cs['total_value']) ?>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+
+    <!-- أزرار فلترة حالة العملاء -->
+    <div style="display: inline-flex; background: rgba(36,86,164,0.06); padding: 3px; border-radius: 8px; gap: 4px;">
+      <a href="?country_status=1" 
+         class="btn btn-sm" 
+         style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === '1' ? 'background: var(--success); color: #fff; box-shadow: 0 2px 6px rgba(16,185,129,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
+        <i class="fas fa-circle-check" style="margin-left: 4px;"></i> النشطون
+      </a>
+      <a href="?country_status=0" 
+         class="btn btn-sm" 
+         style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === '0' ? 'background: var(--danger); color: #fff; box-shadow: 0 2px 6px rgba(239,68,68,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
+        <i class="fas fa-circle-pause" style="margin-left: 4px;"></i> الموقوفون
+      </a>
+      <a href="?country_status=all" 
+         class="btn btn-sm" 
+         style="font-size: 12px; padding: 4px 12px; border-radius: 6px; border: none; font-weight: 700; text-decoration: none; <?= $countryFilterStatus === 'all' ? 'background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(36,86,164,0.3);' : 'background: transparent; color: var(--text-muted);' ?>">
+        <i class="fas fa-globe" style="margin-left: 4px;"></i> كل العملاء
+      </a>
     </div>
   </div>
+
+  <div class="card-body" style="padding: 0;">
+    <?php if (empty($countryOverview)): ?>
+    <div class="empty-state" style="padding: 40px;">
+      <div class="empty-icon"><i class="fas fa-users-slash"></i></div>
+      <p class="empty-title">لا يوجد عملاء يطابقون الفلتر المحدد</p>
+    </div>
+    <?php else: ?>
+    <div class="country-accordion-list">
+      <?php foreach ($countryOverview as $index => $cs): 
+        $cCode = $cs['country'] ?: 'EG';
+        $cInfo = getCountryInfo($cCode);
+        $services = $countryServicesMap[$cCode] ?? [];
+        $accordionId = 'country-detail-' . $cCode;
+      ?>
+      <div class="country-accordion-item" style="border-bottom: 1px solid var(--border-color);">
+        <!-- Accordion Header -->
+        <div class="country-accordion-header" 
+             onclick="toggleCountryAccordion('<?= $accordionId ?>')"
+             style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; background: var(--card-bg); transition: background 0.2s;"
+             onmouseover="this.style.background='rgba(36,86,164,0.03)'" 
+             onmouseout="this.style.background='var(--card-bg)'">
+          
+          <!-- الدولة والعلم -->
+          <div style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(36,86,164,0.06); border: 1px solid rgba(36,86,164,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+              <?= getCountryFlagSvg($cCode, 24, 16) ?>
+            </div>
+            <div>
+              <div style="font-size: 15px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <?= e($cInfo['name']) ?>
+                <span class="badge" style="background: rgba(36,86,164,0.08); color: var(--primary); font-size: 11px; padding: 2px 8px; border-radius: 20px;">
+                  <?= $cs['total_clients'] ?> <?= $cs['total_clients'] > 1 ? 'عملاء' : 'عميل' ?>
+                </span>
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                <span>نشط: <strong style="color: var(--success);"><?= $cs['active_clients'] ?></strong></span> &bull; 
+                <span>موقوف: <strong style="color: var(--danger);"><?= $cs['suspended_clients'] ?></strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- إحصائيات الدومينات والتكاليف -->
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            
+            <!-- بادج الدومينات المحجوزة من خلالنا -->
+            <?php if ($cs['our_domains_count'] > 0): ?>
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--success); font-weight: 700; display: inline-flex; align-items: center; gap: 5px;" title="عدد النطاقات المحجوزة لعملاء هذه الدولة من طرف شركتنا">
+              <i class="fas fa-globe"></i>
+              <span><?= $cs['our_domains_count'] ?> دومين حجزناه</span>
+            </div>
+            <?php else: ?>
+            <div style="background: rgba(0, 0, 0, 0.03); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 6px; font-size: 11.5px; color: var(--text-muted); font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+              <i class="fas fa-globe" style="opacity: 0.5;"></i>
+              <span>لا توجد دومينات من خلالنا</span>
+            </div>
+            <?php endif; ?>
+
+            <!-- إجمالي التكلفة / القيمة بالجنيه -->
+            <div style="text-align: left; min-width: 140px;">
+              <div style="font-size: 14.5px; font-weight: 900; color: var(--primary);">
+                <?= formatMoney($cs['total_revenue']) ?>
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted);">إجمالي قيمة الاشتراكات</div>
+            </div>
+
+            <!-- زر وسهم التوسيع -->
+            <button type="button" class="btn btn-sm btn-outline" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+              <i class="fas fa-chevron-down" id="arrow-<?= $accordionId ?>" style="transition: transform 0.25s;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Accordion Body: تفاصيل الخدمات وكل خدمة بتكلفتها -->
+        <div id="<?= $accordionId ?>" style="display: none; background: rgba(248, 250, 252, 0.7); border-top: 1px dashed var(--border-color); padding: 16px 20px;">
+          
+          <div style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 13px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-list-check" style="color: var(--primary-light);"></i>
+              <span>تفاصيل الخدمات والاشتراكات لعملاء <?= e($cInfo['name']) ?> (<?= count($services) ?> خدمات مسجلة):</span>
+            </div>
+            <a href="clients/index.php?country=<?= urlencode($cCode) ?>&status=<?= $countryFilterStatus === 'all' ? '' : $countryFilterStatus ?>" 
+               class="btn btn-sm btn-primary" 
+               style="font-size: 11.5px; padding: 3px 10px; border-radius: 6px;">
+              <i class="fas fa-users"></i> عرض عملاء <?= e($cInfo['name']) ?> (<?= $cs['total_clients'] ?>) في جدول العملاء &larr;
+            </a>
+          </div>
+
+          <?php if (empty($services)): ?>
+          <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 12.5px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+            لا توجد اشتراكات نشطة مسجلة لعملاء هذه الدولة حالياً.
+          </div>
+          <?php else: ?>
+          <div class="table-wrapper" style="margin: 0; box-shadow: none; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--card-bg);">
+            <table class="data-table" style="margin: 0; font-size: 12.5px; width: 100%;">
+              <thead>
+                <tr style="background-color: var(--bg-hover);">
+                  <th style="width: 40px;">#</th>
+                  <th>الخدمة</th>
+                  <th style="text-align: center;">عدد المشتركين</th>
+                  <th style="text-align: left;">إجمالي التكلفة / الإيراد</th>
+                  <th style="text-align: center;">ملاحظات ونطاقات</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($services as $sIdx => $srv): 
+                  $isDomainSrv = (mb_strpos(mb_strtolower($srv['service_name']), 'دومين') !== false || mb_strpos(mb_strtolower($srv['service_name']), 'domain') !== false);
+                ?>
+                <tr>
+                  <td style="color: var(--text-muted);"><?= $sIdx + 1 ?></td>
+                  <td>
+                    <div style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                      <i class="fas <?= $isDomainSrv ? 'fa-globe text-info' : 'fa-check-circle text-primary' ?>"></i>
+                      <span><?= e($srv['service_name']) ?></span>
+                    </div>
+                  </td>
+                  <td style="text-align: center;">
+                    <span class="badge badge-primary" style="font-size: 11.5px; padding: 2px 8px;">
+                      <?= $srv['subs_count'] ?> <?= $srv['subs_count'] > 1 ? 'اشتراكات' : 'اشتراك' ?>
+                    </span>
+                  </td>
+                  <td style="text-align: left; font-weight: 800; color: var(--success); font-size: 13.5px;">
+                    <?= formatMoney($srv['total_price']) ?>
+                  </td>
+                  <td style="text-align: center;">
+                    <?php if ($isDomainSrv): ?>
+                      <?php if ($srv['our_domains_in_service'] > 0): ?>
+                        <span class="badge badge-success" style="font-size: 11px; padding: 3px 8px;">
+                          <i class="fas fa-check-double" style="margin-left: 3px;"></i> حجزنا منهم <?= $srv['our_domains_in_service'] ?> دومين
+                        </span>
+                      <?php else: ?>
+                        <span class="text-muted" style="font-size: 11.5px;">دومينات مدارة</span>
+                      <?php endif; ?>
+                    <?php else: ?>
+                      <span class="text-muted" style="font-size: 11.5px;">—</span>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+          <?php endif; ?>
+
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+  </div>
+</div>
+
+<script>
+function toggleCountryAccordion(id) {
+  const panel = document.getElementById(id);
+  const arrow = document.getElementById('arrow-' + id);
+  if (!panel) return;
+  
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    panel.style.display = 'block';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+  } else {
+    panel.style.display = 'none';
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+  }
+}
+</script>
+
+<!-- Breakdown Lists (Service & Package) -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-bottom: 24px;">
 
   <!-- Service Stats -->
   <div class="card">
@@ -477,9 +672,12 @@ require_once INCLUDES_PATH . '/header.php';
         <tr>
           <td class="text-muted"><?= $index + 1 ?></td>
           <td>
-            <a href="clients/view.php?id=<?= $c['id'] ?>" style="font-weight: 700;">
-              <?= e($c['name']) ?>
-            </a>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <?= getCountryFlagSvg($c['country'] ?? 'EG', 20, 14) ?>
+              <a href="clients/view.php?id=<?= $c['id'] ?>" style="font-weight: 700;">
+                <?= e($c['name']) ?>
+              </a>
+            </div>
           </td>
           <td><?= e($c['company_name'] ?: '—') ?></td>
           <td>

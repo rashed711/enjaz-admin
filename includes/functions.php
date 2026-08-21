@@ -59,27 +59,61 @@ function getSupportedCountries(): array {
 }
 
 /**
+ * رسم علم الدولة بجودة عالية كـ SVG لضمان ظهوره كعلم ملون على جميع الأجهزة والأنظمة (بما فيها Windows)
+ */
+function getCountryFlagSvg(?string $countryCode, int $width = 22, int $height = 16): string {
+    $code = strtoupper(trim($countryCode ?? 'EG'));
+    $w = (int)$width;
+    $h = (int)$height;
+    
+    switch ($code) {
+        case 'EG':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="160" fill="#ce1126"/><rect y="160" width="640" height="160" fill="#ffffff"/><rect y="320" width="640" height="160" fill="#000000"/><path d="M320 200c-7 0-14 8-14 20 0 16 14 30 14 30s14-14 14-30c0-12-7-20-14-20z" fill="#c09300"/><circle cx="320" cy="225" r="5" fill="#ffffff"/></svg>', $w, $h);
+        case 'SA':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="480" fill="#006c35"/><path d="M160 320h320v14H160z" fill="#ffffff"/><polygon points="160,327 195,312 195,342" fill="#ffffff"/><circle cx="450" cy="327" r="10" fill="#ffffff"/><text x="320" y="235" font-family="Arial, sans-serif" font-size="62" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="4">لا إله إلا الله</text></svg>', $w, $h);
+        case 'AE':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="160" fill="#00732f"/><rect y="160" width="640" height="160" fill="#ffffff"/><rect y="320" width="640" height="160" fill="#000000"/><rect width="180" height="480" fill="#ff0000"/></svg>', $w, $h);
+        case 'KW':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="160" fill="#007a3d"/><rect y="160" width="640" height="160" fill="#ffffff"/><rect y="320" width="640" height="160" fill="#ce1126"/><polygon points="0,0 200,160 200,320 0,480" fill="#000000"/></svg>', $w, $h);
+        case 'QA':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="480" fill="#8d1b3d"/><polygon points="0,0 200,0 240,27 200,53 240,80 200,107 240,133 200,160 240,187 200,213 240,240 200,267 240,293 200,320 240,347 200,373 240,400 200,427 240,453 200,480 0,480" fill="#ffffff"/></svg>', $w, $h);
+        case 'OM':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="160" fill="#ffffff"/><rect y="160" width="640" height="160" fill="#db161e"/><rect y="320" width="640" height="160" fill="#008000"/><rect width="180" height="480" fill="#db161e"/><circle cx="90" cy="80" r="22" fill="#ffffff" opacity="0.9"/></svg>', $w, $h);
+        case 'BH':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="480" fill="#ce1126"/><polygon points="0,0 180,0 240,48 180,96 240,144 180,192 240,240 180,288 240,336 180,384 240,432 180,480 0,480" fill="#ffffff"/></svg>', $w, $h);
+        case 'SD':
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="160" fill="#d21034"/><rect y="160" width="640" height="160" fill="#ffffff"/><rect y="320" width="640" height="160" fill="#000000"/><polygon points="0,0 220,240 0,480" fill="#007229"/></svg>', $w, $h);
+        default:
+            return sprintf('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="%d" height="%d" style="border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,0.18);vertical-align:middle;display:inline-block;"><rect width="640" height="480" fill="#2563eb"/><circle cx="320" cy="240" r="160" fill="none" stroke="#ffffff" stroke-width="20"/><ellipse cx="320" cy="240" rx="90" ry="160" fill="none" stroke="#ffffff" stroke-width="16"/><line x1="160" y1="240" x2="480" y2="240" stroke="#ffffff" stroke-width="18"/><line x1="190" y1="160" x2="450" y2="160" stroke="#ffffff" stroke-width="14"/><line x1="190" y1="320" x2="450" y2="320" stroke="#ffffff" stroke-width="14"/></svg>', $w, $h);
+    }
+}
+
+/**
  * جلب معلومات دولة معينة
  */
 function getCountryInfo(?string $countryCode): array {
     $code = strtoupper(trim($countryCode ?? 'EG'));
     $countries = getSupportedCountries();
-    return $countries[$code] ?? $countries['OTHER'];
+    $info = $countries[$code] ?? $countries['OTHER'];
+    $info['svg'] = getCountryFlagSvg($code, 22, 16);
+    return $info;
 }
 
 /**
  * عرض علم أو رمز الدولة كـ HTML أنيق
  */
-function getCountryFlagBadge(?string $countryCode, bool $withName = false, string $customStyle = ''): string {
+function getCountryFlagBadge(?string $countryCode, bool $withName = false, string $customStyle = '', int $flagWidth = 22, int $flagHeight = 16): string {
     $info = getCountryInfo($countryCode);
     $code = strtoupper(trim($countryCode ?? 'EG'));
+    $svg = getCountryFlagSvg($code, $flagWidth, $flagHeight);
+    
     if ($withName) {
         return '<span class="country-badge" style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;background:rgba(36,86,164,0.06);font-size:12px;font-weight:600;color:var(--text-primary);' . $customStyle . '" title="' . e($info['name']) . '">'
-             . '<span style="font-size:15px;line-height:1;">' . $info['flag'] . '</span>'
+             . $svg
              . '<span>' . e($info['name']) . '</span>'
              . '</span>';
     }
-    return '<span class="country-flag-icon" style="display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;' . $customStyle . '" title="' . e($info['name']) . '">' . $info['flag'] . '</span>';
+    return '<span class="country-flag-icon" style="display:inline-flex;align-items:center;justify-content:center;line-height:1;' . $customStyle . '" title="' . e($info['name']) . '">' . $svg . '</span>';
 }
 
 /**
