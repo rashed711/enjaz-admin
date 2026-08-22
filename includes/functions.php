@@ -48,13 +48,13 @@ function getSupportedCountries(): array {
     return [
         'EG' => ['name' => 'مصر', 'flag' => '🇪🇬', 'code' => '+20', 'currency' => 'EGP', 'currency_label' => 'جنيه'],
         'SA' => ['name' => 'السعودية', 'flag' => '🇸🇦', 'code' => '+966', 'currency' => 'SAR', 'currency_label' => 'ريال'],
+        'OM' => ['name' => 'سلطنة عمان', 'flag' => '🇴🇲', 'code' => '+968', 'currency' => 'OMR', 'currency_label' => 'ريال عماني'],
+        'SD' => ['name' => 'السودان', 'flag' => '🇸🇩', 'code' => '+249', 'currency' => 'SDG', 'currency_label' => 'جنيه سوداني'],
+        'ID' => ['name' => 'إندونيسيا', 'flag' => '🇮🇩', 'code' => '+62', 'currency' => 'IDR', 'currency_label' => 'روبية / أخرى'],
         'AE' => ['name' => 'الإمارات', 'flag' => '🇦🇪', 'code' => '+971', 'currency' => 'AED', 'currency_label' => 'درهم'],
         'KW' => ['name' => 'الكويت', 'flag' => '🇰🇼', 'code' => '+965', 'currency' => 'KWD', 'currency_label' => 'دينار كويتي'],
         'QA' => ['name' => 'قطر', 'flag' => '🇶🇦', 'code' => '+974', 'currency' => 'QAR', 'currency_label' => 'ريال قطري'],
-        'OM' => ['name' => 'سلطنة عمان', 'flag' => '🇴🇲', 'code' => '+968', 'currency' => 'OMR', 'currency_label' => 'ريال عماني'],
         'BH' => ['name' => 'البحرين', 'flag' => '🇧🇭', 'code' => '+973', 'currency' => 'BHD', 'currency_label' => 'دينار بحريني'],
-        'SD' => ['name' => 'السودان', 'flag' => '🇸🇩', 'code' => '+249', 'currency' => 'SDG', 'currency_label' => 'جنيه سوداني'],
-        'ID' => ['name' => 'إندونيسيا', 'flag' => '🇮🇩', 'code' => '+62', 'currency' => 'IDR', 'currency_label' => 'روبية / أخرى'],
         'OTHER' => ['name' => 'دولة أخرى', 'flag' => '🌐', 'code' => '', 'currency' => 'USD', 'currency_label' => 'دولار / أخرى'],
     ];
 }
