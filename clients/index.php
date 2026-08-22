@@ -19,6 +19,15 @@ $server  = clean($_GET['server'] ?? '');
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 
+$availableServers = [];
+try {
+    $serversStmt = $db->query("SELECT DISTINCT server_panel FROM clients WHERE server_panel IS NOT NULL AND server_panel != '' ORDER BY server_panel ASC");
+    $availableServers = $serversStmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (Exception $e) {}
+if (empty($availableServers)) {
+    $availableServers = ['cp.enjaz.cloud', 'panel.enjaz.cloud'];
+}
+
 $where  = ['1=1'];
 $params = [];
 if ($search) {
@@ -550,14 +559,14 @@ require_once INCLUDES_PATH . '/header.php';
                value="<?= e($search) ?>" autocomplete="off">
       </div>
 
-      <select name="status" class="form-control" style="width:auto;">
+      <select name="status" class="form-control" style="width:auto; font-weight: 600;">
         <option value="">كل الحالات</option>
-        <option value="1" <?= $status === '1' ? 'selected' : '' ?>>نشط</option>
-        <option value="0" <?= $status === '0' ? 'selected' : '' ?>>موقوف</option>
+        <option value="1" <?= $status === '1' ? 'selected' : '' ?>>🟢 نشط</option>
+        <option value="0" <?= $status === '0' ? 'selected' : '' ?>>🔴 موقوف</option>
       </select>
 
-      <select name="country" class="form-control" style="width:auto;">
-        <option value="">كل الدول</option>
+      <select name="country" class="form-control" style="width:auto; font-weight: 600;">
+        <option value="">🌍 كل الدول</option>
         <?php foreach (getSupportedCountries() as $cCode => $cInfo): ?>
           <option value="<?= e($cCode) ?>" <?= $country === $cCode ? 'selected' : '' ?>>
             <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?>
@@ -565,19 +574,26 @@ require_once INCLUDES_PATH . '/header.php';
         <?php endforeach; ?>
       </select>
 
-      <select name="server" class="form-control" style="width:auto;">
-        <option value="">كل السيرفرات</option>
-        <option value="cp.enjaz.cloud" <?= $server === 'cp.enjaz.cloud' ? 'selected' : '' ?>>السيرفر الأول (cp)</option>
-        <option value="panel.enjaz.cloud" <?= $server === 'panel.enjaz.cloud' ? 'selected' : '' ?>>السيرفر الثاني (panel)</option>
+      <select name="server" class="form-control" style="width:auto; font-weight: 600;">
+        <option value="">🖥️ كل السيرفرات</option>
+        <?php foreach ($availableServers as $srv): 
+          $srvLabel = $srv;
+          if ($srv === 'cp.enjaz.cloud') $srvLabel = 'السيرفر الأول (cp)';
+          elseif ($srv === 'panel.enjaz.cloud') $srvLabel = 'السيرفر الثاني (panel)';
+        ?>
+        <option value="<?= e($srv) ?>" <?= $server === $srv ? 'selected' : '' ?>>
+          <?= e($srvLabel) ?>
+        </option>
+        <?php endforeach; ?>
       </select>
 
-      <select name="filter" class="form-control" style="width:auto;">
+      <select name="filter" class="form-control" style="width:auto; font-weight: 600;">
         <option value="">كل التصنيفات المخصصة</option>
-        <option value="debt" <?= $filter === 'debt' ? 'selected' : '' ?>>عملاء عليهم مديونية</option>
-        <option value="expiring" <?= $filter === 'expiring' ? 'selected' : '' ?>>عملاء لديهم تجديدات قريبة</option>
-        <option value="website" <?= $filter === 'website' ? 'selected' : '' ?>>عملاء صممنا لهم مواقع</option>
-        <option value="domain_us" <?= $filter === 'domain_us' ? 'selected' : '' ?>>عملاء حجزنا لهم الدومين</option>
-        <option value="domain_them" <?= $filter === 'domain_them' ? 'selected' : '' ?>>عملاء حجزوا الدومين بأنفسهم</option>
+        <option value="debt" <?= $filter === 'debt' ? 'selected' : '' ?>>💰 عملاء عليهم مديونية</option>
+        <option value="expiring" <?= $filter === 'expiring' ? 'selected' : '' ?>>🔔 عملاء لديهم تجديدات قريبة</option>
+        <option value="website" <?= $filter === 'website' ? 'selected' : '' ?>>💻 عملاء صممنا لهم مواقع</option>
+        <option value="domain_us" <?= $filter === 'domain_us' ? 'selected' : '' ?>>🌐 عملاء حجزنا لهم الدومين</option>
+        <option value="domain_them" <?= $filter === 'domain_them' ? 'selected' : '' ?>>🌐 عملاء حجزوا الدومين بأنفسهم</option>
       </select>
 
       <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> بحث</button>
@@ -750,7 +766,7 @@ require_once INCLUDES_PATH . '/header.php';
       </span>
       <div class="pagination">
         <?php
-        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan]));
+        $queryBase = http_build_query(array_filter(['search' => $search, 'status' => $status, 'filter' => $filter, 'plan' => $plan, 'country' => $country, 'server' => $server]));
         $sep = $queryBase ? '&' : '';
         ?>
         <a href="?<?= $queryBase ?><?= $sep ?>page=<?= $pager['current_page'] - 1 ?>"
@@ -788,13 +804,6 @@ function applyStatsFilter(filterVal) {
         if (clickedCard) {
             clickedCard.classList.add('active');
         }
-        
-        // Clear search inputs to make card click clean
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) searchInput.value = '';
-        
-        const statusSelect = document.querySelector('select[name="status"]');
-        if (statusSelect) statusSelect.value = '1';
 
         // Trigger search
         window.doSearchGlobal(1);
@@ -802,29 +811,35 @@ function applyStatsFilter(filterVal) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const statusSelect = document.querySelector('select[name="status"]');
-    const filterSelect = document.querySelector('select[name="filter"]');
-    const searchForm = document.getElementById('searchForm');
-    const tbody = document.querySelector('.data-table tbody');
-    const subtitle = document.querySelector('.page-subtitle');
-    const cardFooter = document.querySelector('.card-footer');
-    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const searchInput   = document.getElementById('searchInput');
+    const statusSelect  = document.querySelector('select[name="status"]');
+    const countrySelect = document.querySelector('select[name="country"]');
+    const serverSelect  = document.querySelector('select[name="server"]');
+    const filterSelect  = document.querySelector('select[name="filter"]');
+    const searchForm    = document.getElementById('searchForm');
+    const tbody         = document.querySelector('.data-table tbody');
+    const subtitle      = document.querySelector('.page-subtitle');
+    const cardFooter    = document.querySelector('.card-footer');
+    const clearSearchBtn= document.getElementById('clearSearchBtn');
     
     let debounceTimer;
     let currentPage = 1;
 
     // Prevent form submission on enter since we have live search
-    searchForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        doSearch(1);
-    });
+    if (searchForm) {
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            doSearch(1);
+        });
+    }
 
     function doSearch(page = 1) {
         currentPage = page;
-        const searchQuery = searchInput.value;
-        const statusQuery = statusSelect.value;
-        const filterQuery = filterSelect.value;
+        const searchQuery  = searchInput ? searchInput.value.trim() : '';
+        const statusQuery  = statusSelect ? statusSelect.value : '';
+        const countryQuery = countrySelect ? countrySelect.value : '';
+        const serverQuery  = serverSelect ? serverSelect.value : '';
+        const filterQuery  = filterSelect ? filterSelect.value : '';
 
         const urlParams = new URLSearchParams(window.location.search);
         const planQuery = urlParams.get('plan') || '';
@@ -832,6 +847,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const params = new URLSearchParams({
             search: searchQuery,
             status: statusQuery,
+            country: countryQuery,
+            server: serverQuery,
             filter: filterQuery,
             page: currentPage,
             ajax: 1
@@ -839,24 +856,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (planQuery) params.append('plan', planQuery);
 
         // Update URL
-        const cleanParams = new URLSearchParams({
-            search: searchQuery,
-            status: statusQuery,
-            filter: filterQuery,
-            page: currentPage
-        });
-        if (planQuery) cleanParams.append('plan', planQuery);
-        if (!searchQuery) cleanParams.delete('search');
-        if (statusQuery === '1') cleanParams.delete('status');
-        if (!filterQuery) cleanParams.delete('filter');
-        if (currentPage === 1) cleanParams.delete('page');
+        const cleanParams = new URLSearchParams();
+        if (searchQuery) cleanParams.set('search', searchQuery);
+        if (statusQuery !== '1') cleanParams.set('status', statusQuery);
+        if (countryQuery) cleanParams.set('country', countryQuery);
+        if (serverQuery) cleanParams.set('server', serverQuery);
+        if (filterQuery) cleanParams.set('filter', filterQuery);
+        if (planQuery) cleanParams.set('plan', planQuery);
+        if (currentPage > 1) cleanParams.set('page', currentPage);
         
         const newUrl = window.location.pathname + (cleanParams.toString() ? '?' + cleanParams.toString() : '');
         window.history.replaceState({path: newUrl}, '', newUrl);
 
         // Update Clear Button visibility if it exists
         if (clearSearchBtn) {
-            if (searchQuery || statusQuery !== '1' || filterQuery !== '') {
+            if (searchQuery || statusQuery !== '1' || countryQuery !== '' || serverQuery !== '' || filterQuery !== '' || planQuery !== '') {
                 clearSearchBtn.style.display = 'inline-flex';
             } else {
                 clearSearchBtn.style.display = 'none';
@@ -867,7 +881,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 tbody.innerHTML = data.tbody;
-                subtitle.textContent = data.subtitle;
+                if (subtitle) subtitle.textContent = data.subtitle;
                 totalFilteredClients = parseInt(data.total_filtered_clients) || 0;
                 if (page === 1) {
                     selectAllFiltered = false;
@@ -889,7 +903,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (debtsEl) debtsEl.textContent = data.stats.total_debts;
                 }
                 
-                if (data.pagination.trim()) {
+                if (data.pagination && data.pagination.trim()) {
                     cardFooter.innerHTML = data.pagination;
                     cardFooter.style.display = 'block';
                 } else {
@@ -903,44 +917,61 @@ document.addEventListener('DOMContentLoaded', function() {
     // Expose search function to global scope for card clicks
     window.doSearchGlobal = doSearch;
 
-    searchInput.addEventListener('input', function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            // Remove active card indicators if user manually types search
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                document.querySelectorAll('.stat-card').forEach(card => {
+                    card.classList.remove('active');
+                });
+                doSearch(1);
+            }, 150);
+        });
+    }
+
+    if (statusSelect) {
+        statusSelect.addEventListener('change', function() {
             document.querySelectorAll('.stat-card').forEach(card => {
                 card.classList.remove('active');
             });
             doSearch(1);
-        }, 150);
-    });
-
-    statusSelect.addEventListener('change', function() {
-        document.querySelectorAll('.stat-card').forEach(card => {
-            card.classList.remove('active');
         });
-        doSearch(1);
-    });
+    }
 
-    filterSelect.addEventListener('change', function() {
-        const filterVal = filterSelect.value;
-        document.querySelectorAll('.stat-card').forEach(card => {
-            card.classList.remove('active');
+    if (countrySelect) {
+        countrySelect.addEventListener('change', function() {
+            doSearch(1);
         });
-        
-        let targetCard = null;
-        if (filterVal === '') {
-            targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'\')"]');
-        } else if (filterVal === 'debt') {
-            targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'debt\')"]');
-        } else if (filterVal === 'expiring') {
-            targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'expiring\')"]');
-        }
-        if (targetCard) {
-            targetCard.classList.add('active');
-        }
-        
-        doSearch(1);
-    });
+    }
+
+    if (serverSelect) {
+        serverSelect.addEventListener('change', function() {
+            doSearch(1);
+        });
+    }
+
+    if (filterSelect) {
+        filterSelect.addEventListener('change', function() {
+            const filterVal = filterSelect.value;
+            document.querySelectorAll('.stat-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            let targetCard = null;
+            if (filterVal === '') {
+                targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'\')"]');
+            } else if (filterVal === 'debt') {
+                targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'debt\')"]');
+            } else if (filterVal === 'expiring') {
+                targetCard = document.querySelector('.stat-card[onclick="applyStatsFilter(\'expiring\')"]');
+            }
+            if (targetCard) {
+                targetCard.classList.add('active');
+            }
+            
+            doSearch(1);
+        });
+    }
 
     // Handle pagination click
     const card = tbody.closest('.card');
