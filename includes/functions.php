@@ -490,3 +490,22 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
     return true;
 }
 
+/**
+ * الحصول على رابط الصفحة الرئيسية الافتراضية للنظام بناءً على الإعدادات
+ */
+function getDefaultHomePage($depth = 0) {
+    $page = getSetting('default_home_page', 'dashboard.php');
+    $valid = [
+        'dashboard.php',
+        'clients/index.php',
+        'reports/renewals.php',
+        'reports/services-stats.php',
+        'reports/financial-hub.php'
+    ];
+    if (!in_array($page, $valid, true)) {
+        $page = 'dashboard.php';
+    }
+    $prefix = $depth > 0 ? str_repeat('../', $depth) : '';
+    return $prefix . $page;
+}
+

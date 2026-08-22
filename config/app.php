@@ -143,6 +143,16 @@ try {
     }
 } catch (Exception $e) {}
 
+// التأكد من وجود إعداد الصفحة الرئيسية الافتراضية default_home_page
+try {
+    $db = getDB();
+    $stmt = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key` = 'default_home_page'");
+    $stmt->execute();
+    if ((int)$stmt->fetchColumn() === 0) {
+        $db->exec("INSERT INTO settings (`key`, `value`) VALUES ('default_home_page', 'dashboard.php')");
+    }
+} catch (Exception $e) {}
+
 // التأكد من إضافة عمود الترتيب لجدول الخدمات
 try {
     $db = getDB();

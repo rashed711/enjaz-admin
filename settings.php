@@ -14,7 +14,7 @@ $success  = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods'];
+        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','default_home_page','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods'];
         foreach ($fields as $f) {
             $val = clean($_POST[$f] ?? '');
             $db->prepare("UPDATE settings SET value=? WHERE `key`=?")->execute([$val,$f]);
@@ -38,7 +38,7 @@ require_once INCLUDES_PATH . '/header.php';
 <div class="page-header">
   <div class="page-header-text">
     <h1 class="page-title"><i class="fas fa-cog" style="color:var(--primary-light);margin-left:8px;"></i>إعدادات النظام</h1>
-    <p class="page-subtitle">ضبط معلومات الشركة وإعدادات الواتساب والفواتير</p>
+    <p class="page-subtitle">ضبط معلومات الشركة وإعدادات الواتساب والفواتير والصفحة الرئيسية</p>
   </div>
 </div>
 
@@ -47,6 +47,25 @@ require_once INCLUDES_PATH . '/header.php';
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
 
     <div>
+      <!-- System Home Page Settings -->
+      <div class="card" style="margin-bottom:20px; border-right: 4px solid var(--primary);">
+        <div class="card-header"><span class="card-title"><i class="fas fa-house-chimney"></i> الصفحة الرئيسية للنظام</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label" for="default_home_page">الصفحة الافتراضية بعد تسجيل الدخول وعند فتح الموقع <span class="required">*</span></label>
+            <?php $currentHome = $settings['default_home_page'] ?? 'dashboard.php'; ?>
+            <select id="default_home_page" name="default_home_page" class="form-control" required style="font-weight: 700;">
+              <option value="dashboard.php" <?= $currentHome === 'dashboard.php' ? 'selected' : '' ?>>📊 لوحة التحكم والإحصائيات العامة (مستحسن)</option>
+              <option value="clients/index.php" <?= $currentHome === 'clients/index.php' ? 'selected' : '' ?>>👥 قائمة وإدارة العملاء</option>
+              <option value="reports/renewals.php" <?= $currentHome === 'reports/renewals.php' ? 'selected' : '' ?>>🔔 تقرير التجديدات القريبة</option>
+              <option value="reports/services-stats.php" <?= $currentHome === 'reports/services-stats.php' ? 'selected' : '' ?>>🌐 إحصائيات وتوزيع الخدمات</option>
+              <option value="reports/financial-hub.php" <?= $currentHome === 'reports/financial-hub.php' ? 'selected' : '' ?>>💰 الموقف المالي العام والتحصيلات</option>
+            </select>
+            <span class="form-hint">حدد الصفحة التي تفتح تلقائياً عند تسجيل الدخول أو عند التوجه إلى رابط النظام الرئيسي.</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Company Info -->
       <div class="card" style="margin-bottom:20px;">
         <div class="card-header"><span class="card-title"><i class="fas fa-building"></i> معلومات الشركة</span></div>

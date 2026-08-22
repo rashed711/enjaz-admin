@@ -5,7 +5,7 @@
 require_once __DIR__ . '/config/app.php';
 
 if (!empty($_SESSION['user_id'])) {
-    header('Location: reports/renewals.php');
+    header('Location: ' . getDefaultHomePage(0));
 } else {
     header('Location: login.php');
 }
