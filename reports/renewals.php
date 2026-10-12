@@ -59,6 +59,25 @@ $stmt = $db->prepare("
 $stmt->execute($params);
 $renewals = $stmt->fetchAll();
 
+/**
+ * احتساب سعر التجديد المتوقع للاشتراك:
+ * للدومين: 1,350 جنيه للمصري، و 86 ريال للسعودي
+ * للاشتراكات الأخرى: سعر الاشتراك المسجل
+ */
+function getSubscriptionRenewalPrice(array $sub): float {
+    $sid = (int)($sub['service_id'] ?? 0);
+    $sName = mb_strtolower($sub['service_name'] ?? '');
+    $isDomain = ($sid === 2 || mb_strpos($sName, 'دومين') !== false || mb_strpos($sName, 'domain') !== false);
+    $curr = strtoupper(trim($sub['currency'] ?? 'EGP'));
+    $isSAR = ($curr === 'SAR');
+
+    if ($isDomain) {
+        return $isSAR ? (float)getSetting('renewal_domain_price_sar', 86) : (float)getSetting('renewal_domain_price_egp', 1350);
+    }
+
+    return (float)($sub['price'] ?? 0);
+}
+
 // تجميع الاشتراكات حسب العميل
 $clients = [];
 $urgentExpiredCount = 0;
@@ -81,7 +100,10 @@ foreach ($renewals as $r) {
             'subscriptions' => []
         ];
     }
-    $clients[$cId]['total_price'] += (float)$r['price'];
+    $rRenewalPrice = getSubscriptionRenewalPrice($r);
+    $r['renewal_price'] = $rRenewalPrice;
+
+    $clients[$cId]['total_price'] += $rRenewalPrice;
     if ($r['days_left'] < $clients[$cId]['min_days_left']) {
         $clients[$cId]['min_days_left'] = $r['days_left'];
         $clients[$cId]['min_end_date']  = $r['end_date'];
@@ -103,7 +125,8 @@ foreach ($renewals as $r) {
         $serviceTotals[$sName] = 0;
         $serviceCounts[$sName] = 0;
     }
-    $serviceTotals[$sName] += (float)$r['price'];
+    $rRenewalPrice = $r['renewal_price'] ?? getSubscriptionRenewalPrice($r);
+    $serviceTotals[$sName] += $rRenewalPrice;
     $serviceCounts[$sName]++;
 }
 arsort($serviceTotals);
@@ -245,7 +268,23 @@ function renderRenewalsTable($clients) {
                     <?php endif; ?>
                   </td>
                   <td class="fw-bold" style="color: var(--text-primary);">
-                    <?= formatPlanPrice((float)$sub['price'], $sub['currency'] ?? 'EGP', isset($sub['original_price']) && $sub['original_price'] !== null ? (float)$sub['original_price'] : null) ?>
+                    <?php if ($isDom): 
+                      $rPrice = $sub['renewal_price'] ?? getSubscriptionRenewalPrice($sub);
+                      $subCurr = strtoupper(trim($sub['currency'] ?? 'EGP'));
+                      $isSubSAR = ($subCurr === 'SAR');
+                    ?>
+                      <div style="color: var(--success); font-weight:800;">
+                        <?= formatMoney($rPrice, $isSubSAR ? 'ريال' : 'جنيه') ?>
+                        <span class="badge" style="background: rgba(16,185,129,0.1); color: var(--success); font-size: 10px; margin-right: 3px;">سعر التجديد</span>
+                      </div>
+                      <?php if ((float)$sub['price'] != $rPrice): ?>
+                        <div style="font-size: 10.5px; color: var(--text-muted); font-weight: normal; margin-top: 2px;">
+                          (السابق: <?= formatMoney((float)$sub['price'], $isSubSAR ? 'ريال' : 'جنيه') ?>)
+                        </div>
+                      <?php endif; ?>
+                    <?php else: ?>
+                      <?= formatPlanPrice((float)$sub['price'], $sub['currency'] ?? 'EGP', isset($sub['original_price']) && $sub['original_price'] !== null ? (float)$sub['original_price'] : null) ?>
+                    <?php endif; ?>
                   </td>
                   <td><?= formatDate($sub['end_date']) ?></td>
                   <td>

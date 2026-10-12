@@ -34,8 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Mark old as expired
             $db->prepare("UPDATE client_subscriptions SET status='expired' WHERE id=?")->execute([$id]);
             // Create new
-            $db->prepare("INSERT INTO client_subscriptions (client_id,service_id,plan_name,price,start_date,end_date,notes,status,created_by) VALUES (?,?,?,?,?,?,CONCAT('تجديد: ', ?),'active',?)")
-               ->execute([$sub['client_id'],$sub['service_id'],$sub['plan_name'],$price,$startDate,$endDate,$notes,currentUserId()]);
+            $subCurr = $sub['currency'] ?? 'EGP';
+            $subOrig = ($subCurr === 'SAR' && ((int)$sub['service_id'] === 2 || mb_strpos(mb_strtolower($sub['service_name']), 'دومين') !== false)) 
+                ? (float)getSetting('renewal_domain_price_sar', 86) 
+                : ($sub['original_price'] ?? null);
+
+            $db->prepare("INSERT INTO client_subscriptions (client_id,service_id,plan_name,currency,original_price,price,start_date,end_date,notes,status,created_by) VALUES (?,?,?,?,?,?,?,?,CONCAT('تجديد: ', ?),'active',?)")
+               ->execute([$sub['client_id'],$sub['service_id'],$sub['plan_name'],$subCurr,$subOrig,$price,$startDate,$endDate,$notes,currentUserId()]);
             setFlash('success','تم تجديد الاشتراك بنجاح.');
             header("Location: ../clients/view.php?id={$sub['client_id']}");
             exit;
@@ -49,6 +54,14 @@ $dur = (int)($sub['duration_months'] ?? 12);
 $newEnd = $dur > 0
     ? date('Y-m-d', strtotime("+$dur months -1 day", strtotime($newStart)))
     : $newStart;
+
+// اقتراح سعر التجديد الجديد (1350 للدومين المصري و 86 للسعودي)
+$suggestedPrice = (float)$sub['price'];
+$isDomainSub = ((int)$sub['service_id'] === 2 || mb_strpos(mb_strtolower($sub['service_name']), 'دومين') !== false);
+if ($isDomainSub) {
+    $isSARSub = (strtoupper(trim($sub['currency'] ?? '')) === 'SAR');
+    $suggestedPrice = $isSARSub ? (float)getSetting('renewal_domain_price_sar', 86) : (float)getSetting('renewal_domain_price_egp', 1350);
+}
 
 $pageTitle  = 'تجديد اشتراك';
 $activePage = 'subscriptions';
@@ -69,13 +82,18 @@ require_once INCLUDES_PATH . '/header.php';
   <div class="card-header"><span class="card-title"><i class="fas fa-redo" style="color:var(--success);"></i> بيانات التجديد</span></div>
   <div class="card-body">
     <div style="background:var(--info-light);border-right:4px solid var(--info);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:13px;color:#1e40af;">
-      <strong>الاشتراك الحالي:</strong> <?= e($sub['service_name']) ?> | من <?= formatDate($sub['start_date']) ?> إلى <?= formatDate($sub['end_date']) ?> | السعر: <?= formatMoney($sub['price']) ?>
+      <strong>الاشتراك الحالي:</strong> <?= e($sub['service_name']) ?> | من <?= formatDate($sub['start_date']) ?> إلى <?= formatDate($sub['end_date']) ?> | السعر السابق: <?= formatMoney($sub['price']) ?>
     </div>
     <form method="POST" action="renew.php?id=<?= $id ?>" data-validate>
       <?= csrfField() ?>
       <div class="form-group">
         <label class="form-label" for="price">سعر التجديد <span class="required">*</span></label>
-        <input type="number" id="price" name="price" class="form-control" step="0.01" min="0" value="<?= $sub['price'] ?>" required>
+        <input type="number" id="price" name="price" class="form-control" step="0.01" min="0" value="<?= $suggestedPrice ?>" required>
+        <?php if ($isDomainSub && (float)$sub['price'] != $suggestedPrice): ?>
+          <span style="font-size:11.5px;color:var(--text-muted);margin-top:4px;display:block;">
+            <i class="fas fa-info-circle text-primary"></i> تم اقتراح سعر تجديد الدومين الجديد (<?= formatMoney($suggestedPrice) ?>) بدلاً من السابق (<?= formatMoney($sub['price']) ?>).
+          </span>
+        <?php endif; ?>
       </div>
       <div class="form-row">
         <div class="form-group">
