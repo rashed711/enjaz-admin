@@ -91,6 +91,7 @@ foreach ($rawRows as $r) {
             'country'       => $r['country'] ?? 'EG',
             'server_panel'  => $r['server_panel'] ?? '',
             'client_domain' => $r['client_domain'] ?? '',
+            'domain'        => $r['client_domain'] ?? '',
             'subscriptions' => []
         ];
     }
@@ -131,6 +132,7 @@ foreach ($groupedClients as $cId => $cData) {
         'mobile'          => $cData['mobile'],
         'normalized_mobile' => normalizeMobile($cData['mobile']),
         'company_name'    => $cData['company_name'],
+        'domain'          => $build['domain'] ?? $cData['client_domain'] ?? '',
         'country'         => $cData['country'],
         'country_name'    => $countryInfo['name'] ?? '',
         'country_flag_svg'=> $countryInfo['svg'] ?? '',

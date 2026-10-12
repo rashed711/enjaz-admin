@@ -564,27 +564,53 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
 
     $formattedDate = $earliestDate ? formatDate($earliestDate) : date('d/m/Y');
 
-    // 3. بناء بنود الخدمات وحساب الإجمالي
+    // 3. تحديد نطاق الموقع (الدومين) الخاص بالعميل / الشركة
+    $targetDomain = trim($client['domain'] ?? $client['client_domain'] ?? '');
+    if (empty($targetDomain)) {
+        foreach ($domainSubs as $dSub) {
+            $p = trim($dSub['plan_name'] ?? '');
+            if (!empty($p) && $p !== 'دومين' && strpos($p, '.') !== false) {
+                $targetDomain = $p;
+                break;
+            }
+        }
+    }
+
+    // 4. بناء بنود الخدمات وحساب الإجمالي
     $serviceLines   = [];
     $totalAmount    = 0.0;
     $itemsBreakdown = [];
 
-    // أ) بنود الدومين (إن وجدت فقط لدى العميل)
+    // أ) بنود الدومين
     if (!empty($domainSubs)) {
         $domainFixedPrice = $isSAR ? (float)getSetting('renewal_domain_price_sar', '86') : (float)getSetting('renewal_domain_price_egp', '1350');
         $domainCount = count($domainSubs);
 
         foreach ($domainSubs as $idx => $dSub) {
-            $domainName = !empty($dSub['plan_name']) && $dSub['plan_name'] !== 'دومين' ? $dSub['plan_name'] : '';
-            $subTitle = "🌐 **حجز الدومين" . ($domainCount > 1 && $domainName ? " ({$domainName})" : "") . ":**";
-            $line = "{$subTitle} " . number_format($domainFixedPrice) . " {$unitLabel}";
+            $domainName = (!empty($dSub['plan_name']) && $dSub['plan_name'] !== 'دومين') ? trim($dSub['plan_name']) : $targetDomain;
+            $domLabel   = $domainName ? " ({$domainName})" : "";
+            $subTitle   = "🌐 *حجز الدومين{$domLabel}:*";
+            $line       = "{$subTitle} " . number_format($domainFixedPrice) . " {$unitLabel}";
             $serviceLines[] = $line;
             $totalAmount += $domainFixedPrice;
             $itemsBreakdown[] = [
                 'type'  => 'domain',
-                'title' => 'حجز الدومين',
+                'title' => 'حجز الدومين' . $domLabel,
                 'price' => $domainFixedPrice,
                 'unit'  => $unitLabel,
+                'line'  => $line
+            ];
+        }
+    } else {
+        // إذا لم يكن العميل مشتركاً في تجديد الدومين معنا، نوضح الدومين فقط للعلم ليعرف العميل لأي موقع يتبع التجديد
+        if (!empty($targetDomain)) {
+            $line = "🌐 *الدومين:* {$targetDomain}";
+            $serviceLines[] = $line;
+            $itemsBreakdown[] = [
+                'type'  => 'domain_info',
+                'title' => 'الدومين: ' . $targetDomain,
+                'price' => 0,
+                'unit'  => '',
                 'line'  => $line
             ];
         }
@@ -613,9 +639,9 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
             }
 
             if ($capacity) {
-                $serviceTitle = "📧 **استضافة البريد الإلكتروني – باقة {$capacity} جيجا{$extra}:**";
+                $serviceTitle = "📧 *استضافة البريد الإلكتروني – باقة {$capacity} جيجا{$extra}:*";
             } else {
-                $serviceTitle = "📧 **استضافة البريد الإلكتروني" . (!empty($pName) ? " – {$pName}" : "") . ":**";
+                $serviceTitle = "📧 *استضافة البريد الإلكتروني" . (!empty($pName) ? " – {$pName}" : "") . ":*";
             }
 
             // السعر
@@ -653,7 +679,7 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
             ];
         } else {
             // خدمات أخرى
-            $serviceTitle = "💻 **{$sName}" . (!empty($pName) ? " – {$pName}" : "") . ":**";
+            $serviceTitle = "💻 *{$sName}" . (!empty($pName) ? " – {$pName}" : "") . ":*";
             $itemPrice = ($isSAR && isset($sub['original_price']) && (float)$sub['original_price'] > 0) ? (float)$sub['original_price'] : (float)$sub['price'];
             $line = "{$serviceTitle} " . number_format($itemPrice) . " {$unitLabel}";
             $serviceLines[] = $line;
@@ -669,23 +695,26 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
     }
 
     $servicesText = implode("\n", $serviceLines);
-    $totalLine = "💰 **إجمالي التجديد: " . number_format($totalAmount) . " {$totalCurrency}**";
+    $totalLine = "💰 *إجمالي التجديد: " . number_format($totalAmount) . " {$totalCurrency}*";
 
-    // صياغة الرسالة النهائية الاحترافية
-    $message = "السلام عليكم ورحمة الله وبركاته 🌷\n\n"
-             . "عميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم بتاريخ **{$formattedDate}**:\n\n"
+    // صياغة الرسالة النهائية الاحترافية مع توضيح النطاق (الدومين) للعميل
+    $domainNotice = !empty($targetDomain) ? " الخاصة بنطاق (*{$targetDomain}*)" : "";
+
+    $message = "*السلام عليكم ورحمة الله وبركاته* 🌷\n\n"
+             . "عميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم{$domainNotice} بتاريخ *{$formattedDate}*:\n\n"
              . ($servicesText ? "{$servicesText}\n\n" : "")
              . "{$totalLine}\n\n"
-             . "نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.\n\n"
-             . "💳 **بيانات التحويل:**\n\n"
-             . "🇸🇦 **السعودية**\n"
+             . "`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\n\n"
+             . "💳 *بيانات التحويل:*\n\n"
+             . "🇸🇦 *السعودية*\n"
              . "• الراجحي – رقم الحساب: 077060010006088389454\n"
              . "• D360 – IBAN: SA3036036036065660911461\n"
              . "• STC Pay: 0567457572\n\n"
-             . "🇪🇬 **مصر**\n"
-             . "• InstaPay أو فودافون كاش: 01028855779\n\n"
+             . "🇪🇬 *مصر*\n"
+             . "• انستا باي او فودافون كاش:\n"
+             . "• 01028855779\n\n"
              . "شكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\n\n"
-             . "**{$companyName}**";
+             . "`{$companyName}`";
 
     return [
         'message'          => $message,
@@ -696,6 +725,7 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
         'total_amount'     => $totalAmount,
         'total_formatted'  => number_format($totalAmount) . " " . $totalCurrency,
         'has_domain'       => !empty($domainSubs),
+        'domain'           => $targetDomain,
         'items'            => $itemsBreakdown,
         'service_lines'    => $serviceLines
     ];

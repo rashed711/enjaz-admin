@@ -26,7 +26,7 @@ if ($isPost) {
 if (!empty($clientIds)) {
     $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
     $stmt = $db->prepare("
-        SELECT c.id, c.name, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
+        SELECT c.id, c.name, c.company_name, c.domain, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
                cs.currency, cs.original_price, cs.price, cs.service_id
         FROM client_subscriptions cs
         JOIN clients c ON c.id=cs.client_id
@@ -41,7 +41,7 @@ if (!empty($clientIds)) {
 } else {
     // إرسال للكل (GET)
     $stmt = $db->prepare("
-        SELECT c.id, c.name, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
+        SELECT c.id, c.name, c.company_name, c.domain, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
                cs.currency, cs.original_price, cs.price, cs.service_id
         FROM client_subscriptions cs
         JOIN clients c ON c.id=cs.client_id
@@ -69,11 +69,13 @@ foreach ($rawResults as $row) {
     $cId = $row['id'];
     if (!isset($clientsData[$cId])) {
         $clientsData[$cId] = [
-            'id'       => $cId,
-            'name'     => $row['name'],
-            'mobile'   => $row['mobile'],
-            'country'  => $row['country'] ?? 'EG',
-            'services' => []
+            'id'           => $cId,
+            'name'         => $row['name'],
+            'company_name' => $row['company_name'] ?? '',
+            'domain'       => $row['domain'] ?? '',
+            'mobile'       => $row['mobile'],
+            'country'      => $row['country'] ?? 'EG',
+            'services'     => []
         ];
     }
     $clientsData[$cId]['services'][] = $row;

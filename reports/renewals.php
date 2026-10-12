@@ -94,6 +94,7 @@ foreach ($renewals as $r) {
             'country'       => $r['country'] ?? 'EG',
             'server_panel'  => $r['server_panel'] ?? 'cp.enjaz.cloud',
             'client_domain' => $r['client_domain'] ?? '',
+            'domain'        => $r['client_domain'] ?? '',
             'total_price'   => 0,
             'min_days_left' => 999999,
             'min_end_date'  => $r['end_date'],
@@ -176,7 +177,14 @@ function renderRenewalsTable($clients) {
           </div>
         </div>
       </td>
-      <td class="text-muted" style="font-size: 12.5px;"><?= e($c['company_name'] ?: '—') ?></td>
+      <td class="text-muted" style="font-size: 12.5px;">
+        <div><?= e($c['company_name'] ?: '—') ?></div>
+        <?php if (!empty($c['client_domain'])): ?>
+          <div style="font-size: 11px; color: var(--primary); font-family: monospace; direction: ltr; text-align: right; margin-top: 2px;">
+            <i class="fas fa-globe" style="font-size: 10px;"></i> <?= e($c['client_domain']) ?>
+          </div>
+        <?php endif; ?>
+      </td>
       <td>
         <span class="badge" style="background: rgba(36,86,164,0.06); color: var(--primary); font-size: 11px; padding: 3px 8px; border-radius: 6px;">
           <?= e($srvLabel) ?>
@@ -811,6 +819,7 @@ function renderPreviewClientsList(clients) {
                                 <span title="${escapeHtml(c.country_name)}">${c.country_flag_svg}</span>
                                 <a href="../clients/view.php?id=${c.id}" target="_blank" style="color: inherit; text-decoration: none;">${escapeHtml(c.name)}</a>
                                 ${c.company_name ? `<span style="font-size: 11.5px; color: var(--text-muted); font-weight: normal;">(${escapeHtml(c.company_name)})</span>` : ''}
+                                ${c.domain ? `<span class="badge" style="background: rgba(36,86,164,0.08); color: var(--primary); font-size: 11px; padding: 2px 6px; border-radius: 4px; direction: ltr; font-family: monospace;"><i class="fas fa-globe"></i> ${escapeHtml(c.domain)}</span>` : ''}
                             </div>
                             <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 8px;">
                                 <a href="https://wa.me/${c.normalized_mobile}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">
