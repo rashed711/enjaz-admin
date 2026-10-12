@@ -521,16 +521,12 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
         $companyName = getSetting('company_name', APP_NAME);
     }
 
-    // 1. تحديد عملة العميل
+    // 1. تحديد عملة العميل: الاعتماد التام على عملة الخدمة والاشتراك الفعلي (EGP أو SAR)
     $isSAR = false;
     foreach ($subscriptions as $sub) {
         $curr = strtoupper(trim($sub['currency'] ?? ''));
-        $planName = trim($sub['plan_name'] ?? '');
-        if ($curr === 'SAR' || (isset($sub['original_price']) && (float)$sub['original_price'] > 0 && $curr !== 'EGP')) {
-            $isSAR = true;
-            break;
-        }
-        if (in_array($planName, ['G5', 'G10', 'G20', 'G50']) && ($client['country'] ?? '') === 'SA') {
+        // إذا كان الاشتراك مسجل بعملة SAR صراحة
+        if ($curr === 'SAR') {
             $isSAR = true;
             break;
         }
