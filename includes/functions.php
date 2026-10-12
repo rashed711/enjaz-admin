@@ -509,3 +509,200 @@ function getDefaultHomePage($depth = 0) {
     return $prefix . $page;
 }
 
+/**
+ * توليد نص رسالة تجديد الواتساب المخصصة والذكية للعميل
+ * - تمييز العملة تلقائياً (جنيه مصري / ريال سعودي)
+ * - صياغة راقية موحدة للباقات (باقة 5 جيجا، باقة 10 جيجا...)
+ * - تثبيت أسعار تجديد الدومين: 1,350 جنيه للمصري، 86 ريال للسعودي
+ * - التحقق من حجز الدومين: العميل الذي ليس لديه حجز دومين مع إنجاز لا يُضاف له سطر الدومين نهائياً
+ */
+function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?string $companyName = null): array {
+    if ($companyName === null) {
+        $companyName = getSetting('company_name', APP_NAME);
+    }
+
+    // 1. تحديد عملة العميل
+    $isSAR = false;
+    foreach ($subscriptions as $sub) {
+        $curr = strtoupper(trim($sub['currency'] ?? ''));
+        $planName = trim($sub['plan_name'] ?? '');
+        if ($curr === 'SAR' || (isset($sub['original_price']) && (float)$sub['original_price'] > 0 && $curr !== 'EGP')) {
+            $isSAR = true;
+            break;
+        }
+        if (in_array($planName, ['G5', 'G10', 'G20', 'G50']) && ($client['country'] ?? '') === 'SA') {
+            $isSAR = true;
+            break;
+        }
+    }
+
+    $currencyCode  = $isSAR ? 'SAR' : 'EGP';
+    $unitLabel     = $isSAR ? 'ريال' : 'جنيه';
+    $totalCurrency = $isSAR ? 'ريال سعودي' : 'جنيه مصري';
+
+    // 2. فرز اشتراكات الدومين والخدمات الأخرى وتحديد أقرب تاريخ استحقاق
+    $domainSubs   = [];
+    $otherSubs    = [];
+    $earliestDate = null;
+
+    foreach ($subscriptions as $sub) {
+        $endDate = $sub['end_date'] ?? null;
+        if ($endDate && $endDate !== '0000-00-00') {
+            if ($earliestDate === null || strtotime($endDate) < strtotime($earliestDate)) {
+                $earliestDate = $endDate;
+            }
+        }
+
+        $sName = mb_strtolower(trim($sub['service_name'] ?? ''));
+        $pName = mb_strtolower(trim($sub['plan_name'] ?? ''));
+        $sid   = (int)($sub['service_id'] ?? 0);
+
+        $isDomain = ($sid === 2 || mb_strpos($sName, 'دومين') !== false || mb_strpos($sName, 'domain') !== false);
+
+        if ($isDomain) {
+            $domainSubs[] = $sub;
+        } else {
+            $otherSubs[] = $sub;
+        }
+    }
+
+    $formattedDate = $earliestDate ? formatDate($earliestDate) : date('d/m/Y');
+
+    // 3. بناء بنود الخدمات وحساب الإجمالي
+    $serviceLines   = [];
+    $totalAmount    = 0.0;
+    $itemsBreakdown = [];
+
+    // أ) بنود الدومين (إن وجدت فقط لدى العميل)
+    if (!empty($domainSubs)) {
+        $domainFixedPrice = $isSAR ? (float)getSetting('renewal_domain_price_sar', '86') : (float)getSetting('renewal_domain_price_egp', '1350');
+        $domainCount = count($domainSubs);
+
+        foreach ($domainSubs as $idx => $dSub) {
+            $domainName = !empty($dSub['plan_name']) && $dSub['plan_name'] !== 'دومين' ? $dSub['plan_name'] : '';
+            $subTitle = "🌐 **حجز الدومين" . ($domainCount > 1 && $domainName ? " ({$domainName})" : "") . ":**";
+            $line = "{$subTitle} " . number_format($domainFixedPrice) . " {$unitLabel}";
+            $serviceLines[] = $line;
+            $totalAmount += $domainFixedPrice;
+            $itemsBreakdown[] = [
+                'type'  => 'domain',
+                'title' => 'حجز الدومين',
+                'price' => $domainFixedPrice,
+                'unit'  => $unitLabel,
+                'line'  => $line
+            ];
+        }
+    }
+
+    // ب) بنود الاستضافة وبقية الخدمات
+    foreach ($otherSubs as $sub) {
+        $sName = trim($sub['service_name'] ?? '');
+        $pName = trim($sub['plan_name'] ?? '');
+        $sid   = (int)($sub['service_id'] ?? 0);
+
+        $isEmail = ($sid === 1 || mb_strpos(mb_strtolower($sName), 'بريد') !== false || mb_strpos(mb_strtolower($sName), 'email') !== false || mb_strpos(mb_strtolower($sName), 'mail') !== false);
+
+        if ($isEmail) {
+            // استخراج السعة
+            $capacity = null;
+            if (preg_match('/(?:[Gg](\d+)|(\d+)\s*[Gg])/i', $pName, $matches)) {
+                $capacity = !empty($matches[1]) ? $matches[1] : $matches[2];
+            }
+
+            $extra = '';
+            if (stripos($pName, '3domain') !== false || stripos($pName, '3-domain') !== false) {
+                $extra = ' (3 دومين)';
+            } elseif (stripos($pName, 'offer') !== false || stripos($pName, 'عرض') !== false) {
+                $extra = ' (عرض)';
+            }
+
+            if ($capacity) {
+                $serviceTitle = "📧 **استضافة البريد الإلكتروني – باقة {$capacity} جيجا{$extra}:**";
+            } else {
+                $serviceTitle = "📧 **استضافة البريد الإلكتروني" . (!empty($pName) ? " – {$pName}" : "") . ":**";
+            }
+
+            // السعر
+            $itemPrice = 0.0;
+            if ($isSAR) {
+                if ($pName === 'G5') $itemPrice = 190.0;
+                elseif ($pName === 'G10') $itemPrice = 310.0;
+                elseif ($pName === 'G20') $itemPrice = 600.0;
+                elseif ($pName === 'G50') $itemPrice = 999.0;
+                elseif (isset($sub['original_price']) && (float)$sub['original_price'] > 0) {
+                    $itemPrice = (float)$sub['original_price'];
+                } else {
+                    $itemPrice = (float)$sub['price'];
+                }
+            } else {
+                if (in_array($pName, ['01-1G-800EG', 'G1']) && (float)$sub['price'] <= 0) $itemPrice = 800.0;
+                elseif (in_array($pName, ['02-5G-2000EG', 'G5']) && (float)$sub['price'] <= 0) $itemPrice = 2000.0;
+                elseif (in_array($pName, ['03-10G-4000EG', 'G10']) && (float)$sub['price'] <= 0) $itemPrice = 4000.0;
+                elseif (in_array($pName, ['04-20G-5000EG', 'G20']) && (float)$sub['price'] <= 0) $itemPrice = 5000.0;
+                elseif ($pName === '06-20G-12000EG-3Domain' && (float)$sub['price'] <= 0) $itemPrice = 12000.0;
+                else {
+                    $itemPrice = (float)$sub['price'];
+                }
+            }
+
+            $line = "{$serviceTitle} " . number_format($itemPrice) . " {$unitLabel}";
+            $serviceLines[] = $line;
+            $totalAmount += $itemPrice;
+            $itemsBreakdown[] = [
+                'type'  => 'email',
+                'title' => $serviceTitle,
+                'price' => $itemPrice,
+                'unit'  => $unitLabel,
+                'line'  => $line
+            ];
+        } else {
+            // خدمات أخرى
+            $serviceTitle = "💻 **{$sName}" . (!empty($pName) ? " – {$pName}" : "") . ":**";
+            $itemPrice = ($isSAR && isset($sub['original_price']) && (float)$sub['original_price'] > 0) ? (float)$sub['original_price'] : (float)$sub['price'];
+            $line = "{$serviceTitle} " . number_format($itemPrice) . " {$unitLabel}";
+            $serviceLines[] = $line;
+            $totalAmount += $itemPrice;
+            $itemsBreakdown[] = [
+                'type'  => 'other',
+                'title' => $serviceTitle,
+                'price' => $itemPrice,
+                'unit'  => $unitLabel,
+                'line'  => $line
+            ];
+        }
+    }
+
+    $servicesText = implode("\n", $serviceLines);
+    $totalLine = "💰 **إجمالي التجديد: " . number_format($totalAmount) . " {$totalCurrency}**";
+
+    // صياغة الرسالة النهائية الاحترافية
+    $message = "السلام عليكم ورحمة الله وبركاته 🌷\n\n"
+             . "عميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم بتاريخ **{$formattedDate}**:\n\n"
+             . ($servicesText ? "{$servicesText}\n\n" : "")
+             . "{$totalLine}\n\n"
+             . "نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.\n\n"
+             . "💳 **بيانات التحويل:**\n\n"
+             . "🇸🇦 **السعودية**\n"
+             . "• الراجحي – رقم الحساب: 077060010006088389454\n"
+             . "• D360 – IBAN: SA3036036036065660911461\n"
+             . "• STC Pay: 0567457572\n\n"
+             . "🇪🇬 **مصر**\n"
+             . "• InstaPay أو فودافون كاش: 01028855779\n\n"
+             . "شكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\n\n"
+             . "**{$companyName}**";
+
+    return [
+        'message'          => $message,
+        'due_date'         => $formattedDate,
+        'currency'         => $currencyCode,
+        'currency_label'   => $totalCurrency,
+        'unit_label'       => $unitLabel,
+        'total_amount'     => $totalAmount,
+        'total_formatted'  => number_format($totalAmount) . " " . $totalCurrency,
+        'has_domain'       => !empty($domainSubs),
+        'items'            => $itemsBreakdown,
+        'service_lines'    => $serviceLines
+    ];
+}
+
+

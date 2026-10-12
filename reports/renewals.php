@@ -361,18 +361,18 @@ require_once INCLUDES_PATH . '/header.php';
     
     <div class="page-actions" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
       <?php if (hasPermission('send_whatsapp')): ?>
-      <button type="submit" class="btn btn-success" id="sendSelectedWhatsappBtn" disabled style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+      <button type="button" class="btn btn-success" id="sendSelectedWhatsappBtn" disabled onclick="openSelectedForPreview()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
         <i class="fab fa-whatsapp"></i>
         <span>إرسال للمحددين (<span id="selectedCount">0</span>)</span>
       </button>
 
-      <a href="../whatsapp/bulk.php?type=renewal&days=<?= $filterDays ?>&status=<?= $clientStatus ?>&country=<?= urlencode($country) ?>&server=<?= urlencode($server) ?>"
+      <button type="button"
          class="btn btn-outline-success"
          id="bulkWhatsappBtn"
-         data-confirm="إرسال رسائل واتساب لكل <?= $totalClientsCount ?> عميل؟"
+         onclick="openAllForPreview()"
          style="display: <?= $totalClientsCount > 0 ? 'inline-flex' : 'none' ?>; align-items: center; gap: 6px; font-weight: 700;">
         <i class="fas fa-paper-plane"></i> إرسال للكل (<span id="allCount"><?= $totalClientsCount ?></span>)
-      </a>
+      </button>
       <?php endif; ?>
 
       <button type="button" class="btn btn-outline" onclick="exportRenewalsExcel()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
@@ -572,9 +572,423 @@ require_once INCLUDES_PATH . '/header.php';
       </table>
     </div>
   </div>
+
+  <!-- ══ Modal: معاينة وتعديل رسائل الواتساب للتجديد قبل الإرسال ══════════════ -->
+  <div class="modal-overlay" id="renewalPreviewModal" style="display:none; z-index: 9999; backdrop-filter: blur(4px);">
+    <div class="modal" style="max-width: 960px; width: 95%; max-height: 92vh; display: flex; flex-direction: column; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.22); overflow: hidden;">
+      
+      <!-- Modal Header -->
+      <div class="modal-header" style="padding: 16px 22px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--bg-hover);">
+        <div>
+          <div style="font-size: 16px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <i class="fab fa-whatsapp" style="color: #25D366; font-size: 22px;"></i>
+            <span>معاينة وتعديل رسائل التجديد قبل الإرسال</span>
+            <span class="badge badge-primary" id="previewSelectedBadge" style="font-size: 12px; margin-right: 6px;">0 عميل</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            راجع نصوص وتفاصيل الرسائل لكل عميل أدناه وعدلها مباشرة حسب رغبتك قبل الإرسال الفعلي.
+          </div>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('renewalPreviewModal')" style="font-size: 18px; cursor: pointer; background: none; border: none; color: var(--text-muted);">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Quick Summary Toolbar in Modal -->
+      <div style="padding: 10px 22px; background: rgba(36,86,164,0.02); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 700;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+            <input type="checkbox" id="previewSelectAllToggle" class="form-check-input" checked onchange="onPreviewSelectAllToggleChange()" style="width: 17px; height: 17px; cursor: pointer;">
+            <span>تحديد الكل للإرسال</span>
+          </label>
+          <span style="color: var(--text-muted);">|</span>
+          <span id="previewClientsSummaryText" style="color: var(--text-secondary);"></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: var(--text-muted);">إجمالي التجديدات المستحقة:</span>
+          <span id="previewTotalAmountBadge" class="badge badge-success" style="font-size: 13px; font-weight: 800; padding: 4px 10px;">0</span>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable Cards) -->
+      <div class="modal-body" id="previewModalBody" style="padding: 18px 22px; overflow-y: auto; flex: 1; background: var(--bg-main);">
+        <!-- Loading Spinner State -->
+        <div id="previewLoadingState" style="text-align: center; padding: 50px 20px;">
+          <div style="font-size: 38px; color: #25D366; margin-bottom: 12px;">
+            <i class="fas fa-spinner fa-spin"></i>
+          </div>
+          <div style="font-weight: 800; font-size: 15px; color: var(--text-primary);">جاري تجهيز وصياغة رسائل التجديد للعملاء...</div>
+          <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 5px;">يتم فرز الباقات، تطبيق أسعار الدومينات الموحدة، والتأكد من اشتراكات العملاء تلقائياً</div>
+        </div>
+
+        <!-- Empty State in Modal -->
+        <div id="previewEmptyState" style="display: none; text-align: center; padding: 50px 20px;">
+          <div style="font-size: 38px; color: var(--warning); margin-bottom: 12px;">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <div style="font-weight: 800; font-size: 15px; color: var(--text-primary);">لا توجد اشتراكات مستهدفة للتجديد.</div>
+        </div>
+
+        <!-- Clients Cards Container -->
+        <div id="previewClientsContainer" style="display: none; display: flex; flex-direction: column; gap: 16px;">
+        </div>
+      </div>
+
+      <!-- Live Sending Progress Container (Initially Hidden) -->
+      <div id="previewSendingProgressContainer" style="display: none; padding: 14px 22px; background: rgba(37,211,102,0.06); border-top: 1px solid rgba(37,211,102,0.2);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px; font-weight: 700;">
+          <span id="previewProgressStatusText" style="color: var(--text-primary);">
+            <i class="fas fa-spinner fa-spin" style="margin-left: 5px; color: #25D366;"></i> جاري الإرسال...
+          </span>
+          <span id="previewProgressPercentText" style="color: #10b981; font-weight: 800;">0%</span>
+        </div>
+        <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden;">
+          <div id="previewProgressBar" style="width: 0%; height: 100%; background: #25D366; transition: width 0.3s;"></div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer" style="padding: 14px 22px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--card-bg);">
+        <button type="button" class="btn btn-outline" onclick="closeModal('renewalPreviewModal')" id="previewCancelBtn">
+          إلغاء
+        </button>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button type="button" class="btn btn-success" id="previewConfirmSendBtn" onclick="startSendingPreviewMessages()" style="font-weight: 800; display: inline-flex; align-items: center; gap: 8px; padding: 8px 20px;">
+            <i class="fab fa-whatsapp"></i>
+            <span>🚀 تأكيد وإرسال الرسائل الآن (<span id="previewReadySendCount">0</span>)</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </form>
 
 <script>
+// ════════════════════════════════════════════════════════════════════
+// إدارة وتعديل معاينة رسائل الواتساب للتجديدات
+// ════════════════════════════════════════════════════════════════════
+let currentPreviewClients = [];
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function openSelectedForPreview() {
+    const checked = Array.from(document.querySelectorAll('.client-checkbox:checked')).map(cb => cb.value);
+    if (checked.length === 0) {
+        alert('يرجى تحديد عميل واحد على الأقل للمعاينة والإرسال.');
+        return;
+    }
+    openRenewalPreviewModal(checked, false);
+}
+
+function openAllForPreview() {
+    openRenewalPreviewModal([], true);
+}
+
+function openRenewalPreviewModal(clientIds, isAll) {
+    const modal = document.getElementById('renewalPreviewModal');
+    if (!modal) return;
+    
+    modal.style.display = 'flex';
+    document.getElementById('previewLoadingState').style.display = 'block';
+    document.getElementById('previewEmptyState').style.display = 'none';
+    document.getElementById('previewClientsContainer').style.display = 'none';
+    document.getElementById('previewSendingProgressContainer').style.display = 'none';
+    
+    const sendBtn = document.getElementById('previewConfirmSendBtn');
+    const cancelBtn = document.getElementById('previewCancelBtn');
+    sendBtn.style.display = 'inline-flex';
+    sendBtn.disabled = true;
+    cancelBtn.disabled = false;
+    cancelBtn.textContent = 'إلغاء';
+    cancelBtn.className = 'btn btn-outline';
+    cancelBtn.onclick = function() { closeModal('renewalPreviewModal'); };
+
+    const daysVal    = document.getElementById('daysFilter') ? document.getElementById('daysFilter').value : '60';
+    const statusVal  = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : '1';
+    const countryVal = document.getElementById('countryFilter') ? document.getElementById('countryFilter').value : '';
+    const serverVal  = document.getElementById('serverFilter') ? document.getElementById('serverFilter').value : '';
+    const searchVal  = document.getElementById('searchInput') ? document.getElementById('searchInput').value.trim() : '';
+
+    const formData = new FormData();
+    formData.append('days', daysVal);
+    formData.append('status', statusVal);
+    formData.append('country', countryVal);
+    formData.append('server', serverVal);
+    formData.append('search', searchVal);
+    if (isAll) {
+        formData.append('all', '1');
+    } else {
+        formData.append('client_ids', clientIds.join(','));
+    }
+
+    fetch('../whatsapp/preview.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('previewLoadingState').style.display = 'none';
+        if (data.success && data.clients && data.clients.length > 0) {
+            currentPreviewClients = data.clients;
+            renderPreviewClientsList(data.clients);
+        } else {
+            document.getElementById('previewEmptyState').style.display = 'block';
+            document.getElementById('previewSelectedBadge').textContent = '0 عميل';
+            document.getElementById('previewReadySendCount').textContent = '0';
+        }
+    })
+    .catch(err => {
+        console.error('Error loading preview messages:', err);
+        document.getElementById('previewLoadingState').style.display = 'none';
+        document.getElementById('previewEmptyState').style.display = 'block';
+        alert('حدث خطأ أثناء تحميل معاينة الرسائل. يرجى المحاولة مرة أخرى.');
+    });
+}
+
+function renderPreviewClientsList(clients) {
+    const container = document.getElementById('previewClientsContainer');
+    container.innerHTML = '';
+
+    let totalAmount = 0;
+    clients.forEach(c => {
+        totalAmount += parseFloat(c.total_amount) || 0;
+        const cardHtml = `
+            <div class="card preview-client-card" id="preview-card-${c.id}" style="border: 1px solid var(--border-color); border-radius: 10px; margin: 0; background: var(--card-bg); overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+                <div style="padding: 12px 16px; background: var(--bg-hover); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" class="preview-client-checkbox form-check-input" data-client-id="${c.id}" checked onchange="onPreviewItemCheckboxChange()" style="cursor: pointer; width: 18px; height: 18px;">
+                        <div>
+                            <div style="font-weight: 800; font-size: 13.5px; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                                <span title="${escapeHtml(c.country_name)}">${c.country_flag_svg}</span>
+                                <a href="../clients/view.php?id=${c.id}" target="_blank" style="color: inherit; text-decoration: none;">${escapeHtml(c.name)}</a>
+                                ${c.company_name ? `<span style="font-size: 11.5px; color: var(--text-muted); font-weight: normal;">(${escapeHtml(c.company_name)})</span>` : ''}
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 8px;">
+                                <a href="https://wa.me/${c.normalized_mobile}" target="_blank" style="color: #10b981; text-decoration: none; font-weight: 600;">
+                                    <i class="fab fa-whatsapp"></i> ${escapeHtml(c.mobile)}
+                                </a>
+                                <span>•</span>
+                                <span>تاريخ التجديد: <strong>${escapeHtml(c.due_date)}</strong></span>
+                                <span>•</span>
+                                <span>عدد الاشتراكات: <strong>${c.service_count}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        ${c.has_domain ? `
+                            <span class="badge" style="background: rgba(16,185,129,0.1); color: #059669; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700;">
+                                <i class="fas fa-globe"></i> يشمل تجديد الدومين (${c.currency === 'SAR' ? '86 ريال' : '1,350 ج'})
+                            </span>
+                        ` : `
+                            <span class="badge" style="background: rgba(245,158,11,0.1); color: #b45309; font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 700;">
+                                <i class="fas fa-info-circle"></i> غير حاجز دومين مع إنجاز (مستثنى)
+                            </span>
+                        `}
+                        <span class="badge badge-primary" style="font-size: 11.5px; font-weight: 800; padding: 4px 10px;">
+                            المطلوب: ${c.total_formatted}
+                        </span>
+                        <span id="send-status-badge-${c.id}" class="badge" style="display: none; font-size: 11px; padding: 4px 8px; border-radius: 6px;"></span>
+                    </div>
+                </div>
+
+                <div style="padding: 14px 16px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <label style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin: 0;">
+                            <i class="fas fa-pen" style="color: var(--primary);"></i> نص الرسالة الموجهة للعميل (عدل النص أو المبالغ هنا بحرية):
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="resetClientMessage(${c.id})" style="font-size: 10.5px; padding: 2px 8px; border-radius: 4px;" title="إعادة تعيين للصيغة الأصلية">
+                                <i class="fas fa-undo"></i> استعادة الأصلية
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline" id="copy-btn-${c.id}" onclick="copyClientMessage(${c.id})" style="font-size: 10.5px; padding: 2px 8px; border-radius: 4px;" title="نسخ نص الرسالة">
+                                <i class="fas fa-copy"></i> نسخ النص
+                            </button>
+                        </div>
+                    </div>
+                    <textarea class="form-control" id="message-textarea-${c.id}" data-client-id="${c.id}" rows="8" style="font-size: 12px; line-height: 1.6; font-family: inherit; resize: vertical; border-radius: 8px; background: var(--bg-hover);">${escapeHtml(c.message)}</textarea>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', cardHtml);
+    });
+
+    document.getElementById('previewSelectedBadge').textContent = clients.length + ' عميل';
+    document.getElementById('previewClientsSummaryText').textContent = clients.length + ' عميل جاهز';
+    document.getElementById('previewReadySendCount').textContent = clients.length;
+    document.getElementById('previewTotalAmountBadge').textContent = Number(totalAmount).toLocaleString() + ' (حسب العملة)';
+    
+    document.getElementById('previewClientsContainer').style.display = 'flex';
+    document.getElementById('previewConfirmSendBtn').disabled = false;
+    document.getElementById('previewSelectAllToggle').checked = true;
+}
+
+function onPreviewItemCheckboxChange() {
+    const checkedBoxes = document.querySelectorAll('.preview-client-checkbox:checked');
+    const totalBoxes = document.querySelectorAll('.preview-client-checkbox');
+    const sendBtn = document.getElementById('previewConfirmSendBtn');
+    
+    document.getElementById('previewReadySendCount').textContent = checkedBoxes.length;
+    document.getElementById('previewClientsSummaryText').textContent = `${checkedBoxes.length} من ${totalBoxes.length} عميل محدد`;
+    
+    const selectAllToggle = document.getElementById('previewSelectAllToggle');
+    if (selectAllToggle) {
+        selectAllToggle.checked = (checkedBoxes.length === totalBoxes.length && totalBoxes.length > 0);
+    }
+    
+    if (sendBtn) {
+        sendBtn.disabled = (checkedBoxes.length === 0);
+    }
+}
+
+function onPreviewSelectAllToggleChange() {
+    const toggle = document.getElementById('previewSelectAllToggle');
+    const checkboxes = document.querySelectorAll('.preview-client-checkbox');
+    checkboxes.forEach(cb => { cb.checked = toggle.checked; });
+    onPreviewItemCheckboxChange();
+}
+
+function resetClientMessage(clientId) {
+    const client = currentPreviewClients.find(c => String(c.id) === String(clientId));
+    if (client) {
+        const textarea = document.getElementById('message-textarea-' + clientId);
+        if (textarea) {
+            textarea.value = client.default_message;
+        }
+    }
+}
+
+function copyClientMessage(clientId) {
+    const textarea = document.getElementById('message-textarea-' + clientId);
+    const btn = document.getElementById('copy-btn-' + clientId);
+    if (textarea) {
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            if (btn) {
+                const oldHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i> تم النسخ!';
+                setTimeout(() => { btn.innerHTML = oldHtml; }, 2000);
+            }
+        });
+    }
+}
+
+async function startSendingPreviewMessages() {
+    const selectedBoxes = Array.from(document.querySelectorAll('.preview-client-checkbox:checked'));
+    if (selectedBoxes.length === 0) {
+        alert('يرجى تحديد عميل واحد على الأقل للإرسال.');
+        return;
+    }
+
+    if (!confirm(`هل أنت متأكد من بدء إرسال رسائل الواتساب لـ (${selectedBoxes.length}) عميل الآن؟`)) {
+        return;
+    }
+
+    const sendBtn = document.getElementById('previewConfirmSendBtn');
+    const cancelBtn = document.getElementById('previewCancelBtn');
+    sendBtn.disabled = true;
+    cancelBtn.disabled = true;
+
+    const progressContainer = document.getElementById('previewSendingProgressContainer');
+    const progressBar = document.getElementById('previewProgressBar');
+    const progressStatus = document.getElementById('previewProgressStatusText');
+    const progressPercent = document.getElementById('previewProgressPercentText');
+    progressContainer.style.display = 'block';
+
+    let total = selectedBoxes.length;
+    let sentCount = 0;
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < total; i++) {
+        const cb = selectedBoxes[i];
+        const cId = cb.getAttribute('data-client-id');
+        const textarea = document.getElementById('message-textarea-' + cId);
+        const editedMsg = textarea ? textarea.value.trim() : '';
+        const statusBadge = document.getElementById('send-status-badge-' + cId);
+
+        const client = currentPreviewClients.find(c => String(c.id) === String(cId));
+        const cName = client ? client.name : 'العميل';
+        const cMobile = client ? client.normalized_mobile : '';
+
+        progressStatus.innerHTML = `<i class="fas fa-spinner fa-spin" style="margin-left: 6px; color: #25D366;"></i> جاري إرسال (${i + 1} من ${total}) إلى ${escapeHtml(cName)}...`;
+        
+        if (statusBadge) {
+            statusBadge.style.display = 'inline-block';
+            statusBadge.className = 'badge badge-warning';
+            statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+        }
+
+        try {
+            const fd = new FormData();
+            fd.append('client_id', cId);
+            fd.append('mobile', cMobile);
+            fd.append('message', editedMsg);
+            fd.append('msg_type', 'bulk');
+            fd.append('send_type', 'now');
+            fd.append('csrf_token', '<?= csrfToken() ?>');
+
+            const resp = await fetch('../api/whatsapp.php', {
+                method: 'POST',
+                body: fd
+            });
+            const res = await resp.json();
+
+            if (res.success) {
+                successCount++;
+                if (statusBadge) {
+                    statusBadge.className = 'badge badge-success';
+                    statusBadge.style.background = '#10b981';
+                    statusBadge.style.color = '#fff';
+                    statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> تم الإرسال بنجاح';
+                }
+            } else {
+                failedCount++;
+                if (statusBadge) {
+                    statusBadge.className = 'badge badge-danger';
+                    statusBadge.style.background = '#ef4444';
+                    statusBadge.style.color = '#fff';
+                    statusBadge.innerHTML = `<i class="fas fa-times-circle"></i> فشل: ${escapeHtml(res.message || 'خطأ')}`;
+                }
+            }
+        } catch (e) {
+            failedCount++;
+            if (statusBadge) {
+                statusBadge.className = 'badge badge-danger';
+                statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> خطأ اتصال';
+            }
+        }
+
+        sentCount++;
+        const p = Math.round((sentCount / total) * 100);
+        progressBar.style.width = p + '%';
+        progressPercent.textContent = p + '%';
+
+        // فاصل زمني آمن ثانية واحدة بين الرسائل لتجنب الحظر
+        if (i < total - 1) {
+            await new Promise(r => setTimeout(r, 1200));
+        }
+    }
+
+    progressStatus.innerHTML = `<i class="fas fa-check-double" style="margin-left: 6px; color: #10b981;"></i> اكتملت عملية الإرسال بنجاح! تم إرسال: ${successCount} | فشل: ${failedCount}`;
+    cancelBtn.disabled = false;
+    cancelBtn.textContent = 'إغلاق وتحديث الجدول';
+    cancelBtn.className = 'btn btn-primary';
+    cancelBtn.onclick = function() {
+        window.location.reload();
+    };
+    sendBtn.style.display = 'none';
+}
+
 function toggleClientDetails(clientId) {
     const row = document.getElementById('details-row-' + clientId);
     const arrow = document.getElementById('arrow-details-' + clientId);
@@ -729,13 +1143,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (countryInput) countryInput.value = countryVal;
         if (serverInput) serverInput.value = serverVal;
 
-        // Update Bulk WhatsApp button url & confirm message
+        // Update Bulk WhatsApp button visibility
         if (bulkWhatsappBtn) {
-            let bulkUrl = '../whatsapp/bulk.php?type=renewal&days=' + daysVal + '&status=' + statusVal;
-            if (countryVal) bulkUrl += '&country=' + encodeURIComponent(countryVal);
-            if (serverVal) bulkUrl += '&server=' + encodeURIComponent(serverVal);
-            if (searchVal) bulkUrl += '&search=' + encodeURIComponent(searchVal);
-            bulkWhatsappBtn.setAttribute('href', bulkUrl);
+            // Keep button onclick ready
         }
 
         fetch('renewals.php?' + params.toString())
@@ -767,12 +1177,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateSendButtonState();
 
                 if (bulkWhatsappBtn) {
-                    if (data.clients_count > 0) {
-                        bulkWhatsappBtn.style.display = 'inline-flex';
-                        bulkWhatsappBtn.setAttribute('data-confirm', 'إرسال رسائل واتساب لكل ' + data.clients_count + ' عميل؟');
-                    } else {
-                        bulkWhatsappBtn.style.display = 'none';
-                    }
+                    bulkWhatsappBtn.style.display = (data.clients_count > 0) ? 'inline-flex' : 'none';
                 }
             })
             .catch(err => console.error('Error fetching renewals search results:', err));

@@ -906,8 +906,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // WhatsApp templates
+<?php 
+$renewalGen = buildRenewalWhatsappMessage($client, $subscriptions ?? []); 
+?>
 const waTemplates = {
-  renewal:   `السادة / <?= e($client['name']) ?>\n\nنود إعلامكم بأن اشتراككم لدى إنجاز للحلول الذكية ينتهي قريباً.\nيرجى التواصل معنا لتجديد الاشتراك.\n\nشكراً لثقتكم 🌟`,
+  renewal:   <?= json_encode($renewalGen['message'], JSON_UNESCAPED_UNICODE) ?>,
   payment:   `السادة / <?= e($client['name']) ?>\n\nنشكركم على سداد دفعتكم.\nنتطلع دائماً لخدمتكم.\n\nإنجاز للحلول الذكية ✅`,
   statement: `السادة / <?= e($client['name']) ?>\n\nإجمالي خدماتكم: <?= formatMoney($summary['total']) ?>\nالمسدّد: <?= formatMoney($summary['paid']) ?>\nالمتبقي: <?= formatMoney($summary['remaining']) ?>\n\nللاستفسار تواصلوا معنا.`,
   custom:    '',

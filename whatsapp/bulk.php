@@ -26,7 +26,8 @@ if ($isPost) {
 if (!empty($clientIds)) {
     $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
     $stmt = $db->prepare("
-        SELECT c.id, c.name, c.mobile, cs.end_date, s.name as service_name, cs.plan_name
+        SELECT c.id, c.name, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
+               cs.currency, cs.original_price, cs.price, cs.service_id
         FROM client_subscriptions cs
         JOIN clients c ON c.id=cs.client_id
         JOIN services s ON s.id=cs.service_id
@@ -40,7 +41,8 @@ if (!empty($clientIds)) {
 } else {
     // إرسال للكل (GET)
     $stmt = $db->prepare("
-        SELECT c.id, c.name, c.mobile, cs.end_date, s.name as service_name, cs.plan_name
+        SELECT c.id, c.name, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
+               cs.currency, cs.original_price, cs.price, cs.service_id
         FROM client_subscriptions cs
         JOIN clients c ON c.id=cs.client_id
         JOIN services s ON s.id=cs.service_id
@@ -70,12 +72,14 @@ foreach ($rawResults as $row) {
             'id'       => $cId,
             'name'     => $row['name'],
             'mobile'   => $row['mobile'],
+            'country'  => $row['country'] ?? 'EG',
             'services' => []
         ];
     }
     $clientsData[$cId]['services'][] = $row;
 }
 
+$customMessages = $_POST['custom_messages'] ?? [];
 $sent = 0;
 $failed = 0;
 
@@ -86,15 +90,13 @@ $sessionId = getSetting('whatsapp_sender', '');
 foreach ($clientsData as $cl) {
     $mobile = normalizeMobile($cl['mobile']);
 
-    // صياغة قائمة الخدمات والتنبيهات للعميل
-    $servicesText = "";
-    foreach ($cl['services'] as $srv) {
-        $planDetails = $srv['plan_name'] ? " ({$srv['plan_name']})" : "";
-        $endDateFormatted = formatDate($srv['end_date']);
-        $servicesText .= "• خدمة «{$srv['service_name']}»{$planDetails} - تنتهي بتاريخ {$endDateFormatted}\n";
+    // استخدام الرسالة المعدلة من واجهة المعاينة إن وجدت، وإلا توليد الرسالة الاحترافية المعتمدة
+    if (!empty($customMessages[$cl['id']])) {
+        $message = trim($customMessages[$cl['id']]);
+    } else {
+        $gen = buildRenewalWhatsappMessage($cl, $cl['services'], $companyName);
+        $message = $gen['message'];
     }
-
-    $message = "السادة / {$cl['name']}\n\nنود إعلامكم بأن الاشتراكات التالية لديكم تنتهي قريباً:\n\n{$servicesText}\nيرجى التواصل معنا لتجديد الاشتراك والاستمرار في الاستفادة من خدماتنا.\n\nشكراً لثقتكم 🌟\n{$companyName}";
 
     $status   = 'sent';
     $response = '';
