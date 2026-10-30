@@ -676,3 +676,4 @@ require_once INCLUDES_PATH . '/header.php';
 <?php endif; ?>
 
 <?php require_once INCLUDES_PATH . '/footer.php'; ?>
+
