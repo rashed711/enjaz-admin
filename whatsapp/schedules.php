@@ -25,6 +25,14 @@ if ($tab === 'recurring' && isset($_GET['toggle'])) {
 if ($tab === 'recurring') {
     // Fetch all schedules
     $schedules = $db->query("SELECT * FROM whatsapp_schedules ORDER BY created_at DESC")->fetchAll();
+    
+    // Fetch all clients with mobile numbers for the specific clients targeting picker
+    $allClients = $db->query("
+        SELECT id, name, company_name, mobile 
+        FROM clients 
+        WHERE mobile IS NOT NULL AND mobile != '' 
+        ORDER BY name ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
 } else {
     // Tab is queue
     $page    = max(1, (int)($_GET['page'] ?? 1));
@@ -182,7 +190,12 @@ require_once INCLUDES_PATH . '/header.php';
                     'new_clients'     => '<span class="badge badge-success">العملاء الجدد (آخر 30 يوم)</span>',
                     'no_subscriptions'=> '<span class="badge badge-secondary">عملاء بدون أي اشتراكات</span>',
                 ];
-                echo $targetLabels[$sch['target_type']] ?? $sch['target_type'];
+                if ($sch['target_type'] === 'specific_clients') {
+                    $cCount = count(array_filter(explode(',', $sch['target_client_ids'] ?? '')));
+                    echo '<span class="badge" style="background:#7c3aed;color:#fff;"><i class="fas fa-user-check"></i> عملاء محددين (' . $cCount . ')</span>';
+                } else {
+                    echo $targetLabels[$sch['target_type']] ?? $sch['target_type'];
+                }
                 ?>
               </td>
               <td>
@@ -449,6 +462,7 @@ require_once INCLUDES_PATH . '/header.php';
               <option value="all">كل العملاء (النشطين والموقوفين)</option>
               <option value="active">العملاء النشطين فقط</option>
               <option value="suspended">العملاء الموقوفين فقط</option>
+              <option value="specific_clients">🎯 عميل محدد أو مجموعة عملاء محددين</option>
               <option value="active_debt">العملاء النشطين الذين عليهم مديونية فقط</option>
               <option value="all_debt">كل العملاء الذين عليهم مديونية (نشط وموقوف)</option>
               <option value="active_expiring">العملاء النشطين الذين لديهم اشتراكات تنتهي قريباً</option>
@@ -462,6 +476,42 @@ require_once INCLUDES_PATH . '/header.php';
           <div class="form-group" id="warning_days_group" style="display:none;">
             <label class="form-label" for="sch_warning_days">تنبيه قبل (أيام) <span class="required">*</span></label>
             <input type="number" id="sch_warning_days" name="warning_days" class="form-control" value="30" min="1">
+          </div>
+        </div>
+
+        <!-- قسم اختيار عملاء محددين -->
+        <div class="form-group" id="specific_clients_group" style="display:none; background: rgba(124, 58, 237, 0.03); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: 8px; padding: 12px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #7c3aed;">
+              <i class="fas fa-users-viewfinder"></i> حدد العملاء المستهدفين <span class="required">*</span>
+            </label>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 11.5px;" onclick="toggleAllClients(true)"><i class="fas fa-check-double"></i> تحديد الكل</button>
+              <button type="button" class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 11.5px;" onclick="toggleAllClients(false)"><i class="fas fa-times"></i> إلغاء الكل</button>
+            </div>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <input type="text" id="client_search_input" class="form-control" placeholder="🔍 ابحث بالاسم أو الشركة أو الموبايل..." oninput="filterClientPicker(this.value)" style="font-size: 13px; height: 36px;">
+          </div>
+          <div id="clients_checkbox_list" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; background: #fff;">
+            <?php if (!empty($allClients)): ?>
+              <?php foreach ($allClients as $cl): ?>
+              <label class="client-picker-item" data-search="<?= strtolower(e($cl['name'] . ' ' . ($cl['company_name'] ?? '') . ' ' . $cl['mobile'])) ?>" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-bottom: 2px; transition: background 0.15s ease;">
+                <input type="checkbox" name="target_client_ids[]" value="<?= $cl['id'] ?>" class="sch-client-cb" onchange="updateSelectedClientsCount()">
+                <span style="font-weight: 600; color: var(--text-primary);"><?= e($cl['name']) ?></span>
+                <?php if (!empty($cl['company_name'])): ?>
+                <span style="color: var(--text-muted); font-size: 11.5px;">(<?= e($cl['company_name']) ?>)</span>
+                <?php endif; ?>
+                <span style="margin-right: auto; direction: ltr; font-family: monospace; font-size: 12px; color: var(--text-muted);"><?= e($cl['mobile']) ?></span>
+              </label>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <div style="font-size: 13px; color: var(--text-muted); text-align: center; padding: 12px;">لا يوجد عملاء مسجلين بأرقام هواتف.</div>
+            <?php endif; ?>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: var(--text-muted);">
+            <span>تم تحديد: <strong id="selected_clients_count" style="color: #7c3aed; font-size: 13px;">0</strong> عميل</span>
+            <span id="search_results_count" style="font-size: 11.5px;"></span>
           </div>
         </div>
 
@@ -479,6 +529,11 @@ require_once INCLUDES_PATH . '/header.php';
           <div class="form-group" id="custom_interval_group" style="display:none;">
             <label class="form-label" for="sch_custom_interval">عدد الأيام الفاصلة <span class="required">*</span></label>
             <input type="number" id="sch_custom_interval" name="custom_interval_days" class="form-control" value="1" min="1">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="sch_start_date">تاريخ بدء الإرسال <span class="required">*</span></label>
+            <input type="date" id="sch_start_date" name="start_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
           </div>
 
           <div class="form-group">
@@ -573,6 +628,49 @@ function onTargetTypeChange(sel) {
         warningDaysGroup.style.display = 'none';
         document.getElementById('sch_warning_days').required = false;
     }
+
+    const specificClientsGroup = document.getElementById('specific_clients_group');
+    if (sel.value === 'specific_clients') {
+        specificClientsGroup.style.display = 'block';
+    } else {
+        specificClientsGroup.style.display = 'none';
+    }
+}
+
+function filterClientPicker(query) {
+    query = (query || '').trim().toLowerCase();
+    const items = document.querySelectorAll('#clients_checkbox_list .client-picker-item');
+    let visible = 0;
+    items.forEach(el => {
+        const text = el.getAttribute('data-search') || '';
+        if (!query || text.indexOf(query) !== -1) {
+            el.style.display = 'flex';
+            visible++;
+        } else {
+            el.style.display = 'none';
+        }
+    });
+    const countEl = document.getElementById('search_results_count');
+    if (countEl) {
+        countEl.innerText = query ? `المطابق للبحث: ${visible}` : '';
+    }
+}
+
+function toggleAllClients(checked) {
+    const items = document.querySelectorAll('#clients_checkbox_list .client-picker-item');
+    items.forEach(el => {
+        if (el.style.display !== 'none') {
+            const cb = el.querySelector('.sch-client-cb');
+            if (cb) cb.checked = checked;
+        }
+    });
+    updateSelectedClientsCount();
+}
+
+function updateSelectedClientsCount() {
+    const checked = document.querySelectorAll('.sch-client-cb:checked').length;
+    const countEl = document.getElementById('selected_clients_count');
+    if (countEl) countEl.innerText = checked;
 }
 
 function onFrequencyChange(sel) {
@@ -595,7 +693,15 @@ function openAddScheduleModal() {
     document.getElementById('sch_warning_days').value = '30';
     document.getElementById('sch_frequency').value = 'daily';
     document.getElementById('sch_custom_interval').value = '1';
+    document.getElementById('sch_start_date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('sch_send_at_time').value = '10:00';
+    
+    // Clear client selection
+    document.querySelectorAll('.sch-client-cb').forEach(cb => cb.checked = false);
+    const searchInput = document.getElementById('client_search_input');
+    if (searchInput) searchInput.value = '';
+    filterClientPicker('');
+    updateSelectedClientsCount();
     
     onTargetTypeChange(document.getElementById('sch_target_type'));
     onFrequencyChange(document.getElementById('sch_frequency'));
@@ -613,15 +719,49 @@ function editSchedule(sch) {
     document.getElementById('sch_frequency').value = sch.frequency;
     document.getElementById('sch_custom_interval').value = sch.custom_interval_days || 1;
     
+    // Next run / start date
+    if (sch.next_run) {
+        document.getElementById('sch_start_date').value = sch.next_run.substr(0, 10);
+    } else {
+        document.getElementById('sch_start_date').value = new Date().toISOString().slice(0, 10);
+    }
+
     // Convert time HH:MM:SS to HH:MM for time input
     const timeParts = sch.send_at_time.split(':');
     document.getElementById('sch_send_at_time').value = timeParts[0] + ':' + timeParts[1];
     
+    // Populate specific clients
+    const targetIds = (sch.target_client_ids || '').split(',').map(s => s.trim()).filter(Boolean);
+    const idSet = new Set(targetIds);
+    document.querySelectorAll('.sch-client-cb').forEach(cb => {
+        cb.checked = idSet.has(cb.value);
+    });
+    const searchInput = document.getElementById('client_search_input');
+    if (searchInput) searchInput.value = '';
+    filterClientPicker('');
+    updateSelectedClientsCount();
+
     onTargetTypeChange(document.getElementById('sch_target_type'));
     onFrequencyChange(document.getElementById('sch_frequency'));
     
     openModal('scheduleModal');
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('scheduleForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (document.getElementById('sch_target_type').value === 'specific_clients') {
+                const checked = document.querySelectorAll('.sch-client-cb:checked').length;
+                if (checked === 0) {
+                    e.preventDefault();
+                    alert('يرجى تحديد عميل واحد على الأقل للمجموعة المستهدفة.');
+                    return false;
+                }
+            }
+        });
+    }
+});
 
 function editQueueItem(item) {
     document.getElementById('queueId').value = item.id;

@@ -273,6 +273,15 @@ try {
 } catch (Exception $e) {}
 
 
+// التأكد من إضافة عمود العملاء المستهدفين لجدول الجدولة whatsapp_schedules
+try {
+    $db = getDB();
+    $desc = $db->query("SHOW COLUMNS FROM whatsapp_schedules LIKE 'target_client_ids'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE whatsapp_schedules ADD COLUMN target_client_ids TEXT NULL AFTER target_type;");
+    }
+} catch (Exception $e) {}
+
 // ── تحميل الدوال المساعدة ────────────────────────────────────────
 require_once INCLUDES_PATH . '/functions.php';
 require_once INCLUDES_PATH . '/auth.php';

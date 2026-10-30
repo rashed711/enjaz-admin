@@ -195,6 +195,20 @@ foreach ($schedules as $sch) {
               AND cs.id IS NULL
               AND c.mobile IS NOT NULL AND c.mobile != ''
         ")->fetchAll();
+    } elseif ($sch['target_type'] === 'specific_clients') {
+        $cIds = array_filter(array_map('intval', explode(',', $sch['target_client_ids'] ?? '')));
+        if (!empty($cIds)) {
+            $placeholders = implode(',', array_fill(0, count($cIds), '?'));
+            $stmt = $db->prepare("
+                SELECT id, name, mobile, company_name 
+                FROM clients 
+                WHERE id IN ($placeholders) 
+                  AND mobile IS NOT NULL AND mobile != ''
+                ORDER BY name ASC
+            ");
+            $stmt->execute($cIds);
+            $clients = $stmt->fetchAll();
+        }
     }
 
     if (empty($clients)) {
@@ -249,8 +263,10 @@ foreach ($schedules as $sch) {
 
             echo " - Message sent to {$cl['name']} ({$status})\n";
             
-            // تأخير 2 ثانية بين كل رسالة والثانية لمنع الحظر وتقليل الضغط
-            sleep(2);
+            // تأخير عشوائي آمن (3 إلى 8 ثوانٍ) بين كل رسالة لمنع الحظر وتقليل الضغط
+            $randomWait = rand(3, 8);
+            echo "   (Waiting {$randomWait}s before next message...)\n";
+            sleep($randomWait);
         }
     }
 
