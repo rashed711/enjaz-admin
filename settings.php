@@ -13,12 +13,16 @@ $success  = false;
 
 // تجربة إرسال النسخة الاحتياطية للبريد مباشرة عبر الرابط GET
 if (isset($_GET['test_backup'])) {
-    require_once INCLUDES_PATH . '/client_backup.php';
-    $backupRes = sendClientsBackupEmail(true);
-    if (!empty($backupRes['success'])) {
-        setFlash('success', $backupRes['message']);
-    } else {
-        setFlash('error', $backupRes['message']);
+    try {
+        require_once INCLUDES_PATH . '/client_backup.php';
+        $backupRes = sendClientsBackupEmail(true);
+        if (!empty($backupRes['success'])) {
+            setFlash('success', $backupRes['message']);
+        } else {
+            setFlash('error', $backupRes['message']);
+        }
+    } catch (\Throwable $e) {
+        setFlash('error', 'حدث خطأ: ' . $e->getMessage());
     }
     header('Location: settings.php');
     exit;
@@ -41,12 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // اختبار إرسال النسخة الاحتياطية للبريد فوراً
         if (isset($_POST['send_test_backup_now'])) {
-            require_once INCLUDES_PATH . '/client_backup.php';
-            $backupRes = sendClientsBackupEmail(true);
-            if (!empty($backupRes['success'])) {
-                setFlash('success', $backupRes['message']);
-            } else {
-                setFlash('error', $backupRes['message']);
+            try {
+                require_once INCLUDES_PATH . '/client_backup.php';
+                $backupRes = sendClientsBackupEmail(true);
+                if (!empty($backupRes['success'])) {
+                    setFlash('success', $backupRes['message']);
+                } else {
+                    setFlash('error', $backupRes['message']);
+                }
+            } catch (\Throwable $e) {
+                setFlash('error', 'حدث خطأ أثناء إرسال النسخة الاحتياطية: ' . $e->getMessage());
             }
             header('Location: settings.php');
             exit;

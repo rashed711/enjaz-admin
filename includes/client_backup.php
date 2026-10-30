@@ -22,9 +22,9 @@ function generateClientsCSV(?array $clientIds = null): string {
 
     $sql = "
         SELECT c.*,
-               COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
-               COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
-               COUNT(DISTINCT cs.id) AS subs_count,
+               (SELECT COALESCE(SUM(cs.price), 0) FROM client_subscriptions cs WHERE cs.client_id = c.id AND cs.status != 'cancelled') AS total_services,
+               (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.client_id = c.id) AS total_paid,
+               (SELECT COUNT(*) FROM client_subscriptions cs WHERE cs.client_id = c.id) AS subs_count,
                (SELECT GROUP_CONCAT(DISTINCT CONCAT(s_all.name, IF(cs_all.plan_name IS NOT NULL AND cs_all.plan_name != '', CONCAT(' (', cs_all.plan_name, ')'), '')) SEPARATOR ' + ')
                 FROM client_subscriptions cs_all 
                 JOIN services s_all ON s_all.id = cs_all.service_id 
@@ -45,9 +45,7 @@ function generateClientsCSV(?array $clientIds = null): string {
                   ELSE 'لا يوجد اشتراكات'
                 END) AS sub_status_label
         FROM clients c
-        LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
         WHERE {$where}
-        GROUP BY c.id
         ORDER BY c.id ASC
     ";
 
@@ -134,50 +132,51 @@ function generateClientsCSV(?array $clientIds = null): string {
  * إرسال بريد إلكتروني يحتوي على الشيت الكامل كنسخة احتياطية
  */
 function sendClientsBackupEmail(bool $isManual = false): array {
-    $db = getDB();
-    $recipientEmail = trim(getSetting('backup_email', ''));
-    if (empty($recipientEmail)) {
-        $recipientEmail = 'rashed1711@gmail.com';
-    }
+    try {
+        $db = getDB();
+        $recipientEmail = trim(getSetting('backup_email', ''));
+        if (empty($recipientEmail)) {
+            $recipientEmail = 'rashed1711@gmail.com';
+        }
 
-    if (empty($recipientEmail)) {
-        return ['success' => false, 'message' => 'لم يتم تحديد بريد إلكتروني لاستلام النسخة الاحتياطية.'];
-    }
+        if (empty($recipientEmail)) {
+            return ['success' => false, 'message' => 'لم يتم تحديد بريد إلكتروني لاستلام النسخة الاحتياطية.'];
+        }
 
-    // إحصائيات سريعة للبريد
-    $stats = $db->query("
-        SELECT 
-            COUNT(*) as total_clients,
-            SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as active_clients,
-            SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) as suspended_clients
-        FROM clients
-    ")->fetch(PDO::FETCH_ASSOC);
+        // إحصائيات سريعة للبريد
+        $stats = $db->query("
+            SELECT 
+                COUNT(*) as total_clients,
+                SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as active_clients,
+                SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END) as suspended_clients
+            FROM clients
+        ")->fetch(PDO::FETCH_ASSOC);
 
-    $finance = $db->query("
-        SELECT 
-            COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
-            COALESCE((SELECT SUM(amount) FROM payments), 0) AS total_paid
-        FROM client_subscriptions cs
-    ")->fetch(PDO::FETCH_ASSOC);
+        $finance = $db->query("
+            SELECT 
+                COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
+                COALESCE((SELECT SUM(amount) FROM payments), 0) AS total_paid
+            FROM client_subscriptions cs
+        ")->fetch(PDO::FETCH_ASSOC);
 
-    $totalClients = (int)($stats['total_clients'] ?? 0);
-    $activeClients = (int)($stats['active_clients'] ?? 0);
-    $suspendedClients = (int)($stats['suspended_clients'] ?? 0);
-    $totalServices = (float)($finance['total_services'] ?? 0);
-    $totalPaid = (float)($finance['total_paid'] ?? 0);
-    $totalRemaining = $totalServices - $totalPaid;
+        $totalClients = (int)($stats['total_clients'] ?? 0);
+        $activeClients = (int)($stats['active_clients'] ?? 0);
+        $suspendedClients = (int)($stats['suspended_clients'] ?? 0);
+        $totalServices = (float)($finance['total_services'] ?? 0);
+        $totalPaid = (float)($finance['total_paid'] ?? 0);
+        $totalRemaining = $totalServices - $totalPaid;
 
-    // توليد ملف CSV الكامل
-    $csvContent = generateClientsCSV();
-    $todayDate = date('Y-m-d');
-    $currentTime = date('h:i A');
-    $filename = "enjaz_clients_backup_{$todayDate}.csv";
+        // توليد ملف CSV الكامل
+        $csvContent = generateClientsCSV();
+        $todayDate = date('Y-m-d');
+        $currentTime = date('h:i A');
+        $filename = "enjaz_clients_backup_{$todayDate}.csv";
 
-    $subject = "نسخة احتياطية لبيانات العملاء - إنجاز للحلول الذكية ({$todayDate})";
+        $subject = "نسخة احتياطية لبيانات العملاء - إنجاز للحلول الذكية ({$todayDate})";
 
-    $modeText = $isManual ? 'نسخة احتياطية فورية (طلب يدوي)' : 'النسخة الاحتياطية اليومية المجدولة (الساعة 12:00 منتصف الليل)';
+        $modeText = $isManual ? 'نسخة احتياطية فورية (طلب يدوي)' : 'النسخة الاحتياطية اليومية المجدولة (الساعة 12:00 منتصف الليل)';
 
-    $html = <<<HTML
+        $html = <<<HTML
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -241,21 +240,30 @@ function sendClientsBackupEmail(bool $isManual = false): array {
 </html>
 HTML;
 
-    $sent = sendSMTPMailWithAttachment($recipientEmail, $subject, $html, $csvContent, $filename);
+        $sent = sendSMTPMailWithAttachment($recipientEmail, $subject, $html, $csvContent, $filename);
 
-    if ($sent) {
-        setSetting('backup_clients_last_date', $todayDate);
+        if ($sent) {
+            try {
+                $db->prepare("UPDATE settings SET value = ? WHERE `key` = 'backup_clients_last_date'")->execute([$todayDate]);
+            } catch (Exception $e) {}
+            return [
+                'success'   => true,
+                'message'   => "تم إرسال النسخة الاحتياطية بنجاح إلى البريد ({$recipientEmail}).",
+                'recipient' => $recipientEmail,
+                'count'     => $totalClients
+            ];
+        } else {
+            return [
+                'success'   => false,
+                'message'   => "تعذر إرسال البريد إلى ({$recipientEmail})، يرجى مراجعة إعدادات خادم البريد.",
+                'recipient' => $recipientEmail
+            ];
+        }
+    } catch (\Throwable $e) {
+        error_log('[Client Backup Exception] ' . $e->getMessage());
         return [
-            'success'   => true,
-            'message'   => "تم إرسال النسخة الاحتياطية بنجاح إلى البريد ({$recipientEmail}).",
-            'recipient' => $recipientEmail,
-            'count'     => $totalClients
-        ];
-    } else {
-        return [
-            'success'   => false,
-            'message'   => "تعذر إرسال البريد إلى ({$recipientEmail})، يرجى مراجعة إعدادات خادم البريد.",
-            'recipient' => $recipientEmail
+            'success' => false,
+            'message' => 'حدث خطأ أثناء إعداد النسخة الاحتياطية: ' . $e->getMessage()
         ];
     }
 }

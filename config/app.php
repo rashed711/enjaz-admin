@@ -314,3 +314,20 @@ function getSetting(string $key, string $default = ''): string {
     $settings = getSettings();
     return $settings[$key] ?? $default;
 }
+
+function setSetting(string $key, string $value): bool {
+    try {
+        $db = getDB();
+        $chk = $db->prepare("SELECT COUNT(*) FROM `settings` WHERE `key` = ?");
+        $chk->execute([$key]);
+        if ((int)$chk->fetchColumn() === 0) {
+            $stmt = $db->prepare("INSERT INTO `settings` (`key`, `value`) VALUES (?, ?)");
+            return $stmt->execute([$key, $value]);
+        } else {
+            $stmt = $db->prepare("UPDATE `settings` SET `value` = ? WHERE `key` = ?");
+            return $stmt->execute([$value, $key]);
+        }
+    } catch (Exception $e) {
+        return false;
+    }
+}
