@@ -189,6 +189,43 @@ try {
     ");
 } catch (Exception $e) {}
 
+// التأكد من إنشاء جدول متابعة وإشعارات التجديد التلقائي renewal_notifications
+try {
+    $db = getDB();
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS `renewal_notifications` (
+          `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          `client_id` INT UNSIGNED NOT NULL,
+          `cycle_end_date` DATE NOT NULL,
+          `stage` INT NOT NULL COMMENT '60, 45, 30, 15, 7',
+          `status` VARCHAR(20) NOT NULL DEFAULT 'pending_review' COMMENT 'pending_review, approved, sent, skipped, failed',
+          `message` TEXT NOT NULL,
+          `admin_notified_at` DATETIME NULL,
+          `reviewed_at` DATETIME NULL,
+          `reviewed_by` INT UNSIGNED NULL,
+          `sent_at` DATETIME NULL,
+          `response` TEXT NULL,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          KEY `idx_client_cycle_stage` (`client_id`, `cycle_end_date`, `stage`),
+          KEY `idx_status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+
+    $defaults = [
+        'renewal_auto_review'  => '1',            // 1: مراجعة يدوية قبل الإرسال، 0: إرسال تلقائي مباشر
+        'renewal_admin_mobile' => '201028855779', // رقم واتساب الإدمن للتنبيهات
+        'renewal_alert_hour'   => '20:00',        // موعد إرسال ملخص الغد للإدمن
+        'renewal_send_hour'    => '11:00',        // موعد إرسال رسائل العملاء التلقائية
+    ];
+    foreach ($defaults as $k => $v) {
+        $chk = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key` = ?");
+        $chk->execute([$k]);
+        if ((int)$chk->fetchColumn() === 0) {
+            $db->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?)")->execute([$k, $v]);
+        }
+    }
+} catch (Exception $e) {}
+
 // التأكد من إنشاء جدول قائمة انتظار رسائل الواتساب المجدولة
 try {
     $db = getDB();

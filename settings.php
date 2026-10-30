@@ -14,10 +14,16 @@ $success  = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','default_home_page','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods'];
+        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','default_home_page','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods','renewal_auto_review','renewal_admin_mobile','renewal_alert_hour','renewal_send_hour'];
         foreach ($fields as $f) {
             $val = clean($_POST[$f] ?? '');
-            $db->prepare("UPDATE settings SET value=? WHERE `key`=?")->execute([$val,$f]);
+            $chk = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key`=?");
+            $chk->execute([$f]);
+            if ((int)$chk->fetchColumn() === 0) {
+                $db->prepare("INSERT INTO settings (`key`, value) VALUES (?, ?)")->execute([$f, $val]);
+            } else {
+                $db->prepare("UPDATE settings SET value=? WHERE `key`=?")->execute([$val,$f]);
+            }
         }
         // Reset password
         if (!empty($_POST['new_admin_password']) && strlen($_POST['new_admin_password']) >= 6) {
@@ -143,6 +149,95 @@ require_once INCLUDES_PATH . '/header.php';
           <div style="background:rgba(37,211,102,.08);border-right:3px solid #25D366;border-radius:8px;padding:12px 14px;font-size:12.5px;color:#166534;">
             <i class="fas fa-info-circle" style="margin-left:6px;"></i>
             ضع بيانات خادم بوابة الواتساب والجلسة ومفتاح المصادقة لتفعيل إرسال الإشعارات والرسائل التلقائية للعملاء.
+          </div>
+        </div>
+      </div>
+
+      <!-- Renewal Notifications & Review Automation -->
+      <div class="card" style="margin-bottom:20px; border-right: 4px solid #10b981;">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="card-title"><i class="fas fa-robot" style="color:#10b981;"></i> إعدادات التنبيه التلقائي للتجديدات (واتساب)</span>
+          <a href="reports/renewal_reviews.php" class="btn btn-sm btn-outline-primary" style="font-size:12px; font-weight:700;">
+            <i class="fas fa-external-link-alt"></i> شاشة المراجعة
+          </a>
+        </div>
+        <div class="card-body">
+          <?php $autoReview = $settings['renewal_auto_review'] ?? '1'; ?>
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label class="form-label" style="font-weight: 800; font-size: 14px; margin-bottom: 8px;">
+              <i class="fas fa-sliders-h" style="color:var(--primary); margin-left: 6px;"></i>
+              نمط الإرسال والمراجعة (التحكم الآلي) <span class="required">*</span>
+            </label>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 2px solid <?= $autoReview === '1' ? '#10b981' : 'var(--border-color)' ?>; border-radius: 8px; cursor: pointer; background: <?= $autoReview === '1' ? 'rgba(16,185,129,0.04)' : '#fff' ?>;">
+                <input type="radio" name="renewal_auto_review" value="1" <?= $autoReview === '1' ? 'checked' : '' ?> style="margin-top: 4px;">
+                <div>
+                  <div style="font-weight: 800; color: var(--text-primary); font-size: 13.5px;">
+                    🛡️ تفعيل المراجعة المسبقة قبل الإرسال (مستحسن حالياً)
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    يصلك إشعار ملخص على الواتساب بأسماء العملاء المقرر إرسال رسائل لهم غداً، ولا تخرج أي رسالة للعميل إلا بعد دخولك واعتمادها.
+                  </div>
+                </div>
+              </label>
+
+              <label style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 2px solid <?= $autoReview === '0' ? '#2563eb' : 'var(--border-color)' ?>; border-radius: 8px; cursor: pointer; background: <?= $autoReview === '0' ? 'rgba(37,99,235,0.04)' : '#fff' ?>;">
+                <input type="radio" name="renewal_auto_review" value="0" <?= $autoReview === '0' ? 'checked' : '' ?> style="margin-top: 4px;">
+                <div>
+                  <div style="font-weight: 800; color: var(--text-primary); font-size: 13.5px;">
+                    ⚡ إرسال تلقائي مباشر للعملاء بدون مراجعة
+                  </div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    ترسل الرسائل للعملاء مباشرة في موعدها (60، 45، 30، 15، 7) وفق قاعدة تخطي التكرار، ويصلك فقط تنبيه بمرحلة الـ 7 أيام ومن يتبقى على اشتراكه يوم واحد لإيقافه.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="renewal_admin_mobile">
+              <i class="fab fa-whatsapp" style="color: #25D366; margin-left: 4px;"></i>
+              رقم واتساب الإدمن لاستقبال التنبيهات
+            </label>
+            <input type="text" id="renewal_admin_mobile" name="renewal_admin_mobile" class="form-control" value="<?= e($settings['renewal_admin_mobile'] ?? '201028855779') ?>" placeholder="201028855779" dir="ltr" style="font-weight: 700; font-family: monospace;">
+            <span class="form-hint">الرقم الذي يتلقى ملخص الغد، وتنبيهات عملاء الـ 7 أيام، وتنبيه من ينتهي اشتراكه غداً.</span>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="renewal_alert_hour">
+                <i class="fas fa-clock" style="color:var(--primary); margin-left:4px;"></i>
+                موعد تنبيه الإدمن اليومي (ملخص الغد)
+              </label>
+              <input type="time" id="renewal_alert_hour" name="renewal_alert_hour" class="form-control" value="<?= e($settings['renewal_alert_hour'] ?? '20:00') ?>" style="font-weight:700;">
+              <span class="form-hint">الوقت الذي تتلقى فيه رسالة الواتساب اليومية لمراجعة اشتراكات الغد (مثال: 20:00 = 8 مساءً).</span>
+              <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_alert_hour').value='18:00'">6:00 م</button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_alert_hour').value='20:00'">8:00 م (افتراضي)</button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_alert_hour').value='21:00'">9:00 م</button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_alert_hour').value='22:00'">10:00 م</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="renewal_send_hour">
+                <i class="fas fa-paper-plane" style="color:#10b981; margin-left:4px;"></i>
+                موعد إرسال رسائل العملاء المعتمدة
+              </label>
+              <input type="time" id="renewal_send_hour" name="renewal_send_hour" class="form-control" value="<?= e($settings['renewal_send_hour'] ?? '11:00') ?>" style="font-weight:700;">
+              <span class="form-hint">الوقت الصباحي لإرسال الإشعارات المعتمدة للعملاء في اليوم التالي.</span>
+              <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_send_hour').value='09:00'">9:00 ص</button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_send_hour').value='10:00'">10:00 ص</button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_send_hour').value='11:00'">11:00 ص (افتراضي)</button>
+                <button type="button" class="btn btn-xs btn-outline-secondary" onclick="document.getElementById('renewal_send_hour').value='12:00'">12:00 ظهراً</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: rgba(245,158,11,.08); border-right: 3px solid #f59e0b; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #92400e; margin-top: 10px;">
+            <i class="fas fa-lightbulb" style="margin-left: 6px;"></i>
+            <strong>قاعدة الاستثناء الذكية:</strong> عند اعتماد إشعار الـ 60 يوم لأي عميل، يتخطى النظام تلقائياً إشعارات (45، 30، 15) ولن يظهر العميل مجدداً إلا عند وصوله إلى مرحلة الـ 7 أيام في حال لم يجدد.
           </div>
         </div>
       </div>

@@ -426,6 +426,11 @@ require_once INCLUDES_PATH . '/header.php';
         <i class="fas fa-file-excel" style="color:#217346;"></i>
         <span>تصدير Excel</span>
       </button>
+
+      <a href="renewal_reviews.php" class="btn btn-outline-primary" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+        <i class="fas fa-tasks"></i>
+        <span>مراجعة الإشعارات التلقائية</span>
+      </a>
     </div>
   </div>
 

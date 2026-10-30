@@ -283,3 +283,16 @@ foreach ($schedules as $sch) {
 }
 
 echo "All pending schedules processed successfully.\n";
+
+// ── تشغيل الفحص اليومي للتجديدات التلقائية وإشعار الإدمن ─────────
+if (file_exists(__DIR__ . '/renewal_cron.php')) {
+    echo "\nChecking Renewal Automation Routine...\n";
+    require_once INCLUDES_PATH . '/renewal_automation.php';
+    $renRes = runRenewalDailyRoutine(false);
+    if (!empty($renRes['skipped'])) {
+        echo " - Renewal Routine: {$renRes['reason']}\n";
+    } else {
+        echo " - Renewal Routine Executed: {$renRes['candidates_count']} candidates found, admin alert: " . ($renRes['admin_notification']['status'] ?? 'none') . "\n";
+    }
+}
+

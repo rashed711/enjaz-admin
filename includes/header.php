@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Header & Sidebar - نظام إنجاز للحلول الذكية
  * يُضمَّن في كل صفحة
@@ -197,6 +197,14 @@ try {
             <?php if ($renewalCount > 0): ?>
             <span class="nav-badge"><?= $renewalCount ?></span>
             <?php endif; ?>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewal_reviews.php"
+             class="nav-link <?= ($activePage ?? '') === 'renewal-reviews' ? 'active' : '' ?>"
+             id="nav-renewal-reviews">
+            <i class="fas fa-tasks nav-icon"></i>
+            <span>مراجعة إشعارات التجديد</span>
           </a>
         </li>
         <li class="nav-item">

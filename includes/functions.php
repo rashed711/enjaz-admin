@@ -708,6 +708,7 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
              . "💳 *بيانات التحويل:*\n\n"
              . "🇸🇦 *السعودية*\n"
              . "• الراجحي – رقم الحساب: 077060010006088389454\n"
+             . "• الراجحي – IBAN: SA5980000866608018389454\n"
              . "• D360 – IBAN: SA3036036036065660911461\n"
              . "• STC Pay: 0567457572\n\n"
              . "🇪🇬 *مصر*\n"
