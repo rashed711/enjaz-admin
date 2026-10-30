@@ -60,12 +60,18 @@ if ($detailMonth && isset($_GET['ajax'])) {
         ORDER BY cs.start_date ASC
     ");
     $dStmt->execute($params);
+    $rawClients = $dStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rawClients as &$rc) {
+        $rc['flag_svg'] = getCountryFlagSvg($rc['country'] ?? 'EG', 16, 12);
+    }
+    unset($rc);
+
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'success'    => true,
-        'clients'    => $dStmt->fetchAll(PDO::FETCH_ASSOC),
+        'clients'    => $rawClients,
         'month_name' => $arabicMonths[$detailMonth] ?? "شهر {$detailMonth}",
-        'count'      => $dStmt->rowCount()
+        'count'      => count($rawClients)
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -278,7 +284,7 @@ if ($activeTab === 'intake') {
         $whereISql = implode(' AND ', $filterW);
         $intakeStmt = $db->prepare("
             SELECT 
-                c.id as client_id, c.name as client_name, c.company_name, c.status as client_status, c.mobile, c.domain as client_domain,
+                c.id as client_id, c.name as client_name, c.company_name, c.status as client_status, c.mobile, c.country, c.domain as client_domain,
                 MONTH(cs.start_date) as start_month,
                 COALESCE(SUM(CASE WHEN cs.service_id = 2 THEN cs.price END), 0) as domain_cost,
                 COALESCE(SUM(CASE WHEN cs.service_id = 1 THEN cs.price END), 0) as email_cost,
@@ -728,11 +734,14 @@ table.data-table tbody tr:hover {
           <?php foreach (array_slice($loyaltyClients, 0, 50) as $cl): ?>
             <tr>
               <td>
-                <a href="../clients/view.php?id=<?= $cl['id'] ?>" style="font-weight: 800; color: var(--primary); text-decoration: none;">
-                  <?= e($cl['name']) ?>
-                </a>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <?= getCountryFlagSvg($cl['country'] ?? 'EG', 18, 13) ?>
+                  <a href="../clients/view.php?id=<?= $cl['id'] ?>" style="font-weight: 800; color: var(--primary); text-decoration: none;">
+                    <?= e($cl['name']) ?>
+                  </a>
+                </div>
                 <?php if (!empty($cl['company_name'])): ?>
-                  <div style="font-size: 11px; color: var(--text-muted);"><?= e($cl['company_name']) ?></div>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><?= e($cl['company_name']) ?></div>
                 <?php endif; ?>
               </td>
               <td><?= e($cl['first_date_formatted']) ?></td>
@@ -895,11 +904,14 @@ table.data-table tbody tr:hover {
                   </a>
                 </td>
                 <td>
-                  <a href="../clients/view.php?id=<?= $row['client_id'] ?>" style="font-weight: 800; color: var(--primary); text-decoration: none;">
-                    <?= e($row['client_name']) ?>
-                  </a>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <?= getCountryFlagSvg($row['country'] ?? 'EG', 18, 13) ?>
+                    <a href="../clients/view.php?id=<?= $row['client_id'] ?>" style="font-weight: 800; color: var(--primary); text-decoration: none;">
+                      <?= e($row['client_name']) ?>
+                    </a>
+                  </div>
                   <?php if (!empty($row['company_name'])): ?>
-                    <div style="font-size: 11px; color: var(--text-muted);"><?= e($row['company_name']) ?></div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><?= e($row['company_name']) ?></div>
                   <?php endif; ?>
                 </td>
                 <td><span dir="ltr"><?= e($row['mobile']) ?></span></td>
@@ -1009,10 +1021,13 @@ function openDrillModal(monthNum, serviceId, monthName, serviceName) {
         html += `
           <tr>
             <td>
-              <a href="../clients/view.php?id=${c.id}" target="_blank" style="font-weight: 700; color: var(--primary); text-decoration: none;">
-                ${c.name}
-              </a>
-              ${c.company_name ? `<div style="font-size: 11px; color: var(--text-muted);">${c.company_name}</div>` : ''}
+              <div style="display: flex; align-items: center; gap: 6px;">
+                ${c.flag_svg || ''}
+                <a href="../clients/view.php?id=${c.id}" target="_blank" style="font-weight: 700; color: var(--primary); text-decoration: none;">
+                  ${c.name}
+                </a>
+              </div>
+              ${c.company_name ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${c.company_name}</div>` : ''}
             </td>
             <td><span dir="ltr">${c.mobile || '—'}</span></td>
             <td><span class="badge" style="background:#f1f5f9;">${c.plan_name || 'افتراضي'}</span></td>

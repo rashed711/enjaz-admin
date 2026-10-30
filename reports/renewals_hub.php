@@ -103,6 +103,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // إعادة الإشعار من المعتمد إلى بانتظار المراجعة
+    if ($action === 'revert_to_pending') {
+        $notifId = (int)($_POST['notification_id'] ?? 0);
+        $stmt = $db->prepare("UPDATE renewal_notifications SET status = 'pending_review', reviewed_at = NULL, reviewed_by = NULL WHERE id = ?");
+        $stmt->execute([$notifId]);
+        setFlash('info', 'تمت إعادة الإشعار إلى قائمة بانتظار المراجعة بنجاح.');
+        header('Location: renewals_hub.php?tab=pending');
+        exit;
+    }
+
     // 5. اعتماد وجدولة الرسائل المحددة جماعياً للإرسال الصباحي
     if ($action === 'bulk_approve') {
         $selectedIds = $_POST['selected_ids'] ?? [];
@@ -414,7 +424,7 @@ if ($activeTab === 'history') {
     try {
         $stmtHistory = $db->query("
             SELECT rn.*, 
-                   c.name as client_name, c.company_name, c.mobile,
+                   c.name as client_name, c.company_name, c.mobile, c.country,
                    u.username as reviewer_name
             FROM renewal_notifications rn
             JOIN clients c ON c.id = rn.client_id
@@ -792,9 +802,12 @@ table.data-table tbody tr:hover {
               <div style="display: flex; align-items: center; gap: 8px;">
                 <input type="checkbox" name="selected_ids[]" value="<?= $item['id'] ?>" class="review-item-checkbox" onchange="updateReviewSelectionCount()">
                 <div>
-                  <strong style="font-size: 14.5px;"><?= e($item['client_name']) ?></strong>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <?= getCountryFlagSvg($item['country'] ?? 'EG', 18, 13) ?>
+                    <strong style="font-size: 14.5px;"><?= e($item['client_name']) ?></strong>
+                  </div>
                   <?php if (!empty($item['company_name'])): ?>
-                    <div style="font-size: 11px; color: var(--text-muted);"><?= e($item['company_name']) ?></div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><?= e($item['company_name']) ?></div>
                   <?php endif; ?>
                 </div>
               </div>
@@ -878,9 +891,12 @@ table.data-table tbody tr:hover {
             <?php foreach ($approvedItems as $app): ?>
               <tr>
                 <td>
-                  <strong><?= e($app['client_name']) ?></strong>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <?= getCountryFlagSvg($app['country'] ?? 'EG', 18, 13) ?>
+                    <strong><?= e($app['client_name']) ?></strong>
+                  </div>
                   <?php if (!empty($app['company_name'])): ?>
-                    <div style="font-size: 11px; color: var(--text-muted);"><?= e($app['company_name']) ?></div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><?= e($app['company_name']) ?></div>
                   <?php endif; ?>
                 </td>
                 <td><span dir="ltr"><?= e($app['mobile']) ?></span></td>
@@ -892,13 +908,21 @@ table.data-table tbody tr:hover {
                   </button>
                 </td>
                 <td><span style="font-size: 12px; color: var(--text-muted);"><?= e($app['reviewer_name'] ?? 'الأدمن') ?></span></td>
-                <td>
+                <td style="white-space: nowrap;">
                   <form method="POST" style="margin: 0; display: inline;">
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="send_single">
                     <input type="hidden" name="notification_id" value="<?= $app['id'] ?>">
                     <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('إرسال الآن؟')">
                       <i class="fab fa-whatsapp"></i> إرسال الآن
+                    </button>
+                  </form>
+                  <form method="POST" style="margin: 0; display: inline;" onsubmit="return confirm('إعادة هذا الإشعار إلى قائمة بانتظار المراجعة؟')">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="revert_to_pending">
+                    <input type="hidden" name="notification_id" value="<?= $app['id'] ?>">
+                    <button type="submit" class="btn btn-sm btn-outline" title="إعادة للمراجعة">
+                      <i class="fas fa-undo"></i>
                     </button>
                   </form>
                 </td>
@@ -946,9 +970,12 @@ table.data-table tbody tr:hover {
         <div>
           <label style="font-size: 12px; font-weight: 700;">الدولة</label>
           <select name="country" class="form-control">
-            <option value="">الكل</option>
-            <option value="EG" <?= $country === 'EG' ? 'selected' : '' ?>>مصر</option>
-            <option value="SA" <?= $country === 'SA' ? 'selected' : '' ?>>السعودية</option>
+            <option value="">كل الدول</option>
+            <?php foreach (getSupportedCountries() as $cCode => $cInfo): ?>
+              <option value="<?= $cCode ?>" <?= $country === $cCode ? 'selected' : '' ?>>
+                <?= $cInfo['flag'] ?> <?= e($cInfo['name']) ?>
+              </option>
+            <?php endforeach; ?>
           </select>
         </div>
 
@@ -992,7 +1019,10 @@ table.data-table tbody tr:hover {
             <?php foreach ($renewalsTableData as $c): ?>
               <tr>
                 <td>
-                  <strong><?= e($c['name']) ?></strong>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <?= getCountryFlagSvg($c['country'] ?? 'EG', 18, 13) ?>
+                    <strong><?= e($c['name']) ?></strong>
+                  </div>
                   <div style="font-size: 11px; color: var(--text-muted);"><?= e($c['mobile']) ?></div>
                 </td>
                 <td>
@@ -1056,7 +1086,15 @@ table.data-table tbody tr:hover {
             <?php foreach ($historyItems as $h): ?>
               <tr>
                 <td><?= e($h['sent_at'] ?? $h['reviewed_at']) ?></td>
-                <td><strong><?= e($h['client_name']) ?></strong></td>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <?= getCountryFlagSvg($h['country'] ?? 'EG', 18, 13) ?>
+                    <strong><?= e($h['client_name']) ?></strong>
+                  </div>
+                  <?php if (!empty($h['company_name'])): ?>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><?= e($h['company_name']) ?></div>
+                  <?php endif; ?>
+                </td>
                 <td><span dir="ltr"><?= e($h['mobile']) ?></span></td>
                 <td><span class="stage-pill stage-<?= $h['stage'] ?>">مرحلة <?= $h['stage'] ?> يوم</span></td>
                 <td>
@@ -1082,27 +1120,74 @@ table.data-table tbody tr:hover {
   </div>
 <?php endif; ?>
 
-<!-- نافذة عرض الرسالة المنبثقة (Modal) -->
+<!-- نافذة عرض الرسالة المنبثقة بتصميم واتساب احترافي (WhatsApp Preview Modal) -->
 <div id="hubMessageModal" class="hub-modal" onclick="closeHubMessageModal(event)">
-  <div class="hub-modal-content" onclick="event.stopPropagation()">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-      <h3 style="margin: 0; font-size: 16px;"><i class="fab fa-whatsapp" style="color: #10b981;"></i> نص رسالة التجديد</h3>
-      <button type="button" class="btn btn-sm btn-outline" onclick="closeHubMessageModal()">✕</button>
+  <div class="hub-modal-content" style="max-width: 580px; width: 92%; padding: 22px; border-radius: 16px; box-shadow: 0 15px 40px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">
+    
+    <!-- رأس المودال -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <i class="fab fa-whatsapp" style="color: #25D366; font-size: 26px;"></i>
+        <div>
+          <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 800;">معاينة رسالة التجديد</h3>
+          <span style="font-size: 11.5px; color: var(--text-muted);">تنسيق مطابق لما يظهر للعميل على تطبيق الواتساب</span>
+        </div>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" id="copyMsgBtn" class="btn btn-sm btn-outline" onclick="copyMessageToClipboard()" style="font-size: 12px; font-weight: 700; color: #0d9488; border-color: #0d9488;">
+          <i class="far fa-copy"></i> نسخ النص
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" style="border: none; font-size: 16px; color: var(--text-muted); padding: 4px 8px;" onclick="closeHubMessageModal()">✕</button>
+      </div>
     </div>
-    <div id="hubMessageModalBody" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; max-height: 350px; overflow-y: auto;"></div>
-    <div style="text-align: left; margin-top: 14px;">
+
+    <!-- صندوق محاكاة شات الواتساب -->
+    <div style="background: #efeae2; border-radius: 12px; padding: 18px 14px; max-height: 420px; overflow-y: auto; border: 1px solid #dcd7ce; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);">
+      <div style="max-width: 96%; margin: 0 auto;">
+        <div id="hubMessageModalBubble" style="background: #ffffff; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.15); font-size: 14px; line-height: 1.8; color: #111b21; font-family: 'Cairo', system-ui, sans-serif; white-space: pre-wrap; word-break: break-word;"></div>
+      </div>
+    </div>
+
+    <!-- أسفل المودال -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color);">
+      <span style="font-size: 11.5px; color: var(--text-muted);"><i class="fas fa-check-double" style="color: #53bdeb;"></i> يتم إبراز التنسيقات العريضة والأرقام بوضوح</span>
       <button type="button" class="btn btn-sm btn-secondary" onclick="closeHubMessageModal()">إغلاق</button>
     </div>
   </div>
 </div>
 
 <script>
-// فتح نافذة عرض نص الرسالة بأمان
+let currentMessageRaw = '';
+
+function formatWhatsappText(text) {
+  if (!text) return '';
+  let res = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Blocks
+  res = res.replace(/```([^`]+)```/g, '<code style="display:block; background:#f8fafc; padding:6px 10px; border-radius:6px; font-family:monospace; margin:4px 0;">$1</code>');
+  res = res.replace(/`([^`\n]+)`/g, '<code style="background:#f1f5f9; padding:2px 5px; border-radius:4px; font-family:monospace; color:#0f766e;">$1</code>');
+  // Bold
+  res = res.replace(/\*([^\*\n]+)\*/g, '<strong style="color: #0f172a; font-weight: 800;">$1</strong>');
+  // Italic
+  res = res.replace(/_([^_\n]+)_/g, '<em style="color: #334155;">$1</em>');
+  // Strike
+  res = res.replace(/~([^~\n]+)~/g, '<del style="color: #94a3b8;">$1</del>');
+  // URLs
+  res = res.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: underline;">$1</a>');
+
+  return res;
+}
+
 function openHubMessageModal(msgText) {
+  currentMessageRaw = msgText || '';
   const modal = document.getElementById('hubMessageModal');
-  const body = document.getElementById('hubMessageModalBody');
-  if (modal && body) {
-    body.textContent = msgText;
+  const bubble = document.getElementById('hubMessageModalBubble');
+  if (modal && bubble) {
+    bubble.innerHTML = formatWhatsappText(currentMessageRaw);
     modal.classList.add('open');
   }
 }
@@ -1110,6 +1195,24 @@ function openHubMessageModal(msgText) {
 function closeHubMessageModal(e) {
   const modal = document.getElementById('hubMessageModal');
   if (modal) modal.classList.remove('open');
+}
+
+function copyMessageToClipboard() {
+  if (!currentMessageRaw) return;
+  navigator.clipboard.writeText(currentMessageRaw).then(() => {
+    const btn = document.getElementById('copyMsgBtn');
+    if (btn) {
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i> تم النسخ!';
+      btn.style.color = '#10b981';
+      btn.style.borderColor = '#10b981';
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.style.color = '#0d9488';
+        btn.style.borderColor = '#0d9488';
+      }, 2000);
+    }
+  });
 }
 
 // التحكم في التحديد الجماعي
