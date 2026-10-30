@@ -747,17 +747,17 @@ function getRenewalPaymentAccounts(): array {
             'label'    => '🇪🇬 الجنيه المصري (EGP)',
             'header'   => 'بيانات التحويل (مصر):',
             'accounts' => [
-                ['name' => 'انستا باي او فودافون كاش', 'details' => '01028855779']
+                ['name' => 'انستا باي او فودافون كاش', 'details' => '01028855779', 'is_active' => 1]
             ]
         ],
         'SAR' => [
             'label'    => '🇸🇦 الريال السعودي (SAR)',
             'header'   => 'بيانات التحويل (السعودية):',
             'accounts' => [
-                ['name' => 'الراجحي – رقم الحساب', 'details' => '077060010006088389454'],
-                ['name' => 'الراجحي – IBAN', 'details' => 'SA5980000866608018389454'],
-                ['name' => 'D360 – IBAN', 'details' => 'SA3036036036065660911461'],
-                ['name' => 'STC Pay', 'details' => '0567457572']
+                ['name' => 'الراجحي – رقم الحساب', 'details' => '077060010006088389454', 'is_active' => 1],
+                ['name' => 'الراجحي – IBAN', 'details' => 'SA5980000866608018389454', 'is_active' => 1],
+                ['name' => 'D360 – IBAN', 'details' => 'SA3036036036065660911461', 'is_active' => 1],
+                ['name' => 'STC Pay', 'details' => '0567457572', 'is_active' => 1]
             ]
         ]
     ];
@@ -786,6 +786,12 @@ function formatRenewalPaymentText(string $currencyCode): string {
     $lines = ["💳 *{$header}*"];
 
     foreach ($group['accounts'] as $acc) {
+        // فحص هل الحساب مفعّل (الافتراضي مفعّل ما لم يتم إيقافه صراحة)
+        $isActive = isset($acc['is_active']) ? !empty($acc['is_active']) : true;
+        if (!$isActive) {
+            continue; // تخطي الحساب الموقّف
+        }
+
         $name = trim($acc['name'] ?? '');
         $det  = trim($acc['details'] ?? '');
         if (!empty($name) && !empty($det)) {
@@ -795,6 +801,11 @@ function formatRenewalPaymentText(string $currencyCode): string {
         } elseif (!empty($det)) {
             $lines[] = "• {$det}";
         }
+    }
+
+    // إذا كانت جميع الحسابات موقوفة
+    if (count($lines) === 1) {
+        return "";
     }
 
     return implode("\n", $lines);

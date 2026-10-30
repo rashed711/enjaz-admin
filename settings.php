@@ -39,10 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($data['accounts'] as $acc) {
                         $name = clean($acc['name'] ?? '');
                         $details = clean($acc['details'] ?? '');
+                        $isActive = !empty($acc['is_active']) ? 1 : 0;
                         if (!empty($name) || !empty($details)) {
                             $accList[] = [
-                                'name'    => $name,
-                                'details' => $details
+                                'name'      => $name,
+                                'details'   => $details,
+                                'is_active' => $isActive
                             ];
                         }
                     }
@@ -356,10 +358,19 @@ require_once INCLUDES_PATH . '/header.php';
 
               <div id="accounts-container-<?= $cCode ?>" style="display:flex; flex-direction:column; gap:8px;">
                 <?php $accList = $cData['accounts'] ?? []; ?>
-                <?php foreach ($accList as $idx => $acc): ?>
-                  <div class="account-row" style="display:grid; grid-template-columns:1fr 1.5fr auto; gap:10px; align-items:center;">
+                <?php foreach ($accList as $idx => $acc): 
+                  $isActive = isset($acc['is_active']) ? !empty($acc['is_active']) : true;
+                ?>
+                  <div class="account-row" style="display:grid; grid-template-columns:1fr 1.5fr auto auto; gap:10px; align-items:center; opacity:<?= $isActive ? '1' : '0.55' ?>; transition:opacity 0.2s;">
                     <input type="text" name="payment_accounts[<?= $cCode ?>][accounts][<?= $idx ?>][name]" class="form-control" value="<?= e($acc['name'] ?? '') ?>" placeholder="اسم البنك / المحفظة (مثال: الراجحي – رقم الحساب)">
                     <input type="text" name="payment_accounts[<?= $cCode ?>][accounts][<?= $idx ?>][details]" class="form-control" value="<?= e($acc['details'] ?? '') ?>" placeholder="رقم الحساب / الآيبان / الهاتف" dir="ltr" style="font-family:monospace;">
+                    
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; font-weight:700; margin:0; padding:6px 12px; border-radius:6px; background:<?= $isActive ? '#ecfdf5' : '#f1f5f9' ?>; color:<?= $isActive ? '#059669' : '#64748b' ?>; border:1px solid <?= $isActive ? '#a7f3d0' : '#cbd5e1' ?>; user-select:none;" title="انقر لتفعيل أو إيقاف الحساب من رسائل العملاء">
+                      <input type="checkbox" name="payment_accounts[<?= $cCode ?>][accounts][<?= $idx ?>][is_active]" value="1" <?= $isActive ? 'checked' : '' ?> onchange="toggleAccountStatus(this)" style="display:none;">
+                      <span class="status-icon"><?= $isActive ? '✅' : '⏸️' ?></span>
+                      <span class="status-text"><?= $isActive ? 'مفعّل' : 'موقّف' ?></span>
+                    </label>
+
                     <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.account-row').remove()" title="حذف الحساب">
                       <i class="fas fa-trash-alt"></i>
                     </button>
@@ -387,16 +398,43 @@ require_once INCLUDES_PATH . '/header.php';
     if (targetPanel) targetPanel.style.display = 'block';
   }
 
+  function toggleAccountStatus(cb) {
+    const label = cb.closest('label');
+    const row = cb.closest('.account-row');
+    const icon = label.querySelector('.status-icon');
+    const text = label.querySelector('.status-text');
+    if (cb.checked) {
+      label.style.background = '#ecfdf5';
+      label.style.color = '#059669';
+      label.style.borderColor = '#a7f3d0';
+      icon.textContent = '✅';
+      text.textContent = 'مفعّل';
+      row.style.opacity = '1';
+    } else {
+      label.style.background = '#f1f5f9';
+      label.style.color = '#64748b';
+      label.style.borderColor = '#cbd5e1';
+      icon.textContent = '⏸️';
+      text.textContent = 'موقّف';
+      row.style.opacity = '0.55';
+    }
+  }
+
   function addAccountRow(currCode) {
     const container = document.getElementById('accounts-container-' + currCode);
     if (!container) return;
     const idx = Date.now();
     const row = document.createElement('div');
     row.className = 'account-row';
-    row.style.cssText = 'display:grid; grid-template-columns:1fr 1.5fr auto; gap:10px; align-items:center;';
+    row.style.cssText = 'display:grid; grid-template-columns:1fr 1.5fr auto auto; gap:10px; align-items:center; transition:opacity 0.2s;';
     row.innerHTML = `
       <input type="text" name="payment_accounts[${currCode}][accounts][${idx}][name]" class="form-control" placeholder="اسم البنك أو المحفظة">
       <input type="text" name="payment_accounts[${currCode}][accounts][${idx}][details]" class="form-control" placeholder="رقم الحساب / الآيبان / الهاتف" dir="ltr" style="font-family:monospace;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; font-weight:700; margin:0; padding:6px 12px; border-radius:6px; background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; user-select:none;" title="انقر لتفعيل أو إيقاف الحساب">
+        <input type="checkbox" name="payment_accounts[${currCode}][accounts][${idx}][is_active]" value="1" checked onchange="toggleAccountStatus(this)" style="display:none;">
+        <span class="status-icon">✅</span>
+        <span class="status-text">مفعّل</span>
+      </label>
       <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.account-row').remove()" title="حذف">
         <i class="fas fa-trash-alt"></i>
       </button>
