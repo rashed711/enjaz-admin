@@ -11,6 +11,13 @@ $year = (int)($_GET['year'] ?? date('Y'));
 $selectedMonth = isset($_GET['month']) ? (int)$_GET['month'] : null;
 $clientStatus = $_GET['client_status'] ?? 'active'; // 'active', 'suspended', 'all'
 
+// إعادة التوجيه التلقائي للمركز المالي الموحد
+$redirParams = ['tab' => 'monthly', 'year' => $year];
+if ($selectedMonth) $redirParams['month'] = $selectedMonth;
+if ($clientStatus !== 'active') $redirParams['client_status'] = $clientStatus;
+header("Location: financial-hub.php?" . http_build_query($redirParams));
+exit;
+
 $arabicMonths = ['', 'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
 if ($selectedMonth) {

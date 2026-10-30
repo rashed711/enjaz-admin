@@ -8,6 +8,10 @@ requirePermission('view_reports');
 
 $db = getDB();
 
+// إعادة التوجيه التلقائي لمركز تحليلات الأداء والولاء الموحد
+header("Location: analytics_hub.php?tab=loyalty");
+exit;
+
 // الفلاتر والبحث
 $search = clean($_GET['search'] ?? '');
 $renewalFilter = clean($_GET['renewal_status'] ?? 'all'); // 'all', 'renewed', 'needs_renewal', 'expiring_soon', 'none'

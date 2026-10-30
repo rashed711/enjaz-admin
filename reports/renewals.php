@@ -7,6 +7,10 @@ requireLogin();
 requirePermission('view_reports');
 
 $db = getDB();
+
+// إعادة التوجيه التلقائي لمركز التجديدات الموحد
+header("Location: renewals_hub.php");
+exit;
 $warningDays = (int)getSetting('renewal_warning_days', '60');
 $filterDays   = isset($_GET['days']) ? (int)$_GET['days'] : $warningDays;
 $clientStatus = $_GET['status'] ?? '1'; // '1' = active, '0' = stopped, 'all' = both

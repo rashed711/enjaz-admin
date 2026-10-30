@@ -164,8 +164,8 @@ try {
       <p class="nav-section-title">التقارير والحسابات</p>
       <ul>
         <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/financial-hub.php?tab=payments"
-             class="nav-link <?= ($activePage ?? '') === 'financial-hub' ? 'active' : '' ?>"
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/financial-hub.php"
+             class="nav-link <?= in_array(($activePage ?? ''), ['financial-hub', 'reports-monthly', 'reports-services-stats']) ? 'active' : '' ?>"
              id="nav-financial-hub">
             <i class="fas fa-wallet nav-icon"></i>
             <span>المركز المالي والتقارير</span>
@@ -173,46 +173,22 @@ try {
         </li>
         <?php if (hasPermission('view_reports')): ?>
         <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/monthly.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-monthly' ? 'active' : '' ?>"
-             id="nav-reports-monthly">
-            <i class="fas fa-chart-bar nav-icon"></i>
-            <span>المشتركون والخدمات شهرياً</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/services-stats.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-services-stats' ? 'active' : '' ?>"
-             id="nav-reports-services-stats">
-            <i class="fas fa-chart-line nav-icon"></i>
-            <span>احصائيات الخدمات</span>
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/analytics_hub.php"
+             class="nav-link <?= in_array(($activePage ?? ''), ['analytics-hub', 'reports-loyalty']) ? 'active' : '' ?>"
+             id="nav-analytics-hub">
+            <i class="fas fa-chart-pie nav-icon"></i>
+            <span>مركز تحليلات الأداء والنمو</span>
           </a>
         </li>
         <li class="nav-item">
           <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals_hub.php"
-             class="nav-link <?= ($activePage ?? '') === 'renewals-hub' ? 'active' : '' ?>"
+             class="nav-link <?= in_array(($activePage ?? ''), ['renewals-hub', 'renewals']) ? 'active' : '' ?>"
              id="nav-renewals-hub">
-            <i class="fas fa-layer-group nav-icon" style="color: var(--primary);"></i>
+            <i class="fas fa-sync-alt nav-icon"></i>
             <span>مركز التجديدات الموحد</span>
             <?php if ($renewalCount > 0): ?>
             <span class="nav-badge"><?= $renewalCount ?></span>
             <?php endif; ?>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/loyalty.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-loyalty' ? 'active' : '' ?>"
-             id="nav-reports-loyalty">
-            <i class="fas fa-handshake nav-icon"></i>
-            <span>تحليل التجديدات والولاء</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/analytics_hub.php"
-             class="nav-link <?= ($activePage ?? '') === 'analytics-hub' ? 'active' : '' ?>"
-             id="nav-analytics-hub" style="color: #0d9488; background: rgba(13, 148, 136, 0.08); font-weight: 700; border-radius: 8px;">
-            <i class="fas fa-chart-pie nav-icon" style="color: #0d9488;"></i>
-            <span>مركز تحليلات الأداء</span>
           </a>
         </li>
         <?php endif; ?>

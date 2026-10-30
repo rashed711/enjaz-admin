@@ -5,8 +5,8 @@
 require_once dirname(__DIR__) . '/config/app.php';
 requireLogin();
 
-// تحديد التبويب الحالي
-$tab = $_GET['tab'] ?? 'payments';
+// تحديد التبويب الحالي (الافتراضي هو الأرباح والخسائر والتحليلات)
+$tab = clean($_GET['tab'] ?? 'monthly');
 
 $db = getDB();
 
@@ -316,6 +316,9 @@ elseif ($tab === 'monthly') {
         $monthlySales = [];
         $monthlyPurchases = [];
         $monthlyClients = [];
+        $monthlyDomains = [];
+        $monthlyEmails = [];
+        $monthlyWebsites = [];
         for ($m = 1; $m <= 12; $m++) {
             // الإيرادات
             $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date)=? AND MONTH(payment_date)=?");
@@ -339,6 +342,21 @@ elseif ($tab === 'monthly') {
             $stmt4 = $db->prepare("SELECT COUNT(DISTINCT client_id) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=?");
             $stmt4->execute([$year, $m]);
             $monthlyClients[$m] = (int)$stmt4->fetchColumn();
+
+            // مبيعات الدومينات
+            $stmtDom = $db->prepare("SELECT COALESCE(SUM(price),0) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=? AND service_id = 2 AND status != 'cancelled'");
+            $stmtDom->execute([$year, $m]);
+            $monthlyDomains[$m] = (float)$stmtDom->fetchColumn();
+
+            // مبيعات استضافة البريد
+            $stmtMail = $db->prepare("SELECT COALESCE(SUM(price),0) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=? AND service_id = 1 AND status != 'cancelled'");
+            $stmtMail->execute([$year, $m]);
+            $monthlyEmails[$m] = (float)$stmtMail->fetchColumn();
+
+            // مبيعات تصميم المواقع
+            $stmtWeb = $db->prepare("SELECT COALESCE(SUM(price),0) FROM client_subscriptions WHERE YEAR(start_date)=? AND MONTH(start_date)=? AND service_id = 3 AND status != 'cancelled'");
+            $stmtWeb->execute([$year, $m]);
+            $monthlyWebsites[$m] = (float)$stmtWeb->fetchColumn();
         }
         $totalYear = array_sum($months);
         $totalExpensesYear = array_sum($monthlyExpenses);
@@ -347,6 +365,10 @@ elseif ($tab === 'monthly') {
         $totalSalesYear = array_sum($monthlySales);
         $totalPurchasesYear = array_sum($monthlyPurchases);
         $netSalesProfitYear = $totalSalesYear - $totalPurchasesYear;
+
+        $totalDomainsYear = array_sum($monthlyDomains);
+        $totalEmailsYear = array_sum($monthlyEmails);
+        $totalWebsitesYear = array_sum($monthlyWebsites);
 
         $yearClientsWhere = ["YEAR(cs.start_date) = ?", "cs.status != 'cancelled'"];
         $yearClientsParams = [$year];
@@ -774,14 +796,14 @@ require_once INCLUDES_PATH . '/header.php';
 
 <!-- Tabs Navigation -->
 <div class="tabs-nav">
+  <a href="?tab=monthly" class="tab-btn <?= $tab === 'monthly' ? 'active' : '' ?>">
+    <i class="fas fa-chart-line"></i> الأرباح والخسائر والتحليلات
+  </a>
   <a href="?tab=payments" class="tab-btn <?= $tab === 'payments' ? 'active' : '' ?>">
     <i class="fas fa-money-bill-wave"></i> المدفوعات
   </a>
   <a href="?tab=invoices" class="tab-btn <?= $tab === 'invoices' ? 'active' : '' ?>">
     <i class="fas fa-file-invoice"></i> الفواتير
-  </a>
-  <a href="?tab=monthly" class="tab-btn <?= $tab === 'monthly' ? 'active' : '' ?>">
-    <i class="fas fa-chart-line"></i> الأرباح والخسائر والتحليلات
   </a>
   <a href="?tab=services" class="tab-btn <?= $tab === 'services' ? 'active' : '' ?>">
     <i class="fas fa-layer-group"></i> ملخص الخدمات
@@ -1785,12 +1807,15 @@ require_once INCLUDES_PATH . '/header.php';
     <!-- الكرت التفاعلي الرئيسي -->
     <div class="card" style="margin: 0; display:flex; flex-direction:column;">
       <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:inline-flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:8px;">
+        <div style="display:inline-flex; gap:6px; background:#f1f5f9; padding:4px; border-radius:8px; flex-wrap:wrap;">
           <button type="button" id="btnCashTab" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:var(--primary); color:#fff; border:none; cursor:pointer;" onclick="switchAnalysisTab('cash')">
             <i class="fas fa-wallet" style="margin-left:4px;"></i> التدفق النقدي الفعلي
           </button>
           <button type="button" id="btnAccrualTab" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:transparent; color:var(--text-primary); border:none; cursor:pointer;" onclick="switchAnalysisTab('accrual')">
             <i class="fas fa-chart-line" style="margin-left:4px;"></i> المبيعات والتعاقدات
+          </button>
+          <button type="button" id="btnServicesTab" class="btn" style="font-size:12px; padding:6px 12px; font-weight:700; border-radius:6px; background:transparent; color:var(--text-primary); border:none; cursor:pointer;" onclick="switchAnalysisTab('services')">
+            <i class="fas fa-layer-group" style="margin-left:4px;"></i> مصفوفة توزيع الخدمات
           </button>
         </div>
         <form method="GET" style="margin:0; display:inline-flex; align-items:center;">
@@ -1894,6 +1919,63 @@ require_once INCLUDES_PATH . '/header.php';
                 <td style="padding:12px 16px;color: <?= $netSalesProfitYear >= 0 ? '#2563eb' : 'var(--danger)' ?>;">
                   <?= ($netSalesProfitYear >= 0 ? '+' : '') . formatMoney($netSalesProfitYear) ?>
                 </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- محتوى توزيع مبيعات الخدمات (الدومين، البريد، المواقع) -->
+      <div id="servicesBreakdownContent" style="display:none;">
+        <div class="table-wrapper">
+          <table class="data-table" style="width:100%; text-align:center;">
+            <thead>
+              <tr style="background:#f8fafc; font-weight:700;">
+                <th>الشهر</th>
+                <th>عدد المشتركين</th>
+                <th>مبيعات الدومينات</th>
+                <th>مبيعات استضافة البريد</th>
+                <th>مبيعات تصميم المواقع</th>
+                <th>إجمالي المبيعات</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($months as $m => $amt): 
+                $clientsCount = $monthlyClients[$m] ?? 0;
+                $domVal = $monthlyDomains[$m] ?? 0;
+                $mailVal = $monthlyEmails[$m] ?? 0;
+                $webVal = $monthlyWebsites[$m] ?? 0;
+                $totSales = $monthlySales[$m] ?? 0;
+              ?>
+              <tr>
+                <td>
+                  <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700; color:var(--primary); display:inline-flex; align-items:center; gap:6px;" title="عرض تفاصيل شهر <?= $arabicMonths[$m] ?>">
+                    <?= $arabicMonths[$m] ?> <i class="fas fa-chevron-left" style="font-size:10px; color:#94a3b8;"></i>
+                  </a>
+                </td>
+                <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
+                <td style="font-weight:700; color: <?= $domVal > 0 ? 'var(--text-primary)' : 'var(--text-muted)' ?>;"><?= $domVal > 0 ? formatMoney($domVal) : '—' ?></td>
+                <td style="font-weight:700; color: <?= $mailVal > 0 ? 'var(--text-primary)' : 'var(--text-muted)' ?>;"><?= $mailVal > 0 ? formatMoney($mailVal) : '—' ?></td>
+                <td style="font-weight:700; color: <?= $webVal > 0 ? 'var(--text-primary)' : 'var(--text-muted)' ?>;"><?= $webVal > 0 ? formatMoney($webVal) : '—' ?></td>
+                <td class="fw-bold text-success" style="font-size:14px;"><?= formatMoney($totSales) ?></td>
+                <td>
+                  <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" class="btn btn-sm btn-outline-primary" style="padding:3px 8px; font-size:11px; border-radius:6px;">
+                    <i class="fas fa-eye"></i> التفاصيل
+                  </a>
+                </td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+            <tfoot>
+              <tr style="background:#f8fafc; font-weight:800; font-size:14px;">
+                <td style="padding:12px 16px;">الإجمالي السنوي</td>
+                <td style="padding:12px 16px; color:var(--primary-light);"><?= $totalClientsYear ?> عميل</td>
+                <td style="padding:12px 16px;"><?= formatMoney($totalDomainsYear) ?></td>
+                <td style="padding:12px 16px;"><?= formatMoney($totalEmailsYear) ?></td>
+                <td style="padding:12px 16px;"><?= formatMoney($totalWebsitesYear) ?></td>
+                <td style="padding:12px 16px; color:var(--success); font-weight:900;"><?= formatMoney($totalSalesYear) ?></td>
+                <td></td>
               </tr>
             </tfoot>
           </table>
@@ -2062,32 +2144,31 @@ require_once INCLUDES_PATH . '/header.php';
   function switchAnalysisTab(tab) {
       const cashContent = document.getElementById('cashAnalysisContent');
       const accrualContent = document.getElementById('accrualAnalysisContent');
+      const servicesContent = document.getElementById('servicesBreakdownContent');
       const btnCash = document.getElementById('btnCashTab');
       const btnAccrual = document.getElementById('btnAccrualTab');
+      const btnServices = document.getElementById('btnServicesTab');
       
-      if (tab === 'cash') {
-          if (cashContent) cashContent.style.display = 'block';
-          if (accrualContent) accrualContent.style.display = 'none';
-          if (btnCash) {
-              btnCash.style.background = 'var(--primary)';
-              btnCash.style.color = '#fff';
-          }
-          if (btnAccrual) {
-              btnAccrual.style.background = 'transparent';
-              btnAccrual.style.color = 'var(--text-primary)';
-          }
-      } else {
-          if (cashContent) cashContent.style.display = 'none';
-          if (accrualContent) accrualContent.style.display = 'block';
-          if (btnCash) {
-              btnCash.style.background = 'transparent';
-              btnCash.style.color = 'var(--text-primary)';
-          }
-          if (btnAccrual) {
-              btnAccrual.style.background = 'var(--primary)';
-              btnAccrual.style.color = '#fff';
-          }
-      }
+      if (cashContent) cashContent.style.display = (tab === 'cash' ? 'block' : 'none');
+      if (accrualContent) accrualContent.style.display = (tab === 'accrual' ? 'block' : 'none');
+      if (servicesContent) servicesContent.style.display = (tab === 'services' ? 'block' : 'none');
+      
+      const buttons = [
+        { btn: btnCash, id: 'cash' },
+        { btn: btnAccrual, id: 'accrual' },
+        { btn: btnServices, id: 'services' }
+      ];
+      
+      buttons.forEach(b => {
+        if (!b.btn) return;
+        if (b.id === tab) {
+          b.btn.style.background = 'var(--primary)';
+          b.btn.style.color = '#fff';
+        } else {
+          b.btn.style.background = 'transparent';
+          b.btn.style.color = 'var(--text-primary)';
+        }
+      });
   }
 
   function toggleDetailedBudget() {
