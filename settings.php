@@ -14,7 +14,7 @@ $success  = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
-        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','default_home_page','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods','renewal_auto_review','renewal_admin_mobile','renewal_alert_hour','renewal_send_hour'];
+        $fields = ['company_name','company_phone','company_email','company_address','invoice_prefix','currency','renewal_warning_days','default_home_page','whatsapp_api_url','whatsapp_api_token','whatsapp_sender','payment_methods','renewal_auto_review','renewal_admin_mobile','renewal_alert_hour','renewal_send_hour','backup_email','backup_clients_enabled','backup_clients_hour'];
         foreach ($fields as $f) {
             $val = clean($_POST[$f] ?? '');
             $chk = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key`=?");
@@ -24,6 +24,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $db->prepare("UPDATE settings SET value=? WHERE `key`=?")->execute([$val,$f]);
             }
+        }
+
+        // اختبار إرسال النسخة الاحتياطية للبريد فوراً
+        if (isset($_POST['send_test_backup_now'])) {
+            require_once INCLUDES_PATH . '/client_backup.php';
+            $backupRes = sendClientsBackupEmail(true);
+            if (!empty($backupRes['success'])) {
+                setFlash('success', $backupRes['message']);
+            } else {
+                setFlash('error', $backupRes['message']);
+            }
+            header('Location: settings.php');
+            exit;
         }
 
         // حفظ حسابات وطرق الدفع المنظمة حسب عملة الاشتراك
@@ -277,6 +290,66 @@ require_once INCLUDES_PATH . '/header.php';
           <div style="background: rgba(245,158,11,.08); border-right: 3px solid #f59e0b; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #92400e; margin-top: 10px;">
             <i class="fas fa-lightbulb" style="margin-left: 6px;"></i>
             <strong>قاعدة الاستثناء الذكية:</strong> عند اعتماد إشعار الـ 60 يوم لأي عميل، يتخطى النظام تلقائياً إشعارات (45، 30، 15) ولن يظهر العميل مجدداً إلا عند وصوله إلى مرحلة الـ 7 أيام في حال لم يجدد.
+          </div>
+        </div>
+      </div>
+
+      <!-- النسخة الاحتياطية اليومية لشيت العملاء على البريد -->
+      <div class="card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="card-title">
+            <i class="fas fa-file-excel" style="color:#217346; margin-left:6px;"></i>
+            النسخة الاحتياطية اليومية لبيانات العملاء (إكسيل على الإيميل)
+          </span>
+          <span class="badge" style="background:rgba(33,115,70,0.1); color:#217346; font-weight:700;">
+            <i class="fas fa-shield-alt"></i> حماية ومراجعة دورية
+          </span>
+        </div>
+        <div class="card-body">
+          <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px;">
+            يتم توليد شيت إكسيل (CSV مفصل وشامل) يضم كافة بيانات العملاء، أرقام التواصل، الاشتراكات والخدمات، المديونيات، وتواريخ التجديد بترميز UTF-8 مع BOM وإرساله تلقائياً كملف مرفق إلى بريدك الإلكتروني في التوقيت المحدد.
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex: 2;">
+              <label class="form-label" for="backup_email">
+                <i class="fas fa-envelope" style="color:var(--primary); margin-left:4px;"></i>
+                بريد استلام النسخة الاحتياطية اليومية
+              </label>
+              <input type="email" id="backup_email" name="backup_email" class="form-control" value="<?= e($settings['backup_email'] ?? ($settings['company_email'] ?? 'info@enjaz.app')) ?>" placeholder="admin@enjaz.cloud" dir="ltr" style="font-weight:700;">
+              <span class="form-hint">البريد الذي سيصل إليه الشيت اليومي بصيغة Excel كمرفق.</span>
+            </div>
+
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="backup_clients_hour">
+                <i class="fas fa-clock" style="color:#6366f1; margin-left:4px;"></i>
+                موعد الإرسال اليومي
+              </label>
+              <input type="time" id="backup_clients_hour" name="backup_clients_hour" class="form-control" value="<?= e($settings['backup_clients_hour'] ?? '00:00') ?>" style="font-weight:700;">
+              <span class="form-hint">افتراضياً <strong>00:00</strong> (الساعة 12:00 منتصف الليل).</span>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 6px;">
+            <label class="form-label" style="display:flex; align-items:center; gap: 8px; cursor: pointer;">
+              <input type="hidden" name="backup_clients_enabled" value="0">
+              <input type="checkbox" name="backup_clients_enabled" value="1" <?= ($settings['backup_clients_enabled'] ?? '1') === '1' ? 'checked' : '' ?> style="width:18px; height:18px;">
+              <span style="font-weight: 700; color: var(--text-primary);">تفعيل الإرسال اليومي التلقائي لشيت العملاء عبر البريد</span>
+            </label>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-color); flex-wrap: wrap; gap: 10px;">
+            <div style="font-size: 12px; color: var(--text-muted);">
+              <?php if (!empty($settings['backup_clients_last_date'])): ?>
+                <i class="fas fa-check-circle" style="color: #10b981;"></i> آخر نسخة تم إرسالها بنجاح بتاريخ: <strong><?= e($settings['backup_clients_last_date']) ?></strong>
+              <?php else: ?>
+                <i class="fas fa-info-circle"></i> لم يتم إرسال نسخة احتياطية بعد.
+              <?php endif; ?>
+            </div>
+
+            <button type="submit" name="send_test_backup_now" value="1" class="btn btn-outline-success btn-sm" style="font-weight: 700;">
+              <i class="fas fa-paper-plane"></i> إرسال نسخة تجريبية للبريد الآن للتأكد
+            </button>
           </div>
         </div>
       </div>

@@ -92,7 +92,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // 5. اعتماد وإرسال الكل دفعة واحدة
+    // 5. اعتماد وجدولة الرسائل المحددة للإرسال الصباحي المجدول (مع حفظ أي تعديلات على النصوص)
+    if ($action === 'bulk_approve') {
+        $selectedIds = $_POST['selected_ids'] ?? [];
+        if (empty($selectedIds)) {
+            setFlash('error', 'يرجى تحديد إشعار واحد على الأقل.');
+            header('Location: renewal_reviews.php?tab=pending');
+            exit;
+        }
+
+        $approvedCount = 0;
+        foreach ($selectedIds as $id) {
+            $id = (int)$id;
+            $customMsg = trim($_POST["message_{$id}"] ?? '');
+            $stmt = $db->prepare("
+                UPDATE renewal_notifications 
+                SET message = COALESCE(NULLIF(?, ''), message), status = 'approved', reviewed_at = NOW(), reviewed_by = ?
+                WHERE id = ? AND status = 'pending_review'
+            ");
+            $stmt->execute([$customMsg, currentUserId(), $id]);
+            $approvedCount++;
+        }
+
+        setFlash('success', "تم اعتماد وجدولة ({$approvedCount}) إشعار بنجاح! سيتم إرسالها تلقائياً للعملاء في موعد الإرسال الصباحي المجدول.");
+        header('Location: renewal_reviews.php?tab=approved');
+        exit;
+    }
+
+    // 6. اعتماد وإرسال الرسائل المحددة الآن مباشرة عبر الواتساب (مع حفظ أي تعديلات)
     if ($action === 'bulk_send') {
         $selectedIds = $_POST['selected_ids'] ?? [];
         if (empty($selectedIds)) {
@@ -127,12 +154,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                        ->execute([$customMsg, currentUserId(), $res['response'], $id]);
                     $failedCount++;
                 }
-                sleep(2);
+                sleep(rand(2, 4));
             }
         }
 
         setFlash('success', "تم إرسال ({$sentCount}) إشعار بنجاح" . ($failedCount > 0 ? " وفشل ({$failedCount}) إشعار." : "."));
         header('Location: renewal_reviews.php');
+        exit;
+    }
+
+    // 7. إرسال جميع الرسائل المعتمدة فوراً من تبويب الرسائل المعتمدة
+    if ($action === 'send_all_approved') {
+        $approvedItems = $db->query("
+            SELECT rn.*, c.mobile, c.name as client_name
+            FROM renewal_notifications rn
+            JOIN clients c ON c.id = rn.client_id
+            WHERE rn.status = 'approved'
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($approvedItems)) {
+            setFlash('info', 'لا توجد رسائل معتمدة للإرسال.');
+            header('Location: renewal_reviews.php?tab=approved');
+            exit;
+        }
+
+        $sentCount = 0;
+        $failedCount = 0;
+        foreach ($approvedItems as $item) {
+            $res = sendWhatsappMessageDirect($item['mobile'], $item['message'], (int)$item['client_id'], 'renewal');
+            if ($res['success']) {
+                $db->prepare("UPDATE renewal_notifications SET status = 'sent', sent_at = NOW(), response = ? WHERE id = ?")
+                   ->execute([$res['response'], $item['id']]);
+                $sentCount++;
+            } else {
+                $db->prepare("UPDATE renewal_notifications SET status = 'failed', response = ? WHERE id = ?")
+                   ->execute([$res['response'], $item['id']]);
+                $failedCount++;
+            }
+            sleep(rand(2, 4));
+        }
+
+        setFlash('success', "تم إرسال ({$sentCount}) رسالة معتمدة بنجاح" . ($failedCount > 0 ? " وفشل ({$failedCount})." : "."));
+        header('Location: renewal_reviews.php?tab=history');
         exit;
     }
 }
@@ -404,17 +467,25 @@ require_once INCLUDES_PATH . '/header.php';
   <?php else: ?>
     <form method="POST" action="renewal_reviews.php" id="bulkReviewForm">
       <?= csrfField() ?>
-      <input type="hidden" name="action" value="bulk_send">
+      <input type="hidden" name="action" id="bulkActionInput" value="bulk_approve">
 
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; background: #fff; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color);">
-        <label style="display:flex; align-items:center; gap: 8px; font-weight: 700; cursor: pointer; font-size: 13.5px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; background: #fff; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap; gap: 12px;">
+        <label style="display:flex; align-items:center; gap: 8px; font-weight: 700; cursor: pointer; font-size: 13.5px; margin: 0;">
           <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" checked>
           <span>تحديد جميع الرسائل (<span id="selectedCountText"><?= count($pendingList) ?></span>)</span>
         </label>
 
-        <button type="submit" class="btn btn-success" style="font-weight: 800;" onclick="return confirm('هل أنت متأكد من اعتماد وإرسال جميع الرسائل المحددة الآن؟');">
-          <i class="fab fa-whatsapp"></i> اعتماد وإرسال الرسائل المحددة الآن
-        </button>
+        <div style="display:flex; gap: 8px; align-items:center; flex-wrap: wrap;">
+          <!-- زر اعتماد وجدولة الرسائل المحددة للصباح -->
+          <button type="button" class="btn btn-primary" style="font-weight: 800;" onclick="submitBulkAction('bulk_approve')">
+            <i class="fas fa-clock"></i> اعتماد وجدولة الرسائل المحددة (للإرسال الصباحي)
+          </button>
+
+          <!-- زر اعتماد وإرسال الرسائل المحددة الآن مباشرة -->
+          <button type="button" class="btn btn-success" style="font-weight: 800;" onclick="submitBulkAction('bulk_send')">
+            <i class="fab fa-whatsapp"></i> اعتماد وإرسال الرسائل المحددة الآن (مباشرة)
+          </button>
+        </div>
       </div>
 
       <?php foreach ($pendingList as $item): 
@@ -506,7 +577,18 @@ require_once INCLUDES_PATH . '/header.php';
 <?php elseif ($tab === 'approved'): ?>
   <!-- تبويب الرسائل المعتمدة الجاهزة للإرسال -->
   <div class="card">
-    <div class="card-header"><span class="card-title"><i class="fas fa-check-circle" style="color:#10b981;"></i> الرسائل المعتمدة الجاهزة للإرسال الصباحي</span></div>
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <span class="card-title"><i class="fas fa-check-circle" style="color:#10b981;"></i> الرسائل المعتمدة الجاهزة للإرسال الصباحي (<?= count($approvedList) ?>)</span>
+      <?php if (!empty($approvedList)): ?>
+        <form method="POST" action="renewal_reviews.php" style="margin:0;" onsubmit="return confirm('هل أنت متأكد من رغبتك في إرسال جميع الرسائل المعتمدة (<?= count($approvedList) ?>) الآن مباشرة عبر الواتساب؟');">
+          <?= csrfField() ?>
+          <input type="hidden" name="action" value="send_all_approved">
+          <button type="submit" class="btn btn-sm btn-success" style="font-weight:700;">
+            <i class="fab fa-whatsapp"></i> إرسال جميع المعتمدة الآن مباشرة
+          </button>
+        </form>
+      <?php endif; ?>
+    </div>
     <div class="table-container">
       <table class="table">
         <thead>
@@ -627,6 +709,28 @@ require_once INCLUDES_PATH . '/header.php';
 </div>
 
 <script>
+function submitBulkAction(actionName) {
+  const checked = document.querySelectorAll('.item-checkbox:checked').length;
+  if (checked === 0) {
+    alert('يرجى تحديد إشعار واحد على الأقل.');
+    return;
+  }
+
+  let confirmMsg = '';
+  if (actionName === 'bulk_approve') {
+    confirmMsg = `هل تريد اعتماد وتثبيت تعديلات (${checked}) رسالة لجدولتها للإرسال الصباحي التلقائي؟`;
+  } else if (actionName === 'bulk_send') {
+    confirmMsg = `هل تريد اعتماد وإرسال (${checked}) رسالة الآن مباشرة عبر الواتساب؟`;
+  }
+
+  if (confirmMsg && !confirm(confirmMsg)) {
+    return;
+  }
+
+  document.getElementById('bulkActionInput').value = actionName;
+  document.getElementById('bulkReviewForm').submit();
+}
+
 function toggleSelectAll(master) {
   const checkboxes = document.querySelectorAll('.item-checkbox');
   checkboxes.forEach(cb => cb.checked = master.checked);

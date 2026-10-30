@@ -318,3 +318,18 @@ if (file_exists(__DIR__ . '/renewal_cron.php')) {
     }
 }
 
+// ── تشغيل النسخة الاحتياطية اليومية لبيانات العملاء عبر البريد الإلكتروني (الساعة 12:00 منتصف الليل) ──
+if (file_exists(INCLUDES_PATH . '/client_backup.php')) {
+    echo "\nChecking Daily Clients Email Backup Routine...\n";
+    require_once INCLUDES_PATH . '/client_backup.php';
+    $backupRes = runDailyClientsEmailBackup(false);
+    if (!empty($backupRes['skipped'])) {
+        echo " - Clients Backup: {$backupRes['reason']}\n";
+    } elseif (!empty($backupRes['success'])) {
+        echo " - Clients Backup: Sent successfully to {$backupRes['recipient']} ({$backupRes['count']} clients)\n";
+    } else {
+        echo " - Clients Backup: Failed: " . ($backupRes['message'] ?? 'Unknown error') . "\n";
+    }
+}
+
+

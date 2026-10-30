@@ -491,6 +491,91 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
 }
 
 /**
+ * إرسال بريد إلكتروني مع مرفق عبر SMTP المقابس أو mail()
+ */
+function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMessage, string $attachmentContent, string $attachmentFilename): bool {
+    $host = 'mail.enjaz.app';
+    $port = 465;
+    $username = 'noreplay@enjaz.app';
+    $password = 'Aa@01028855';
+
+    $boundary = "==Multipart_Boundary_x" . md5(time() . uniqid()) . "x";
+
+    $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
+    $headers .= "To: <" . $to . ">\r\n";
+    $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
+    $headers .= "Date: " . date('r') . "\r\n";
+
+    $body = "--{$boundary}\r\n";
+    $body .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $body .= $htmlMessage . "\r\n\r\n";
+
+    $body .= "--{$boundary}\r\n";
+    $body .= "Content-Type: text/csv; charset=UTF-8; name=\"{$attachmentFilename}\"\r\n";
+    $body .= "Content-Transfer-Encoding: base64\r\n";
+    $body .= "Content-Disposition: attachment; filename=\"{$attachmentFilename}\"\r\n\r\n";
+    $body .= chunk_split(base64_encode($attachmentContent)) . "\r\n";
+    $body .= "--{$boundary}--\r\n";
+
+    $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 12);
+    if (!$socket) {
+        // Fallback to native mail()
+        $nativeHeaders = "From: " . APP_NAME . " <" . $username . ">\r\n";
+        $nativeHeaders .= "MIME-Version: 1.0\r\n";
+        $nativeHeaders .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
+        $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+        return @mail($to, $encodedSubject, $body, $nativeHeaders);
+    }
+
+    $readResponse = function($socket) {
+        $data = '';
+        while ($str = fgets($socket, 515)) {
+            $data .= $str;
+            if (substr($str, 3, 1) == ' ') {
+                break;
+            }
+        }
+        return $data;
+    };
+
+    $readResponse($socket); // 220
+    fwrite($socket, "EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost') . "\r\n");
+    $readResponse($socket);
+    fwrite($socket, "AUTH LOGIN\r\n");
+    $readResponse($socket);
+    fwrite($socket, base64_encode($username) . "\r\n");
+    $readResponse($socket);
+    fwrite($socket, base64_encode($password) . "\r\n");
+    $authRes = $readResponse($socket);
+
+    if (strpos($authRes, '235') === false) {
+        fclose($socket);
+        $nativeHeaders = "From: " . APP_NAME . " <" . $username . ">\r\n";
+        $nativeHeaders .= "MIME-Version: 1.0\r\n";
+        $nativeHeaders .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
+        $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+        return @mail($to, $encodedSubject, $body, $nativeHeaders);
+    }
+
+    fwrite($socket, "MAIL FROM:<" . $username . ">\r\n");
+    $readResponse($socket);
+    fwrite($socket, "RCPT TO:<" . $to . ">\r\n");
+    $readResponse($socket);
+    fwrite($socket, "DATA\r\n");
+    $readResponse($socket);
+
+    fwrite($socket, $headers . "\r\n" . $body . "\r\n.\r\n");
+    $res = $readResponse($socket);
+    fwrite($socket, "QUIT\r\n");
+    fclose($socket);
+
+    return (strpos($res, '250') !== false);
+}
+
+/**
  * الحصول على رابط الصفحة الرئيسية الافتراضية للنظام بناءً على الإعدادات
  */
 function getDefaultHomePage($depth = 0) {

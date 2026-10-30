@@ -241,6 +241,10 @@ try {
                 ]
             ]
         ], JSON_UNESCAPED_UNICODE),
+        'backup_email'             => 'info@enjaz.app',
+        'backup_clients_enabled'   => '1',
+        'backup_clients_hour'      => '00:00',
+        'backup_clients_last_date' => '',
     ];
     foreach ($defaults as $k => $v) {
         $chk = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key` = ?");

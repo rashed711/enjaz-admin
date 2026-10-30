@@ -259,20 +259,31 @@ if (isset($_GET['export_all'])) {
                COALESCE(SUM(CASE WHEN cs.status != 'cancelled' THEN cs.price ELSE 0 END), 0) AS total_services,
                COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
                COUNT(DISTINCT cs.id) AS subs_count,
-               (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_start,
-               (SELECT cs2.end_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_end,
-               (SELECT cs2.status FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_status,
-               (SELECT cs2.plan_name FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND (s2.name LIKE '%بريد%' OR s2.name LIKE '%mail%' OR s2.name LIKE '%email%' OR s2.name LIKE '%ايميل%') ORDER BY (CASE WHEN cs2.status = 'active' THEN 1 ELSE 2 END) ASC, cs2.id DESC LIMIT 1) AS sub_plan
+               (SELECT GROUP_CONCAT(DISTINCT CONCAT(s_all.name, IF(cs_all.plan_name IS NOT NULL AND cs_all.plan_name != '', CONCAT(' (', cs_all.plan_name, ')'), '')) SEPARATOR ' + ') 
+                FROM client_subscriptions cs_all 
+                JOIN services s_all ON s_all.id = cs_all.service_id 
+                WHERE cs_all.client_id = c.id AND cs_all.status != 'cancelled') AS all_services,
+               (SELECT MIN(cs_ren.end_date) 
+                FROM client_subscriptions cs_ren 
+                WHERE cs_ren.client_id = c.id AND cs_ren.status = 'active' AND cs_ren.end_date >= CURDATE()) AS next_renewal,
+               (SELECT MIN(cs_st.start_date) 
+                FROM client_subscriptions cs_st 
+                WHERE cs_st.client_id = c.id AND cs_st.status != 'cancelled') AS sub_start,
+               (SELECT MAX(cs_en.end_date) 
+                FROM client_subscriptions cs_en 
+                WHERE cs_en.client_id = c.id AND cs_en.status != 'cancelled') AS sub_end,
+               (CASE 
+                  WHEN EXISTS (SELECT 1 FROM client_subscriptions cs_act WHERE cs_act.client_id = c.id AND cs_act.status = 'active') THEN 'نشط'
+                  WHEN EXISTS (SELECT 1 FROM client_subscriptions cs_exp WHERE cs_exp.client_id = c.id AND cs_exp.status = 'expired') THEN 'منتهي'
+                  WHEN EXISTS (SELECT 1 FROM client_subscriptions cs_any WHERE cs_any.client_id = c.id) THEN 'ملغي'
+                  ELSE 'لا يوجد اشتراكات'
+                END) AS sub_status_label
         FROM clients c
         LEFT JOIN client_subscriptions cs ON cs.client_id = c.id
         WHERE ($whereStr) $extraWhere
         GROUP BY c.id
         $havingStr
-        ORDER BY COALESCE(
-            (SELECT cs2.start_date FROM client_subscriptions cs2 JOIN services s2 ON s2.id = cs2.service_id WHERE cs2.client_id = c.id AND cs2.status != 'cancelled' AND (s2.name LIKE '%دومين%' OR s2.name LIKE '%domain%') ORDER BY cs2.start_date DESC LIMIT 1),
-            (SELECT cs3.start_date FROM client_subscriptions cs3 JOIN services s3 ON s3.id = cs3.service_id WHERE cs3.client_id = c.id AND cs3.status != 'cancelled' AND (s3.name LIKE '%بريد%' OR s3.name LIKE '%mail%' OR s3.name LIKE '%email%') ORDER BY cs3.start_date DESC LIMIT 1),
-            c.created_at
-        ) DESC, c.id DESC
+        ORDER BY c.id ASC
     ");
     $stmtExport->execute(array_merge($params, $extraParams));
     $exportClients = $stmtExport->fetchAll(PDO::FETCH_ASSOC);
@@ -1188,48 +1199,67 @@ function downloadClientsCSV(clients) {
     }
 
     let csv = [];
-    // CSV Header matching the table columns
+    // ترويسة الأعمدة الشاملة لجميع بيانات العميل واشتراكاته وحساباته
     const header = [
+        'كود العميل',
         'اسم العميل',
-        'اسم المستخدم',
-        'السيرفر',
-        'الشركة',
-        'الهاتف',
+        'اسم الشركة',
+        'النشاط التجاري',
+        'رقم الموبايل الأساسي',
+        'رقم الموبايل الإضافي',
+        'البريد الإلكتروني',
+        'الدولة',
+        'الدومين',
+        'مزود الدومين',
+        'اسم المستخدم / الاستضافة',
+        'لوحة السيرفر',
+        'العنوان',
+        'حالة العميل',
         'عدد الاشتراكات',
-        'إجمالي قيمة الاشتراكات',
+        'الخدمات والخطط الحالية',
+        'أقرب موعد تجديد',
+        'تاريخ بدء الاشتراكات',
+        'تاريخ انتهاء الاشتراكات',
+        'حالة الاشتراكات',
+        'إجمالي قيمة الخدمات',
         'إجمالي المدفوع',
-        'المتبقي',
-        'اسم الخطة',
-        'تاريخ البداية (آخر اشتراك)',
-        'تاريخ الانتهاء (آخر اشتراك)',
-        'حالة الاشتراك',
-        'الملاحظات'
+        'المتبقي (المديونية)',
+        'الملاحظات',
+        'تاريخ التسجيل'
     ];
     csv.push(header.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
     
     clients.forEach((client) => {
-        const remaining = (parseFloat(client.total_services) - parseFloat(client.total_paid)).toFixed(2);
-        
-        let subStatus = 'لا يوجد';
-        if (client.sub_status === 'active') subStatus = 'نشط';
-        else if (client.sub_status === 'expired') subStatus = 'منتهي';
-        else if (client.sub_status === 'cancelled') subStatus = 'ملغي';
+        const remaining = (parseFloat(client.total_services || 0) - parseFloat(client.total_paid || 0)).toFixed(2);
+        const countryName = (client.country === 'EG') ? 'مصر' : ((client.country === 'SA') ? 'السعودية' : (client.country || ''));
+        const clientStatus = (parseInt(client.status) === 1) ? 'نشط' : 'موقوف';
         
         const row = [
+            client.id || '',
             client.name || '',
+            client.company_name || '',
+            client.activity || '',
+            client.mobile || '',
+            client.mobile_2 || '',
+            client.email || '',
+            countryName,
+            client.domain || '',
+            client.domain_provider || '',
             client.username_note || '',
             client.server_panel || 'cp.enjaz.cloud',
-            client.company_name || '',
-            client.mobile || '',
+            client.address || '',
+            clientStatus,
             client.subs_count || 0,
-            client.total_services || 0,
-            client.total_paid || 0,
+            client.all_services || '—',
+            client.next_renewal || '—',
+            client.sub_start || '—',
+            client.sub_end || '—',
+            client.sub_status_label || '—',
+            parseFloat(client.total_services || 0).toFixed(2),
+            parseFloat(client.total_paid || 0).toFixed(2),
             remaining,
-            client.sub_plan || '',
-            client.sub_start || '',
-            client.sub_end || '',
-            subStatus,
-            client.notes || ''
+            client.notes || '',
+            client.created_at || ''
         ];
         
         csv.push(row.map(val => {
@@ -1246,7 +1276,7 @@ function downloadClientsCSV(clients) {
     if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', 'قائمة_العملاء_إنجاز.csv');
+        link.setAttribute('download', 'قائمة_العملاء_إنجاز_' + (new Date().toISOString().slice(0, 10)) + '.csv');
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
