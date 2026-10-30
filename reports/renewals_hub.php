@@ -21,6 +21,26 @@ if (!in_array($activeTab, ['pending', 'approved', 'table', 'history'])) {
 $isAutoReview = (getSetting('renewal_auto_review', '1') === '1');
 $adminMobile  = getSetting('renewal_admin_mobile', '201028855779');
 
+// تصحيح مراحل العملاء لتتطابق مع موعد محطتهم القادمة بدقة
+try {
+    // العملاء الذين متبقي لهم أقل من 58 يوماً: محطتهم القادمة هي 45 يوماً (وليس 60 يوماً متأخرة)
+    $db->exec("
+        UPDATE renewal_notifications
+        SET stage = 45
+        WHERE status IN ('pending_review', 'approved')
+          AND stage = 60
+          AND DATEDIFF(cycle_end_date, CURDATE()) < 58
+    ");
+    // العملاء الذين متبقي لهم أقل من 43 يوماً: محطتهم القادمة هي 30 يوماً
+    $db->exec("
+        UPDATE renewal_notifications
+        SET stage = 30
+        WHERE status IN ('pending_review', 'approved')
+          AND stage = 45
+          AND DATEDIFF(cycle_end_date, CURDATE()) < 43
+    ");
+} catch (\Throwable $e) {}
+
 // ─────────────────────────────────────────────────────────────────
 // معالجة طلبات الـ POST (الاعتماد، الإرسال الفوري، الجدولة، الفحص)
 // ─────────────────────────────────────────────────────────────────
@@ -200,14 +220,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 7. إرسال جميع الرسائل المعتمدة فوراً من تبويب المعتمد
     if ($action === 'send_all_approved') {
-        $stmt = $db->query("
+        $sendAllForced = isset($_POST['send_all_forced']) && $_POST['send_all_forced'] === '1';
+        $sql = "
             SELECT rn.*, c.mobile, c.name as client_name
             FROM renewal_notifications rn
             JOIN clients c ON c.id = rn.client_id
             WHERE rn.status = 'approved'
-            ORDER BY rn.id ASC
-        ");
+        ";
+        if (!$sendAllForced) {
+            $sql .= " AND CURDATE() >= DATE_SUB(rn.cycle_end_date, INTERVAL rn.stage DAY)";
+        }
+        $sql .= " ORDER BY rn.id ASC";
+
+        $stmt = $db->query($sql);
         $approvedItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($approvedItems)) {
+            setFlash('info', 'لا توجد رسائل معتمدة مستحقة للإرسال اليوم. باقي العملاء مجدولون لمواعيد مراحلهم القادمة تلقائياً دون إزعاجهم.');
+            header('Location: renewals_hub.php?tab=approved');
+            exit;
+        }
 
         $sentCount = 0;
         $failedCount = 0;
@@ -303,12 +335,14 @@ if ($activeTab === 'approved') {
         $stmtApproved = $db->query("
             SELECT rn.*, 
                    c.name as client_name, c.company_name, c.mobile, c.country, c.domain as client_domain,
-                   u.username as reviewer_name
+                   u.username as reviewer_name,
+                   DATEDIFF(rn.cycle_end_date, CURDATE()) as days_left,
+                   DATE_SUB(rn.cycle_end_date, INTERVAL rn.stage DAY) as scheduled_date
             FROM renewal_notifications rn
             JOIN clients c ON c.id = rn.client_id
             LEFT JOIN users u ON u.id = rn.reviewed_by
             WHERE rn.status = 'approved'
-            ORDER BY rn.stage ASC, rn.cycle_end_date ASC
+            ORDER BY scheduled_date ASC, rn.cycle_end_date ASC
         ");
         $approvedItems = $stmtApproved->fetchAll(PDO::FETCH_ASSOC);
     } catch (\Throwable $e) {}
@@ -846,21 +880,33 @@ table.data-table tbody tr:hover {
 <!-- ───────────────────────────────────────────────────────────── -->
 <!-- محتوى التبويب 2: معتمدة للإرسال الصباحي -->
 <!-- ───────────────────────────────────────────────────────────── -->
-<?php elseif ($activeTab === 'approved'): ?>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+<?php elseif ($activeTab === 'approved'): 
+  $todayStr = date('Y-m-d');
+  $dueTodayList = array_filter($approvedItems, fn($a) => ($a['scheduled_date'] ?? '9999-99-99') <= $todayStr);
+  $dueCount = count($dueTodayList);
+  $futureCount = count($approvedItems) - $dueCount;
+?>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
     <div>
-      <h3 style="margin: 0;">الرسائل المعتمدة الجاهزة للإرسال الصباحي (<?= count($approvedItems) ?>)</h3>
+      <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+        <span>الرسائل المعتمدة الجاهزة (<?= count($approvedItems) ?>)</span>
+        <?php if ($dueCount > 0): ?>
+          <span class="badge badge-success" style="font-size: 12px;"><?= $dueCount ?> مستحق للإرسال اليوم</span>
+        <?php else: ?>
+          <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 12px;">جميع العملاء مجدولون لمواعيد مراحلهم القادمة</span>
+        <?php endif; ?>
+      </h3>
       <p style="margin: 4px 0 0 0; font-size: 12.5px; color: var(--text-muted);">
-        سيقوم النظام بإرسال هذه الرسائل تلقائياً عبر الكرون جوب في تمام الساعة <strong>10:00 صباحاً</strong>.
+        الكرون جوب الصباحي يرسل <strong>فقط من حان موعد مرحلته اليوم</strong>. بينما يُحجز باقي العملاء لإرسالهم بدقة عند وصولهم لـ (45، 30، 15، 7 أيام) دون إزعاجهم مبكراً.
       </p>
     </div>
 
-    <?php if (!empty($approvedItems)): ?>
-      <form method="POST" onsubmit="return confirm('تحذير: هل أنت متأكد من رغبتك في إرسال جميع الرسائل المعتمدة الآن مباشرة بدلاً من انتظار الصباح؟')">
+    <?php if (!empty($approvedItems) && $dueCount > 0): ?>
+      <form method="POST" onsubmit="return confirm('إرسال الرسائل المستحقة لليوم فقط (<?= $dueCount ?> عميل) الآن عبر الواتساب؟')">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="send_all_approved">
         <button type="submit" class="btn btn-success" style="font-weight: 700;">
-          <i class="fab fa-whatsapp"></i> إرسال الكل المعتمد الآن
+          <i class="fab fa-whatsapp"></i> إرسال المستحقين لليوم (<?= $dueCount ?>)
         </button>
       </form>
     <?php endif; ?>
@@ -882,13 +928,17 @@ table.data-table tbody tr:hover {
               <th>الهاتف</th>
               <th>المرحلة</th>
               <th>تاريخ الانتهاء</th>
+              <th>موعد الإرسال المجدول</th>
               <th>نص الرسالة</th>
               <th>اعتمد بواسطة</th>
               <th>الإجراء</th>
             </tr>
           </thead>
           <tbody>
-            <?php foreach ($approvedItems as $app): ?>
+            <?php foreach ($approvedItems as $app): 
+              $isDue = (($app['scheduled_date'] ?? '9999-99-99') <= $todayStr);
+              $daysUntil = (int)(new DateTime($todayStr))->diff(new DateTime($app['scheduled_date'] ?? $todayStr))->format('%r%a');
+            ?>
               <tr>
                 <td>
                   <div style="display: flex; align-items: center; gap: 6px;">
@@ -900,8 +950,25 @@ table.data-table tbody tr:hover {
                   <?php endif; ?>
                 </td>
                 <td><span dir="ltr"><?= e($app['mobile']) ?></span></td>
-                <td><span class="stage-pill stage-<?= $app['stage'] ?>">مرحلة <?= $app['stage'] ?> يوم</span></td>
+                <td>
+                  <span class="stage-pill stage-<?= $app['stage'] ?>">مرحلة <?= $app['stage'] ?> يوم</span>
+                  <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">متبقي <?= $app['days_left'] ?> يوم</div>
+                </td>
                 <td><?= e($app['cycle_end_date']) ?></td>
+                <td>
+                  <?php if ($isDue): ?>
+                    <span class="badge badge-success" style="font-size: 11.5px; padding: 4px 8px;">
+                      <i class="fas fa-check-circle"></i> مستحق للإرسال الصباحي اليوم
+                    </span>
+                  <?php else: ?>
+                    <div>
+                      <strong style="color: #0369a1; font-size: 12px;"><i class="fas fa-calendar-alt"></i> <?= e($app['scheduled_date']) ?></strong>
+                      <div style="font-size: 11px; color: var(--text-muted);">
+                        عند بلوغ <?= $app['stage'] ?> يوم (متبقي <?= $daysUntil ?> يوم)
+                      </div>
+                    </div>
+                  <?php endif; ?>
+                </td>
                 <td>
                   <button type="button" class="btn btn-sm btn-outline" data-msg="<?= htmlspecialchars($app['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="openHubMessageModal(this.getAttribute('data-msg'))">
                     <i class="fas fa-eye"></i> عرض الرسالة
@@ -913,7 +980,7 @@ table.data-table tbody tr:hover {
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="send_single">
                     <input type="hidden" name="notification_id" value="<?= $app['id'] ?>">
-                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('إرسال الآن؟')">
+                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('إرسال الآن مباشرة عبر الواتساب؟')" title="إرسال فوري الآن">
                       <i class="fab fa-whatsapp"></i> إرسال الآن
                     </button>
                   </form>

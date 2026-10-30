@@ -215,22 +215,22 @@ function getRenewalCandidates(int $daysAhead = 1): array {
         $daysLeft = $cData['min_days_left'];
         $cycleEndDate = $cData['min_end_date'];
 
-        // تحديد المرحلة المناسبة بناءً على الأيام المتبقية
+        // تحديد المرحلة المناسبة بدقة عند بلوغ المحطة الزمنية المحددة (نافذة 2 يوم كحد أقصى)
         $stage = null;
-        if ($daysLeft <= 60 && $daysLeft > 45) {
+        if ($daysLeft <= 60 && $daysLeft >= 58) {
             $stage = 60;
-        } elseif ($daysLeft <= 45 && $daysLeft > 30) {
+        } elseif ($daysLeft <= 45 && $daysLeft >= 43) {
             $stage = 45;
-        } elseif ($daysLeft <= 30 && $daysLeft > 15) {
+        } elseif ($daysLeft <= 30 && $daysLeft >= 28) {
             $stage = 30;
-        } elseif ($daysLeft <= 15 && $daysLeft > 7) {
+        } elseif ($daysLeft <= 15 && $daysLeft >= 13) {
             $stage = 15;
         } elseif ($daysLeft <= 7 && $daysLeft >= 0) {
             $stage = 7;
         }
 
         if ($stage === null) {
-            continue;
+            continue; // العميل بين مرحلتين، ينتظر النظام حتى يصل لمحطته القادمة
         }
 
         // فحص قاعدة الاستثناء الذكية:
@@ -458,6 +458,7 @@ function dispatchApprovedRenewalMessages(): array {
         FROM renewal_notifications rn
         JOIN clients c ON c.id = rn.client_id
         WHERE rn.status = 'approved'
+          AND CURDATE() >= DATE_SUB(rn.cycle_end_date, INTERVAL rn.stage DAY)
         ORDER BY rn.id ASC
     ");
     $approvedList = $stmt->fetchAll(PDO::FETCH_ASSOC);
