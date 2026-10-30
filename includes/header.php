@@ -212,7 +212,7 @@ try {
              class="nav-link <?= ($activePage ?? '') === 'analytics-hub' ? 'active' : '' ?>"
              id="nav-analytics-hub" style="color: #0d9488; background: rgba(13, 148, 136, 0.08); font-weight: 700; border-radius: 8px;">
             <i class="fas fa-chart-pie nav-icon" style="color: #0d9488;"></i>
-            <span>مركز تحليلات الأداء والنمو (تجريبي)</span>
+            <span>مركز تحليلات الأداء</span>
           </a>
         </li>
         <?php endif; ?>
