@@ -121,6 +121,20 @@ require_once dirname(__DIR__) . '/includes/header.php';
 
 <div class="reports-container" style="padding: 24px 0;">
   
+  <!-- إشعار التوحيد للمركز المالي -->
+  <div style="background:#eff6ff; border:1px solid #bfdbfe; border-right:4px solid #3b82f6; border-radius:10px; padding:12px 16px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <i class="fas fa-lightbulb" style="color:#2563eb; font-size:18px;"></i>
+      <div>
+        <strong style="color:#1e40af; font-size:14px;">تم دمج وتطوير هذا التقرير داخل المركز المالي والتقارير الموحد</strong>
+        <div style="font-size:12px; color:#3b82f6; margin-top:2px;">يمكنك متابعة الإيرادات والمصروفات والتدفقات النقدية والاشتراكات في واجهة واحدة موحدة ومترابطة.</div>
+      </div>
+    </div>
+    <a href="financial-hub.php?tab=monthly<?= $selectedMonth ? "&month=$selectedMonth" : "" ?>&year=<?= $year ?>" class="btn btn-sm btn-primary" style="font-weight:700;">
+      <i class="fas fa-wallet" style="margin-left:4px;"></i> فتح في المركز المالي الموحد
+    </a>
+  </div>
+
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
     <div>
       <h2 style="margin:0; font-size:22px; font-weight:800; color:var(--text-primary);">

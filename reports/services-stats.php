@@ -199,6 +199,20 @@ $makeUrl = function(string $s, ?string $cnt = null) use ($year, $country): strin
     return '?' . http_build_query($params);
 }; 
 ?>
+<!-- إشعار التوحيد للمركز المالي وتحليلات الأداء -->
+<div style="background:#eff6ff; border:1px solid #bfdbfe; border-right:4px solid #3b82f6; border-radius:10px; padding:12px 16px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+  <div style="display:flex; align-items:center; gap:10px;">
+    <i class="fas fa-lightbulb" style="color:#2563eb; font-size:18px;"></i>
+    <div>
+      <strong style="color:#1e40af; font-size:14px;">تم دمج وتطوير إحصائيات الخدمات داخل مركز تحليلات الأداء والمركز المالي</strong>
+      <div style="font-size:12px; color:#3b82f6; margin-top:2px;">تم توحيد المؤشرات مع دعم الفلاتر السريعة والتنقل التفاعلي بين الخدمات والشهور.</div>
+    </div>
+  </div>
+  <a href="financial-hub.php?tab=services" class="btn btn-sm btn-primary" style="font-weight:700;">
+    <i class="fas fa-wallet" style="margin-left:4px;"></i> فتح في المركز المالي الموحد
+  </a>
+</div>
+
 <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px;">
   <div>
     <h1 style="font-size:22px;font-weight:900;margin:0;"><i class="fas fa-chart-line" style="color:var(--accent);"></i> تقرير احصائيات الخدمات</h1>

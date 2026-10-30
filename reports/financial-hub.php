@@ -15,8 +15,12 @@ if ($tab === 'payments') {
     requirePermission('view_payments');
     
     $clientStatus = $_GET['client_status'] ?? 'active';
-    $page    = max(1,(int)($_GET['page'] ?? 1));
-    $perPage = 25;
+    $search   = clean($_GET['search'] ?? '');
+    $method   = clean($_GET['method'] ?? '');
+    $dateFrom = clean($_GET['date_from'] ?? '');
+    $dateTo   = clean($_GET['date_to'] ?? '');
+    $page     = max(1,(int)($_GET['page'] ?? 1));
+    $perPage  = 25;
 
     $where  = ['1=1'];
     $params = [];
@@ -39,7 +43,7 @@ if ($tab === 'payments') {
     $totalAmount = (float)$sumStmt->fetchColumn();
 
     $stmt = $db->prepare("
-        SELECT p.*, c.name as client_name, c.company_name, c.status as client_status, u.full_name as added_by,
+        SELECT p.*, c.name as client_name, c.company_name, c.status as client_status, c.country, c.mobile, u.full_name as added_by,
                s.name as service_name
         FROM payments p
         LEFT JOIN clients c ON c.id=p.client_id
@@ -66,14 +70,17 @@ if ($tab === 'payments') {
           <td class="text-muted"><?= $pager['offset']+$i+1 ?></td>
           <td><?= formatDate($pay['payment_date']) ?></td>
           <td>
-            <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600;color:var(--text-primary);">
-              <?= e($pay['client_name']) ?>
-            </a>
-            <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
-            <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
-            <?php endif; ?>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <?= getCountryFlagSvg($pay['country'] ?? 'EG', 18, 13) ?>
+              <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600;color:var(--text-primary);">
+                <?= e($pay['client_name']) ?>
+              </a>
+              <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
+              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+              <?php endif; ?>
+            </div>
             <?php if ($pay['company_name']): ?>
-            <div style="font-size:11.5px;color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
+            <div style="font-size:11.5px;color:var(--text-muted); margin-top:2px;"><?= e($pay['company_name']) ?></div>
             <?php endif; ?>
           </td>
           <td style="color:var(--success);font-weight:700;"><?= formatMoney($pay['amount']) ?></td>
@@ -91,14 +98,30 @@ if ($tab === 'payments') {
           </td>
           <td class="text-muted fs-sm"><?= e($pay['notes'] ?: '—') ?></td>
           <td class="text-muted fs-sm"><?= e($pay['added_by'] ?? '—') ?></td>
-          <?php if (hasPermission('delete_payments')): ?>
-          <td>
-            <a href="delete.php?id=<?= $pay['id'] ?>&client_id=<?= $pay['client_id'] ?>"
-               class="btn btn-sm btn-outline-danger" data-confirm="حذف هذه الدفعة؟">
-              <i class="fas fa-trash"></i>
-            </a>
+          <td style="white-space:nowrap; text-align:center;">
+            <div style="display:inline-flex; gap:4px; align-items:center;">
+              <a href="client-statement.php?id=<?= $pay['client_id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" title="كشف حساب العميل" style="padding:3px 7px; font-size:11.5px;">
+                <i class="fas fa-file-invoice"></i>
+              </a>
+              <?php if (!empty($pay['mobile'])): 
+                $cleanMob = preg_replace('/[^0-9]/', '', $pay['mobile']);
+                if (strlen($cleanMob) == 11 && strpos($cleanMob, '01') === 0) {
+                    $cleanMob = '20' . substr($cleanMob, 1);
+                }
+                $waPayMsg = "مرحباً " . $pay['client_name'] . "، نؤكد استلام دفعة بقيمة " . formatMoney($pay['amount']) . " بتاريخ " . formatDate($pay['payment_date']) . ". شكراً لتعاملكم معنا 🙏";
+              ?>
+              <a href="https://wa.me/<?= $cleanMob ?>?text=<?= urlencode($waPayMsg) ?>" target="_blank" class="btn btn-sm btn-outline-success" title="مراسلة واتساب" style="padding:3px 7px; font-size:11.5px; border-color:#25d366; color:#128c7e;">
+                <i class="fab fa-whatsapp"></i>
+              </a>
+              <?php endif; ?>
+              <?php if (hasPermission('delete_payments')): ?>
+              <a href="delete.php?id=<?= $pay['id'] ?>&client_id=<?= $pay['client_id'] ?>"
+                 class="btn btn-sm btn-outline-danger" data-confirm="حذف هذه الدفعة؟" title="حذف الدفعة" style="padding:3px 7px; font-size:11.5px;">
+                <i class="fas fa-trash"></i>
+              </a>
+              <?php endif; ?>
+            </div>
           </td>
-          <?php endif; ?>
         </tr>
         <?php endforeach; ?>
         <?php endif; ?>
@@ -113,7 +136,7 @@ if ($tab === 'payments') {
           <td style="padding:12px 16px;color:var(--success);font-size:15px;">
             <?= formatMoney(array_sum(array_column($payments,'amount'))) ?>
           </td>
-          <td colspan="<?= hasPermission('delete_payments') ? 7 : 6 ?>"></td>
+          <td colspan="7"></td>
         </tr>
         <?php endif; ?>
         <?php
@@ -167,7 +190,7 @@ elseif ($tab === 'invoices') {
     requirePermission('print_invoices');
     
     $invs = $db->query("
-        SELECT i.*, c.name as client_name, c.company_name
+        SELECT i.*, c.name as client_name, c.company_name, c.country, c.mobile
         FROM invoices i JOIN clients c ON c.id=i.client_id
         ORDER BY i.created_at DESC LIMIT 100
     ")->fetchAll();
@@ -197,7 +220,7 @@ elseif ($tab === 'monthly') {
 
         // 1. الاشتراكات الجديدة في هذا الشهر (مجمعة حسب العميل)
         $newSubsQuery = $db->prepare("
-            SELECT cs.client_id, c.name as client_name, c.company_name, c.status as client_status,
+            SELECT cs.client_id, c.name as client_name, c.company_name, c.status as client_status, c.country, c.mobile,
                    GROUP_CONCAT(s.name SEPARATOR '، ') as services_list,
                    SUM(cs.price) as total_price,
                    COUNT(cs.id) as subs_count,
@@ -223,7 +246,7 @@ elseif ($tab === 'monthly') {
 
         // 2. التحصيلات المحصلة في هذا الشهر
         $monthPaysQuery = $db->prepare("
-            SELECT p.*, c.name as client_name, c.company_name, c.status as client_status, s.name as service_name
+            SELECT p.*, c.name as client_name, c.company_name, c.status as client_status, c.country, c.mobile, s.name as service_name
             FROM payments p
             JOIN clients c ON c.id = p.client_id
             LEFT JOIN client_subscriptions cs ON cs.id = p.subscription_id
@@ -255,7 +278,7 @@ elseif ($tab === 'monthly') {
 
         // 4. العملاء الذين عليهم مديونيات قائمة
         $duesQuery = $db->prepare("
-            SELECT c.id, c.name, c.company_name, c.mobile, c.status as client_status,
+            SELECT c.id, c.name, c.company_name, c.mobile, c.country, c.status as client_status,
                    COALESCE(subs.total_subs, 0) as total_subscriptions,
                    COALESCE(pays.total_paid, 0) as total_paid,
                    (COALESCE(subs.total_subs, 0) - COALESCE(pays.total_paid, 0)) as remaining_due,
@@ -619,6 +642,28 @@ elseif ($tab === 'expenses') {
     }
 }
 
+// ── مؤشرات الأداء المالي التنفيذي العام (Executive Overview KPIs) ──
+$hubCurYear  = (int)date('Y');
+$hubCurMonth = (int)date('m');
+
+$arabicMonthNames = ['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+$hubMonthName = $arabicMonthNames[$hubCurMonth] ?? date('M');
+
+// 1. تحصيلات هذا الشهر
+$hubKpiCollected = (float)$db->query("SELECT COALESCE(SUM(amount),0) FROM payments WHERE YEAR(payment_date) = $hubCurYear AND MONTH(payment_date) = $hubCurMonth")->fetchColumn();
+$hubKpiCollectedCount = (int)$db->query("SELECT COUNT(*) FROM payments WHERE YEAR(payment_date) = $hubCurYear AND MONTH(payment_date) = $hubCurMonth")->fetchColumn();
+
+// 2. مصروفات هذا الشهر
+$hubKpiExpenses = (float)$db->query("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE YEAR(expense_date) = $hubCurYear AND MONTH(expense_date) = $hubCurMonth")->fetchColumn();
+$hubKpiExpensesCount = (int)$db->query("SELECT COUNT(*) FROM expenses WHERE YEAR(expense_date) = $hubCurYear AND MONTH(expense_date) = $hubCurMonth")->fetchColumn();
+
+// 3. صافي التدفق النقدي لهذا الشهر
+$hubKpiNetCash = $hubKpiCollected - $hubKpiExpenses;
+
+// 4. مديونيات الفواتير المعلقة
+$hubKpiUnpaid = (float)$db->query("SELECT COALESCE(SUM(remaining),0) FROM invoices WHERE remaining > 0")->fetchColumn();
+$hubKpiUnpaidCount = (int)$db->query("SELECT COUNT(*) FROM invoices WHERE remaining > 0")->fetchColumn();
+
 $pageTitle  = 'المركز المالي والتقارير';
 $activePage = 'financial-hub';
 $depth      = 1;
@@ -671,6 +716,59 @@ require_once INCLUDES_PATH . '/header.php';
     <a href="renewals_hub.php" class="btn btn-sm btn-outline" style="color:#2563eb; border-color:#2563eb; font-weight:700;">
       <i class="fas fa-sync-alt"></i> مركز التجديدات الموحد
     </a>
+  </div>
+</div>
+
+<!-- بطاقات المؤشرات المالية التنفيذية -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 22px;">
+  <!-- تحصيلات الشهر -->
+  <div class="card" style="margin:0; padding:16px 18px; border-radius:12px; border-right:4px solid #10b981; display:flex; align-items:center; gap:14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); background:#ffffff;">
+    <div style="width:46px; height:46px; border-radius:12px; background:#ecfdf5; color:#10b981; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
+      <i class="fas fa-hand-holding-usd"></i>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:12px; color:var(--text-muted); font-weight:700;">تحصيلات شهر <?= $hubMonthName ?></div>
+      <div style="font-size:18px; font-weight:800; color:#10b981; margin-top:3px;"><?= formatMoney($hubKpiCollected) ?></div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:1px;"><?= $hubKpiCollectedCount ?> دفعة محصلة</div>
+    </div>
+  </div>
+
+  <!-- مصروفات الشهر -->
+  <div class="card" style="margin:0; padding:16px 18px; border-radius:12px; border-right:4px solid #ef4444; display:flex; align-items:center; gap:14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); background:#ffffff;">
+    <div style="width:46px; height:46px; border-radius:12px; background:#fef2f2; color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
+      <i class="fas fa-receipt"></i>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:12px; color:var(--text-muted); font-weight:700;">مصروفات شهر <?= $hubMonthName ?></div>
+      <div style="font-size:18px; font-weight:800; color:#ef4444; margin-top:3px;"><?= formatMoney($hubKpiExpenses) ?></div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:1px;"><?= $hubKpiExpensesCount ?> قيد مصروف</div>
+    </div>
+  </div>
+
+  <!-- صافي التدفق النقدي -->
+  <div class="card" style="margin:0; padding:16px 18px; border-radius:12px; border-right:4px solid <?= $hubKpiNetCash >= 0 ? '#0284c7' : '#ef4444' ?>; display:flex; align-items:center; gap:14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); background:#ffffff;">
+    <div style="width:46px; height:46px; border-radius:12px; background:<?= $hubKpiNetCash >= 0 ? '#f0f9ff' : '#fef2f2' ?>; color:<?= $hubKpiNetCash >= 0 ? '#0284c7' : '#ef4444' ?>; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
+      <i class="fas fa-balance-scale"></i>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:12px; color:var(--text-muted); font-weight:700;">صافي التدفق النقدي (<?= $hubMonthName ?>)</div>
+      <div style="font-size:18px; font-weight:800; color:<?= $hubKpiNetCash >= 0 ? '#0284c7' : '#ef4444' ?>; margin-top:3px;">
+        <?= ($hubKpiNetCash >= 0 ? '+' : '') . formatMoney($hubKpiNetCash) ?>
+      </div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:1px;"><?= $hubKpiNetCash >= 0 ? 'فائض تشغيلي نقدي' : 'عجز تشغيلي نقدي' ?></div>
+    </div>
+  </div>
+
+  <!-- فواتير غير مدفوعة -->
+  <div class="card" style="margin:0; padding:16px 18px; border-radius:12px; border-right:4px solid #f59e0b; display:flex; align-items:center; gap:14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); background:#ffffff;">
+    <div style="width:46px; height:46px; border-radius:12px; background:#fffbeb; color:#f59e0b; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">
+      <i class="fas fa-file-invoice-dollar"></i>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:12px; color:var(--text-muted); font-weight:700;">فواتير معلقة التحصيل</div>
+      <div style="font-size:18px; font-weight:800; color:#d97706; margin-top:3px;"><?= formatMoney($hubKpiUnpaid) ?></div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:1px;"><?= $hubKpiUnpaidCount ?> فاتورة بانتظار السداد</div>
+    </div>
   </div>
 </div>
 
@@ -754,7 +852,7 @@ require_once INCLUDES_PATH . '/header.php';
             <th>الإيصال</th>
             <th>ملاحظات</th>
             <th>أضافه</th>
-            <?php if (hasPermission('delete_payments')): ?><th></th><?php endif; ?>
+            <th style="text-align:center;">إجراء</th>
           </tr>
         </thead>
         <tbody>
@@ -766,14 +864,17 @@ require_once INCLUDES_PATH . '/header.php';
             <td class="text-muted"><?= $pager['offset']+$i+1 ?></td>
             <td><?= formatDate($pay['payment_date']) ?></td>
             <td>
-              <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600;color:var(--text-primary);">
-                <?= e($pay['client_name']) ?>
-              </a>
-              <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
-              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
-              <?php endif; ?>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <?= getCountryFlagSvg($pay['country'] ?? 'EG', 18, 13) ?>
+                <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600;color:var(--text-primary);">
+                  <?= e($pay['client_name']) ?>
+                </a>
+                <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
+                <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+                <?php endif; ?>
+              </div>
               <?php if ($pay['company_name']): ?>
-              <div style="font-size:11.5px;color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
+              <div style="font-size:11.5px;color:var(--text-muted); margin-top:2px;"><?= e($pay['company_name']) ?></div>
               <?php endif; ?>
             </td>
             <td style="color:var(--success);font-weight:700;"><?= formatMoney($pay['amount']) ?></td>
@@ -791,14 +892,30 @@ require_once INCLUDES_PATH . '/header.php';
             </td>
             <td class="text-muted fs-sm"><?= e($pay['notes'] ?: '—') ?></td>
             <td class="text-muted fs-sm"><?= e($pay['added_by'] ?? '—') ?></td>
-            <?php if (hasPermission('delete_payments')): ?>
-            <td>
-              <a href="delete.php?id=<?= $pay['id'] ?>&client_id=<?= $pay['client_id'] ?>"
-                 class="btn btn-sm btn-outline-danger" data-confirm="حذف هذه الدفعة؟">
-                <i class="fas fa-trash"></i>
-              </a>
+            <td style="white-space:nowrap; text-align:center;">
+              <div style="display:inline-flex; gap:4px; align-items:center;">
+                <a href="client-statement.php?id=<?= $pay['client_id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" title="كشف حساب العميل" style="padding:3px 7px; font-size:11.5px;">
+                  <i class="fas fa-file-invoice"></i>
+                </a>
+                <?php if (!empty($pay['mobile'])): 
+                  $cleanMob = preg_replace('/[^0-9]/', '', $pay['mobile']);
+                  if (strlen($cleanMob) == 11 && strpos($cleanMob, '01') === 0) {
+                      $cleanMob = '20' . substr($cleanMob, 1);
+                  }
+                  $waPayMsg = "مرحباً " . $pay['client_name'] . "، نؤكد استلام دفعة بقيمة " . formatMoney($pay['amount']) . " بتاريخ " . formatDate($pay['payment_date']) . ". شكراً لتعاملكم معنا 🙏";
+                ?>
+                <a href="https://wa.me/<?= $cleanMob ?>?text=<?= urlencode($waPayMsg) ?>" target="_blank" class="btn btn-sm btn-outline-success" title="مراسلة واتساب" style="padding:3px 7px; font-size:11.5px; border-color:#25d366; color:#128c7e;">
+                  <i class="fab fa-whatsapp"></i>
+                </a>
+                <?php endif; ?>
+                <?php if (hasPermission('delete_payments')): ?>
+                <a href="delete.php?id=<?= $pay['id'] ?>&client_id=<?= $pay['client_id'] ?>"
+                   class="btn btn-sm btn-outline-danger" data-confirm="حذف هذه الدفعة؟" title="حذف الدفعة" style="padding:3px 7px; font-size:11.5px;">
+                  <i class="fas fa-trash"></i>
+                </a>
+                <?php endif; ?>
+              </div>
             </td>
-            <?php endif; ?>
           </tr>
           <?php endforeach; ?>
           <?php endif; ?>
@@ -810,7 +927,7 @@ require_once INCLUDES_PATH . '/header.php';
             <td style="padding:12px 16px;color:var(--success);font-size:15px;">
               <?= formatMoney(array_sum(array_column($payments,'amount'))) ?>
             </td>
-            <td colspan="<?= hasPermission('delete_payments') ? 7 : 6 ?>"></td>
+            <td colspan="7"></td>
           </tr>
           <?php endif; ?>
         </tfoot>
@@ -1095,18 +1212,37 @@ require_once INCLUDES_PATH . '/header.php';
             <td class="text-muted"><?= $i+1 ?></td>
             <td><strong style="color:var(--primary-light);"><?= e($inv['invoice_number']) ?></strong></td>
             <td>
-              <a href="../clients/view.php?id=<?= $inv['client_id'] ?>" style="font-weight:600;"><?= e($inv['client_name']) ?></a>
-              <?php if ($inv['company_name']): ?><div style="font-size:11.5px;color:var(--text-muted);"><?= e($inv['company_name']) ?></div><?php endif; ?>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <?= getCountryFlagSvg($inv['country'] ?? 'EG', 18, 13) ?>
+                <a href="../clients/view.php?id=<?= $inv['client_id'] ?>" style="font-weight:600;"><?= e($inv['client_name']) ?></a>
+              </div>
+              <?php if ($inv['company_name']): ?><div style="font-size:11.5px;color:var(--text-muted); margin-top:2px;"><?= e($inv['company_name']) ?></div><?php endif; ?>
             </td>
             <td class="fw-bold"><?= formatMoney($inv['total_amount']) ?></td>
             <td style="color:var(--success);font-weight:600;"><?= formatMoney($inv['paid_amount']) ?></td>
             <td style="color:<?= $inv['remaining']>0?'var(--danger)':'var(--success)' ?>;font-weight:700;"><?= formatMoney($inv['remaining']) ?></td>
             <td><?= invoiceStatusBadge($inv['status']) ?></td>
             <td class="text-muted"><?= formatDate($inv['created_at']) ?></td>
-            <td>
-              <a href="../invoices/print.php?id=<?= $inv['id'] ?>" class="btn btn-sm btn-primary" target="_blank">
-                <i class="fas fa-print"></i>
-              </a>
+            <td style="white-space:nowrap; text-align:center;">
+              <div style="display:inline-flex; gap:4px; align-items:center;">
+                <a href="../invoices/print.php?id=<?= $inv['id'] ?>" class="btn btn-sm btn-primary" target="_blank" title="طباعة الفاتورة" style="padding:3px 7px; font-size:11.5px;">
+                  <i class="fas fa-print"></i>
+                </a>
+                <a href="client-statement.php?id=<?= $inv['client_id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" title="كشف الحساب" style="padding:3px 7px; font-size:11.5px;">
+                  <i class="fas fa-file-invoice"></i>
+                </a>
+                <?php if (!empty($inv['mobile'])): 
+                  $cleanMob = preg_replace('/[^0-9]/', '', $inv['mobile']);
+                  if (strlen($cleanMob) == 11 && strpos($cleanMob, '01') === 0) {
+                      $cleanMob = '20' . substr($cleanMob, 1);
+                  }
+                  $invRemMsg = "مرحباً " . $inv['client_name'] . "، مرفق بيان الفاتورة رقم #" . $inv['invoice_number'] . " بإجمالي " . formatMoney($inv['total_amount']) . " والمتبقي " . formatMoney($inv['remaining']) . ". شكراً لكم 🙏";
+                ?>
+                <a href="https://wa.me/<?= $cleanMob ?>?text=<?= urlencode($invRemMsg) ?>" target="_blank" class="btn btn-sm btn-outline-success" title="مشاركة عبر واتساب" style="padding:3px 7px; font-size:11.5px; border-color:#25d366; color:#128c7e;">
+                  <i class="fab fa-whatsapp"></i>
+                </a>
+                <?php endif; ?>
+              </div>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -1313,23 +1449,42 @@ require_once INCLUDES_PATH . '/header.php';
             <td class="text-muted"><?= $i+1 ?></td>
             <td><?= formatDate($sub['min_start_date']) ?></td>
             <td>
-              <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
-                <?= e($sub['client_name']) ?>
-              </a>
-              <?php if (isset($sub['client_status']) && !$sub['client_status']): ?>
-              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
-              <?php endif; ?>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <?= getCountryFlagSvg($sub['country'] ?? 'EG', 18, 13) ?>
+                <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
+                  <?= e($sub['client_name']) ?>
+                </a>
+                <?php if (isset($sub['client_status']) && !$sub['client_status']): ?>
+                <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+                <?php endif; ?>
+              </div>
               <?php if ($sub['company_name']): ?>
-              <div style="font-size:11px; color:var(--text-muted);"><?= e($sub['company_name']) ?></div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;"><?= e($sub['company_name']) ?></div>
               <?php endif; ?>
             </td>
             <td><strong><?= e($sub['services_list']) ?></strong></td>
             <td class="text-muted"><?= e($sub['subs_count']) ?> اشتراكات</td>
             <td class="fw-bold text-success"><?= formatMoney($sub['total_price']) ?></td>
-            <td>
-              <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" class="btn btn-sm btn-outline-info" style="padding: 4px 8px;">
-                <i class="fas fa-eye"></i> عرض العميل
-              </a>
+            <td style="white-space:nowrap; text-align:center;">
+              <div style="display:inline-flex; gap:4px; align-items:center;">
+                <a href="../clients/view.php?id=<?= $sub['client_id'] ?>" class="btn btn-sm btn-outline-info" style="padding: 3px 7px; font-size:11.5px;" title="عرض العميل">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="client-statement.php?id=<?= $sub['client_id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" style="padding: 3px 7px; font-size:11.5px;" title="كشف الحساب">
+                  <i class="fas fa-file-invoice"></i>
+                </a>
+                <?php if (!empty($sub['mobile'])): 
+                  $cleanMob = preg_replace('/[^0-9]/', '', $sub['mobile']);
+                  if (strlen($cleanMob) == 11 && strpos($cleanMob, '01') === 0) {
+                      $cleanMob = '20' . substr($cleanMob, 1);
+                  }
+                  $waSubMsg = "أهلاً بك " . $sub['client_name'] . " في منصة إنجاز للحلول الذكية! سعداء بانضمامك معنا 🌟";
+                ?>
+                <a href="https://wa.me/<?= $cleanMob ?>?text=<?= urlencode($waSubMsg) ?>" target="_blank" class="btn btn-sm btn-outline-success" style="padding: 3px 7px; font-size:11.5px; border-color:#25d366; color:#128c7e;" title="مراسلة واتساب">
+                  <i class="fab fa-whatsapp"></i>
+                </a>
+                <?php endif; ?>
+              </div>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -1360,25 +1515,29 @@ require_once INCLUDES_PATH . '/header.php';
             <th>الخدمة</th>
             <th>المرجع</th>
             <th>ملاحظات</th>
+            <th style="text-align:center;">إجراء</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($monthPays)): ?>
-          <tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><i class="fas fa-coins"></i></div><p class="empty-title">لا توجد مدفوعات محصلة في هذا الشهر</p></div></td></tr>
+          <tr><td colspan="9"><div class="empty-state"><div class="empty-icon"><i class="fas fa-coins"></i></div><p class="empty-title">لا توجد مدفوعات محصلة في هذا الشهر</p></div></td></tr>
           <?php else: ?>
           <?php foreach ($monthPays as $i => $pay): ?>
           <tr>
             <td class="text-muted"><?= $i+1 ?></td>
             <td><?= formatDate($pay['payment_date']) ?></td>
             <td>
-              <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
-                <?= e($pay['client_name']) ?>
-              </a>
-              <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
-              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
-              <?php endif; ?>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <?= getCountryFlagSvg($pay['country'] ?? 'EG', 18, 13) ?>
+                <a href="../clients/view.php?id=<?= $pay['client_id'] ?>" style="font-weight:600; color:var(--text-primary);">
+                  <?= e($pay['client_name']) ?>
+                </a>
+                <?php if (isset($pay['client_status']) && !$pay['client_status']): ?>
+                <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+                <?php endif; ?>
+              </div>
               <?php if ($pay['company_name']): ?>
-              <div style="font-size:11px; color:var(--text-muted);"><?= e($pay['company_name']) ?></div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;"><?= e($pay['company_name']) ?></div>
               <?php endif; ?>
             </td>
             <td style="color:var(--success); font-weight:700;"><?= formatMoney($pay['amount']) ?></td>
@@ -1386,6 +1545,24 @@ require_once INCLUDES_PATH . '/header.php';
             <td class="text-muted"><?= e($pay['service_name'] ?: '—') ?></td>
             <td class="text-muted fs-sm"><?= e($pay['reference_number'] ?: '—') ?></td>
             <td class="text-muted fs-sm"><?= e($pay['notes'] ?: '—') ?></td>
+            <td style="white-space:nowrap; text-align:center;">
+              <div style="display:inline-flex; gap:4px; align-items:center;">
+                <a href="client-statement.php?id=<?= $pay['client_id'] ?>" class="btn btn-sm btn-outline-info" target="_blank" style="padding: 3px 7px; font-size:11.5px;" title="كشف الحساب">
+                  <i class="fas fa-file-invoice"></i>
+                </a>
+                <?php if (!empty($pay['mobile'])): 
+                  $cleanMob = preg_replace('/[^0-9]/', '', $pay['mobile']);
+                  if (strlen($cleanMob) == 11 && strpos($cleanMob, '01') === 0) {
+                      $cleanMob = '20' . substr($cleanMob, 1);
+                  }
+                  $waPayRemMsg = "مرحباً " . $pay['client_name'] . "، نؤكد استلام دفعتكم بقيمة " . formatMoney($pay['amount']) . " بتاريخ " . formatDate($pay['payment_date']) . ". شكراً لكم 🙏";
+                ?>
+                <a href="https://wa.me/<?= $cleanMob ?>?text=<?= urlencode($waPayRemMsg) ?>" target="_blank" class="btn btn-sm btn-outline-success" style="padding: 3px 7px; font-size:11.5px; border-color:#25d366; color:#128c7e;" title="مراسلة واتساب">
+                  <i class="fab fa-whatsapp"></i>
+                </a>
+                <?php endif; ?>
+              </div>
+            </td>
           </tr>
           <?php endforeach; ?>
           <?php endif; ?>
@@ -1394,7 +1571,7 @@ require_once INCLUDES_PATH . '/header.php';
           <tr style="background:#f8fafc; font-weight:700;">
             <td colspan="3" style="text-align:right;">إجمالي المبالغ المحصلة:</td>
             <td style="color:var(--success); font-size:14px;"><?= formatMoney($totalCollectedVal) ?></td>
-            <td colspan="4"></td>
+            <td colspan="5"></td>
           </tr>
         </tfoot>
       </table>
@@ -1481,14 +1658,17 @@ require_once INCLUDES_PATH . '/header.php';
               <?php endif; ?>
             </td>
             <td>
-              <a href="../clients/view.php?id=<?= $client['id'] ?>" style="font-weight:600; color:var(--text-primary);">
-                <?= e($client['name']) ?>
-              </a>
-              <?php if (isset($client['client_status']) && !$client['client_status']): ?>
-              <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
-              <?php endif; ?>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <?= getCountryFlagSvg($client['country'] ?? 'EG', 18, 13) ?>
+                <a href="../clients/view.php?id=<?= $client['id'] ?>" style="font-weight:600; color:var(--text-primary);">
+                  <?= e($client['name']) ?>
+                </a>
+                <?php if (isset($client['client_status']) && !$client['client_status']): ?>
+                <span class="badge badge-danger" style="font-size:10px; padding:1px 5px; margin-right:4px;">موقوف</span>
+                <?php endif; ?>
+              </div>
               <?php if ($client['company_name']): ?>
-              <div style="font-size:11px; color:var(--text-muted);"><?= e($client['company_name']) ?></div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;"><?= e($client['company_name']) ?></div>
               <?php endif; ?>
             </td>
             <td>
@@ -1639,8 +1819,8 @@ require_once INCLUDES_PATH . '/header.php';
               ?>
               <tr>
                 <td>
-                  <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700;color:var(--primary);">
-                    <?= $arabicMonths[$m] ?>
+                  <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700; color:var(--primary); display:inline-flex; align-items:center; gap:6px;" title="عرض التقرير التفصيلي لشهر <?= $arabicMonths[$m] ?>">
+                    <?= $arabicMonths[$m] ?> <i class="fas fa-chevron-left" style="font-size:10px; color:#94a3b8;"></i>
                   </a>
                 </td>
                 <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
@@ -1692,7 +1872,9 @@ require_once INCLUDES_PATH . '/header.php';
               ?>
               <tr>
                 <td>
-                  <span style="font-weight:700;color:var(--primary);"><?= $arabicMonths[$m] ?></span>
+                  <a href="?tab=monthly&month=<?= $m ?>&year=<?= $year ?>" style="font-weight:700; color:var(--primary); display:inline-flex; align-items:center; gap:6px;" title="عرض التقرير التفصيلي لشهر <?= $arabicMonths[$m] ?>">
+                    <?= $arabicMonths[$m] ?> <i class="fas fa-chevron-left" style="font-size:10px; color:#94a3b8;"></i>
+                  </a>
                 </td>
                 <td class="fw-bold" style="color: var(--primary-light);"><?= $clientsCount ?> عميل</td>
                 <td class="fw-bold text-success"><?= formatMoney($salesAmt) ?></td>
