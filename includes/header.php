@@ -208,6 +208,14 @@ try {
           </a>
         </li>
         <li class="nav-item">
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals_hub.php"
+             class="nav-link <?= ($activePage ?? '') === 'renewals-hub' ? 'active' : '' ?>"
+             id="nav-renewals-hub" style="color: #0284c7; background: rgba(2, 132, 199, 0.08); font-weight: 700; border-radius: 8px;">
+            <i class="fas fa-layer-group nav-icon" style="color: #0284c7;"></i>
+            <span>مركز التجديدات الموحد (تجريبي)</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/loyalty.php"
              class="nav-link <?= ($activePage ?? '') === 'reports-loyalty' ? 'active' : '' ?>"
              id="nav-reports-loyalty">
