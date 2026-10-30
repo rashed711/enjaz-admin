@@ -426,68 +426,87 @@ function normalizeMobile(string $mobile): string {
  * إرسال بريد إلكتروني عبر SMTP باستخدام المقابس (Sockets)
  */
 function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
-    $host = 'mail.enjaz.app';
-    $port = 465;
-    $username = 'noreplay@enjaz.app';
-    $password = 'Aa@01028855';
-    
-    $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 15);
-    if (!$socket) {
-        return false;
-    }
+    try {
+        $host = 'mail.enjaz.app';
+        $port = 465;
+        $username = 'noreplay@enjaz.app';
+        $password = 'Aa@01028855';
 
-    $readResponse = function($socket) {
-        $data = '';
-        while ($str = fgets($socket, 515)) {
-            $data .= $str;
-            if (substr($str, 3, 1) == ' ') {
-                break;
-            }
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+            ]
+        ]);
+        
+        $socket = @stream_socket_client('ssl://' . $host . ':' . $port, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $context);
+        if (!$socket) {
+            error_log("[SMTP Error] Connection failed: {$errno} - {$errstr}");
+            return false;
         }
-        return $data;
-    };
 
-    $readResponse($socket); // 220 Welcome
+        stream_set_timeout($socket, 10);
 
-    fwrite($socket, "EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost') . "\r\n");
-    $readResponse($socket);
+        $readResponse = function($socket) {
+            $data = '';
+            while (!feof($socket)) {
+                $str = fgets($socket, 515);
+                if ($str === false) break;
+                $data .= $str;
+                $meta = stream_get_meta_data($socket);
+                if (!empty($meta['timed_out'])) break;
+                if (substr($str, 3, 1) === ' ') break;
+            }
+            return $data;
+        };
 
-    fwrite($socket, "AUTH LOGIN\r\n");
-    $readResponse($socket);
+        $readResponse($socket); // 220 Welcome
 
-    fwrite($socket, base64_encode($username) . "\r\n");
-    $readResponse($socket);
+        fwrite($socket, "EHLO enjaz.app\r\n");
+        $readResponse($socket);
 
-    fwrite($socket, base64_encode($password) . "\r\n");
-    $authRes = $readResponse($socket);
-    if (strpos($authRes, '235') === false) {
+        fwrite($socket, "AUTH LOGIN\r\n");
+        $readResponse($socket);
+
+        fwrite($socket, base64_encode($username) . "\r\n");
+        $readResponse($socket);
+
+        fwrite($socket, base64_encode($password) . "\r\n");
+        $authRes = $readResponse($socket);
+        if (strpos($authRes, '235') === false) {
+            fclose($socket);
+            return false;
+        }
+
+        fwrite($socket, "MAIL FROM:<" . $username . ">\r\n");
+        $readResponse($socket);
+
+        fwrite($socket, "RCPT TO:<" . $to . ">\r\n");
+        $readResponse($socket);
+
+        fwrite($socket, "DATA\r\n");
+        $readResponse($socket);
+
+        $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
+        $headers .= "To: <" . $to . ">\r\n";
+        $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+        $headers .= "Date: " . date('r') . "\r\n";
+
+        fwrite($socket, $headers . "\r\n" . $htmlMessage . "\r\n.\r\n");
+        $res = $readResponse($socket);
+
+        fwrite($socket, "QUIT\r\n");
         fclose($socket);
+
+        return strpos($res, '250') !== false;
+    } catch (\Throwable $e) {
+        error_log('[SMTP Error] ' . $e->getMessage());
         return false;
     }
-
-    fwrite($socket, "MAIL FROM:<" . $username . ">\r\n");
-    $readResponse($socket);
-
-    fwrite($socket, "RCPT TO:<" . $to . ">\r\n");
-    $readResponse($socket);
-
-    fwrite($socket, "DATA\r\n");
-    $readResponse($socket);
-
-    $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
-    $headers .= "To: <" . $to . ">\r\n";
-    $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
-    $headers .= "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "Content-Transfer-Encoding: 8bit\r\n";
-    $headers .= "Date: " . date('r') . "\r\n";
-
-    fwrite($socket, $headers . "\r\n" . $htmlMessage . "\r\n.\r\n");
-    $readResponse($socket);
-
-    fwrite($socket, "QUIT\r\n");
-    fclose($socket);
-    return true;
 }
 
 /**
@@ -532,13 +551,21 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
             return @mail($to, $encodedSubject, $body, $nativeHeaders);
         };
 
-        // محاولة الاتصال عبر SMTP Socket مع مهلة سريعة (5 ثوانٍ) لمنع تعليق الصفحة
-        $socket = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 5);
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+            ]
+        ]);
+
+        $socket = @stream_socket_client('ssl://' . $host . ':' . $port, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $context);
         if (!$socket) {
+            error_log("[SMTP Error] Socket connect failed: {$errno} - {$errstr}");
             return $fallbackNative();
         }
 
-        stream_set_timeout($socket, 6);
+        stream_set_timeout($socket, 10);
 
         $readResponse = function($socket) {
             $data = '';
@@ -570,7 +597,7 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
             return $fallbackNative();
         }
 
-        @fwrite($socket, "EHLO " . ($_SERVER['SERVER_NAME'] ?? 'localhost') . "\r\n");
+        @fwrite($socket, "EHLO enjaz.app\r\n");
         $readResponse($socket);
 
         @fwrite($socket, "AUTH LOGIN\r\n");
