@@ -659,10 +659,18 @@ require_once INCLUDES_PATH . '/header.php';
 }
 </style>
 
-<div class="page-header">
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
   <div class="page-header-text">
     <h1 class="page-title"><i class="fas fa-wallet" style="color:var(--primary-light);margin-left:8px;"></i>المركز المالي والتقارير</h1>
     <p class="page-subtitle">أدوات الفوترة، الدفعات، تقارير الإيرادات وأداء الخدمات</p>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <a href="analytics_hub.php" class="btn btn-sm btn-outline" style="color:#0d9488; border-color:#0d9488; font-weight:700;">
+      <i class="fas fa-chart-pie"></i> مركز تحليلات الأداء والنمو
+    </a>
+    <a href="renewals_hub.php" class="btn btn-sm btn-outline" style="color:#2563eb; border-color:#2563eb; font-weight:700;">
+      <i class="fas fa-sync-alt"></i> مركز التجديدات الموحد
+    </a>
   </div>
 </div>
 
@@ -1144,6 +1152,9 @@ require_once INCLUDES_PATH . '/header.php';
             <?php endfor; ?>
           </select>
         </form>
+        <a href="analytics_hub.php?tab=intake&year=<?= $year ?>&month=<?= $selectedMonth ?>" class="btn btn-outline" style="font-weight:700; color:#0d9488; border-color:#0d9488;">
+          <i class="fas fa-chart-pie"></i> تحليل المشتركين بالمركز الجديد
+        </a>
         <a href="?tab=monthly&year=<?= $year ?>" class="btn btn-outline" style="font-weight:700;">
           <i class="fas fa-arrow-left"></i> العودة للتقرير السنوي
         </a>

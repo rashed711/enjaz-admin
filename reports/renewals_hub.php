@@ -469,6 +469,36 @@ require_once INCLUDES_PATH . '/header.php';
   font-size: 13px;
   opacity: 0.9;
 }
+.table-wrapper {
+  width: 100% !important;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: var(--bg-card);
+  margin-top: 10px;
+}
+table.data-table {
+  width: 100% !important;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.data-table thead th {
+  background: #f8fafc;
+  padding: 12px 14px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
+table.data-table tbody td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color);
+  text-align: right;
+}
+table.data-table tbody tr:hover {
+  background: #f8fbff;
+}
 .hub-nav-tabs {
   display: flex;
   gap: 8px;
@@ -831,8 +861,8 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
   <?php else: ?>
     <div class="card">
-      <div class="table-responsive">
-        <table class="table">
+      <div class="table-wrapper">
+        <table class="data-table">
           <thead>
             <tr>
               <th>العميل</th>
@@ -939,8 +969,8 @@ require_once INCLUDES_PATH . '/header.php';
   </div>
 
   <div class="card">
-    <div class="table-responsive">
-      <table class="table">
+    <div class="table-wrapper">
+      <table class="data-table">
         <thead>
           <tr>
             <th>العميل</th>
@@ -1003,8 +1033,8 @@ require_once INCLUDES_PATH . '/header.php';
 <!-- ───────────────────────────────────────────────────────────── -->
 <?php elseif ($activeTab === 'history'): ?>
   <div class="card">
-    <div class="table-responsive">
-      <table class="table">
+    <div class="table-wrapper">
+      <table class="data-table">
         <thead>
           <tr>
             <th>التاريخ والوقت</th>
