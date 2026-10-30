@@ -458,13 +458,17 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
             }
         }
 
+        $encodedAppName = "=?UTF-8?B?" . base64_encode(APP_NAME) . "?=";
+        $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+        $base64Html     = chunk_split(base64_encode($htmlMessage), 76, "\r\n");
+
         if (!$socket) {
-            $headers  = "From: " . APP_NAME . " <" . $username . ">\r\n";
-            $headers .= "Reply-To: " . $username . "\r\n";
+            $headers  = "From: {$encodedAppName} <{$username}>\r\n";
+            $headers .= "Reply-To: <{$username}>\r\n";
             $headers .= "MIME-Version: 1.0\r\n";
             $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-            $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
-            return @mail($to, $encodedSubject, $htmlMessage, $headers, "-f " . escapeshellarg($username));
+            $headers .= "Content-Transfer-Encoding: base64\r\n";
+            return @mail($to, $encodedSubject, $base64Html, $headers, "-f " . escapeshellarg($username));
         }
 
         stream_set_timeout($socket, 8);
@@ -509,15 +513,16 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
         @fwrite($socket, "DATA\r\n");
         $readResponse($socket);
 
-        $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
-        $headers .= "To: <" . $to . ">\r\n";
-        $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+        $headers  = "From: {$encodedAppName} <{$username}>\r\n";
+        $headers .= "To: <{$to}>\r\n";
+        $headers .= "Reply-To: <{$username}>\r\n";
+        $headers .= "Subject: {$encodedSubject}\r\n";
         $headers .= "MIME-Version: 1.0\r\n";
         $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+        $headers .= "Content-Transfer-Encoding: base64\r\n";
         $headers .= "Date: " . date('r') . "\r\n";
 
-        @fwrite($socket, $headers . "\r\n" . $htmlMessage . "\r\n.\r\n");
+        @fwrite($socket, $headers . "\r\n" . $base64Html . "\r\n.\r\n");
         $res = $readResponse($socket);
 
         @fwrite($socket, "QUIT\r\n");
@@ -543,33 +548,35 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
 
         $boundary = "==Multipart_Boundary_x" . md5(time() . uniqid()) . "x";
 
-        $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
-        $headers .= "To: <" . $to . ">\r\n";
-        $headers .= "Reply-To: " . $username . "\r\n";
-        $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+        $encodedAppName = "=?UTF-8?B?" . base64_encode(APP_NAME) . "?=";
+        $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+
+        $headers  = "From: {$encodedAppName} <{$username}>\r\n";
+        $headers .= "To: <{$to}>\r\n";
+        $headers .= "Reply-To: <{$username}>\r\n";
+        $headers .= "Subject: {$encodedSubject}\r\n";
         $headers .= "MIME-Version: 1.0\r\n";
         $headers .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
         $headers .= "Date: " . date('r') . "\r\n";
 
-        $body = "--{$boundary}\r\n";
+        $body  = "--{$boundary}\r\n";
         $body .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-        $body .= $htmlMessage . "\r\n\r\n";
+        $body .= "Content-Transfer-Encoding: base64\r\n\r\n";
+        $body .= chunk_split(base64_encode($htmlMessage), 76, "\r\n") . "\r\n";
 
         $body .= "--{$boundary}\r\n";
         $body .= "Content-Type: text/csv; charset=UTF-8; name=\"{$attachmentFilename}\"\r\n";
         $body .= "Content-Transfer-Encoding: base64\r\n";
         $body .= "Content-Disposition: attachment; filename=\"{$attachmentFilename}\"\r\n\r\n";
-        $body .= chunk_split(base64_encode($attachmentContent)) . "\r\n";
+        $body .= chunk_split(base64_encode($attachmentContent), 76, "\r\n") . "\r\n";
         $body .= "--{$boundary}--\r\n";
 
-        $fallbackNative = function() use ($to, $subject, $body, $username, $boundary) {
-            $nativeHeaders = "From: " . APP_NAME . " <" . $username . ">\r\n";
-            $nativeHeaders .= "Reply-To: " . $username . "\r\n";
+        $fallbackNative = function() use ($to, $encodedSubject, $body, $username, $boundary, $encodedAppName) {
+            $nativeHeaders  = "From: {$encodedAppName} <{$username}>\r\n";
+            $nativeHeaders .= "Reply-To: <{$username}>\r\n";
             $nativeHeaders .= "MIME-Version: 1.0\r\n";
             $nativeHeaders .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
             $nativeHeaders .= "X-Mailer: PHP/" . phpversion() . "\r\n";
-            $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
             return @mail($to, $encodedSubject, $body, $nativeHeaders, "-f " . escapeshellarg($username));
         };
 

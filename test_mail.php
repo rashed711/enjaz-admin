@@ -118,24 +118,29 @@ if (!$workingTarget || !$socket) {
     echo "DATA: " . trim($rData) . "\n";
     
     $boundary = "==Test_" . md5(time()) . "==";
-    $msg = "From: Enjaz Cloud <$user>\r\n";
-    $msg .= "To: <$to>\r\n";
-    $msg .= "Subject: =?UTF-8?B?" . base64_encode("تجربة إرسال مباشر من سيرفر إنجاز") . "?=\r\n";
+    $encodedApp = "=?UTF-8?B?" . base64_encode(APP_NAME) . "?=";
+    $encodedSub = "=?UTF-8?B?" . base64_encode("تجربة إرسال مباشر من سيرفر إنجاز") . "?=";
+
+    $msg  = "From: {$encodedApp} <{$user}>\r\n";
+    $msg .= "To: <{$to}>\r\n";
+    $msg .= "Subject: {$encodedSub}\r\n";
     $msg .= "MIME-Version: 1.0\r\n";
-    $msg .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
+    $msg .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
     $msg .= "Date: " . date('r') . "\r\n\r\n";
     
-    $msg .= "--$boundary\r\n";
-    $msg .= "Content-Type: text/html; charset=UTF-8\r\n\r\n";
-    $msg .= "<h3>تم إرسال هذا البريد بنجاح من داخل سيرفر إنجاز عبر منفذ ({$workingTarget['host']}:{$workingTarget['port']})!</h3>\r\n";
-    $msg .= "<p>التوقيت: " . date('Y-m-d H:i:s') . "</p>\r\n\r\n";
+    $htmlContent = "<h3>تم إرسال هذا البريد بنجاح من داخل سيرفر إنجاز عبر منفذ ({$workingTarget['host']}:{$workingTarget['port']})!</h3>\r\n<p>التوقيت: " . date('Y-m-d H:i:s') . "</p>\r\n";
     
-    $msg .= "--$boundary\r\n";
+    $msg .= "--{$boundary}\r\n";
+    $msg .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $msg .= "Content-Transfer-Encoding: base64\r\n\r\n";
+    $msg .= chunk_split(base64_encode($htmlContent), 76, "\r\n") . "\r\n";
+    
+    $msg .= "--{$boundary}\r\n";
     $msg .= "Content-Type: text/plain; charset=UTF-8; name=\"test.txt\"\r\n";
     $msg .= "Content-Transfer-Encoding: base64\r\n";
     $msg .= "Content-Disposition: attachment; filename=\"test.txt\"\r\n\r\n";
-    $msg .= chunk_split(base64_encode("Enjaz Direct Server Test")) . "\r\n";
-    $msg .= "--$boundary--\r\n";
+    $msg .= chunk_split(base64_encode("Enjaz Direct Server Test"), 76, "\r\n") . "\r\n";
+    $msg .= "--{$boundary}--\r\n";
     
     fwrite($socket, $msg . "\r\n.\r\n");
     $rSent = smtpResp($socket);
