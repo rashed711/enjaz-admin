@@ -11,12 +11,15 @@ $year        = (int)($_GET['year'] ?? date('Y'));
 $clientStatus = $_GET['client_status'] ?? 'active';
 $country      = clean($_GET['country'] ?? '');
 
-// إعادة التوجيه التلقائي لمركز تحليلات الأداء والخدمات الموحد
-$redirParams = ['tab' => 'services', 'year' => $year];
-if ($clientStatus !== 'active') $redirParams['client_status'] = $clientStatus;
-if (!empty($country)) $redirParams['country'] = $country;
-header("Location: analytics_hub.php?" . http_build_query($redirParams));
-exit;
+// إعادة التوجيه التلقائي لمركز تحليلات الأداء والخدمات الموحد (فقط لو تم فتح services-stats.php مباشرة)
+$curScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
+if ($curScript === 'services-stats.php') {
+    $redirParams = ['tab' => 'services', 'year' => $year];
+    if ($clientStatus !== 'active') $redirParams['client_status'] = $clientStatus;
+    if (!empty($country)) $redirParams['country'] = $country;
+    header("Location: analytics_hub.php?" . http_build_query($redirParams));
+    exit;
+}
 
 $arabicMonths = [
     1=>'يناير',2=>'فبراير',3=>'مارس',4=>'ابريل',5=>'مايو',6=>'يونيو',

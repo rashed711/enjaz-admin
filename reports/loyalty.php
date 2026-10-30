@@ -8,9 +8,12 @@ requirePermission('view_reports');
 
 $db = getDB();
 
-// إعادة التوجيه التلقائي لمركز تحليلات الأداء والولاء الموحد
-header("Location: analytics_hub.php?tab=loyalty");
-exit;
+// إعادة التوجيه التلقائي لمركز تحليلات الأداء والولاء الموحد (فقط لو تم فتح loyalty.php مباشرة)
+$curScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
+if ($curScript === 'loyalty.php') {
+    header("Location: analytics_hub.php?tab=loyalty");
+    exit;
+}
 
 // الفلاتر والبحث
 $search = clean($_GET['search'] ?? '');

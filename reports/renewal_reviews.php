@@ -10,9 +10,12 @@ require_once INCLUDES_PATH . '/renewal_automation.php';
 
 $db = getDB();
 
-// إعادة التوجيه التلقائي لمركز التجديدات الموحد
-header("Location: renewals_hub.php");
-exit;
+// إعادة التوجيه التلقائي لمركز التجديدات الموحد (فقط لو تم فتح renewal_reviews.php مباشرة)
+$curScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
+if ($curScript === 'renewal_reviews.php') {
+    header("Location: renewals_hub.php");
+    exit;
+}
 $isAutoReview = (getSetting('renewal_auto_review', '1') === '1');
 $adminMobile  = getSetting('renewal_admin_mobile', '201028855779');
 

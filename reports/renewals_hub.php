@@ -6,7 +6,9 @@
  */
 require_once dirname(__DIR__) . '/config/app.php';
 requireLogin();
-requirePermission('send_whatsapp');
+if (!hasPermission('view_reports') && !hasPermission('send_whatsapp')) {
+    requirePermission('view_reports');
+}
 require_once INCLUDES_PATH . '/renewal_automation.php';
 
 // التأكد التام من وجود جدول الإشعارات

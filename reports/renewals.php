@@ -8,9 +8,12 @@ requirePermission('view_reports');
 
 $db = getDB();
 
-// إعادة التوجيه التلقائي لمركز التجديدات الموحد
-header("Location: renewals_hub.php");
-exit;
+// إعادة التوجيه التلقائي لمركز التجديدات الموحد (فقط لو تم فتح renewals.php مباشرة)
+$curScript = basename($_SERVER['SCRIPT_NAME'] ?? '');
+if ($curScript === 'renewals.php') {
+    header("Location: renewals_hub.php");
+    exit;
+}
 $warningDays = (int)getSetting('renewal_warning_days', '60');
 $filterDays   = isset($_GET['days']) ? (int)$_GET['days'] : $warningDays;
 $clientStatus = $_GET['status'] ?? '1'; // '1' = active, '0' = stopped, 'all' = both
