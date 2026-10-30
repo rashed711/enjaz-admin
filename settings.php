@@ -11,6 +11,19 @@ $settings = getSettings();
 $errors   = [];
 $success  = false;
 
+// تجربة إرسال النسخة الاحتياطية للبريد مباشرة عبر الرابط GET
+if (isset($_GET['test_backup'])) {
+    require_once INCLUDES_PATH . '/client_backup.php';
+    $backupRes = sendClientsBackupEmail(true);
+    if (!empty($backupRes['success'])) {
+        setFlash('success', $backupRes['message']);
+    } else {
+        setFlash('error', $backupRes['message']);
+    }
+    header('Location: settings.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCsrf()) { $errors[] = 'خطأ في الأمان.'; }
     else {
@@ -316,7 +329,7 @@ require_once INCLUDES_PATH . '/header.php';
                 <i class="fas fa-envelope" style="color:var(--primary); margin-left:4px;"></i>
                 بريد استلام النسخة الاحتياطية اليومية
               </label>
-              <input type="email" id="backup_email" name="backup_email" class="form-control" value="<?= e($settings['backup_email'] ?? ($settings['company_email'] ?? 'info@enjaz.app')) ?>" placeholder="admin@enjaz.cloud" dir="ltr" style="font-weight:700;">
+              <input type="email" id="backup_email" name="backup_email" class="form-control" value="<?= e($settings['backup_email'] ?? 'rashed1711@gmail.com') ?>" placeholder="rashed1711@gmail.com" dir="ltr" style="font-weight:700;">
               <span class="form-hint">البريد الذي سيصل إليه الشيت اليومي بصيغة Excel كمرفق.</span>
             </div>
 

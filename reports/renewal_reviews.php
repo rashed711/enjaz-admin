@@ -614,7 +614,7 @@ require_once INCLUDES_PATH . '/header.php';
                 <td dir="ltr" style="font-family:monospace;"><?= e($app['mobile']) ?></td>
                 <td><span class="stage-pill stage-<?= $app['stage'] ?>">مرحلة <?= $app['stage'] ?> يوم</span></td>
                 <td><?= e($app['cycle_end_date']) ?></td>
-                <td><button type="button" class="btn btn-xs btn-outline-secondary" onclick="viewMessageModal(`<?= e(addslashes($app['message'])) ?>`)"><i class="fas fa-eye"></i> عرض الرسالة</button></td>
+                <td><button type="button" class="btn btn-xs btn-outline-secondary" data-msg="<?= htmlspecialchars($app['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="viewMessageModal(this.getAttribute('data-msg'))"><i class="fas fa-eye"></i> عرض الرسالة</button></td>
                 <td>
                   <form method="POST" action="renewal_reviews.php" style="display:inline;">
                     <?= csrfField() ?>
@@ -673,7 +673,7 @@ require_once INCLUDES_PATH . '/header.php';
                 <td style="font-size: 11.5px;"><?= $h['sent_at'] ? date('Y-m-d H:i', strtotime($h['sent_at'])) : ($h['reviewed_at'] ? date('Y-m-d H:i', strtotime($h['reviewed_at'])) : '-') ?></td>
                 <td style="font-size: 12px;"><?= e($h['reviewer_name'] ?? 'النظام الآلي') ?></td>
                 <td>
-                  <button type="button" class="btn btn-xs btn-outline-secondary" onclick="viewMessageModal(`<?= e(addslashes($h['message'])) ?>`)">
+                  <button type="button" class="btn btn-xs btn-outline-secondary" data-msg="<?= htmlspecialchars($h['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="viewMessageModal(this.getAttribute('data-msg'))">
                     <i class="fas fa-eye"></i> عرض
                   </button>
                 </td>

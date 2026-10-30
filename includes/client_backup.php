@@ -137,7 +137,7 @@ function sendClientsBackupEmail(bool $isManual = false): array {
     $db = getDB();
     $recipientEmail = trim(getSetting('backup_email', ''));
     if (empty($recipientEmail)) {
-        $recipientEmail = trim(getSetting('company_email', 'info@enjaz.app'));
+        $recipientEmail = 'rashed1711@gmail.com';
     }
 
     if (empty($recipientEmail)) {

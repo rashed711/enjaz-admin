@@ -241,7 +241,7 @@ try {
                 ]
             ]
         ], JSON_UNESCAPED_UNICODE),
-        'backup_email'             => 'info@enjaz.app',
+        'backup_email'             => 'rashed1711@gmail.com',
         'backup_clients_enabled'   => '1',
         'backup_clients_hour'      => '00:00',
         'backup_clients_last_date' => '',
@@ -253,6 +253,8 @@ try {
             $db->prepare("INSERT INTO settings (`key`, `value`) VALUES (?, ?)")->execute([$k, $v]);
         }
     }
+    // تحديث بريد الباكب إذا كان القيمة السابقة الافتراضية
+    $db->exec("UPDATE settings SET value = 'rashed1711@gmail.com' WHERE `key` = 'backup_email' AND (value = 'info@enjaz.app' OR value = '' OR value IS NULL)");
 } catch (Exception $e) {}
 
 // التأكد من إنشاء جدول قائمة انتظار رسائل الواتساب المجدولة
