@@ -189,30 +189,14 @@ try {
           </a>
         </li>
         <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals.php"
-             class="nav-link <?= ($activePage ?? '') === 'reports-renewals' ? 'active' : '' ?>"
-             id="nav-reports-renewals">
-            <i class="fas fa-calendar-exclamation nav-icon"></i>
-            <span>تجديدات قريبة</span>
+          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals_hub.php"
+             class="nav-link <?= ($activePage ?? '') === 'renewals-hub' ? 'active' : '' ?>"
+             id="nav-renewals-hub">
+            <i class="fas fa-layer-group nav-icon" style="color: var(--primary);"></i>
+            <span>مركز التجديدات الموحد</span>
             <?php if ($renewalCount > 0): ?>
             <span class="nav-badge"><?= $renewalCount ?></span>
             <?php endif; ?>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewal_reviews.php"
-             class="nav-link <?= ($activePage ?? '') === 'renewal-reviews' ? 'active' : '' ?>"
-             id="nav-renewal-reviews">
-            <i class="fas fa-tasks nav-icon"></i>
-            <span>مراجعة إشعارات التجديد</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals_hub.php"
-             class="nav-link <?= ($activePage ?? '') === 'renewals-hub' ? 'active' : '' ?>"
-             id="nav-renewals-hub" style="color: #0284c7; background: rgba(2, 132, 199, 0.08); font-weight: 700; border-radius: 8px;">
-            <i class="fas fa-layer-group nav-icon" style="color: #0284c7;"></i>
-            <span>مركز التجديدات الموحد (تجريبي)</span>
           </a>
         </li>
         <li class="nav-item">
@@ -300,7 +284,7 @@ try {
       <!-- Actions -->
       <div class="topbar-actions">
         <?php if ($renewalCount > 0): ?>
-        <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals.php"
+        <a href="<?= str_repeat('../', $depth ?? 0) ?>reports/renewals_hub.php"
            class="btn btn-sm btn-outline"
            style="color: var(--warning); border-color: var(--warning);">
           <i class="fas fa-bell"></i>

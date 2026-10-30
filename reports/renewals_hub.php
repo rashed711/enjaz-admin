@@ -53,7 +53,8 @@ try {
         $daysPhrase = " (متبقي {$stg} يوماً)";
         if ($stg === 7) $daysPhrase = " (متبقي 7 أيام فقط ⚠️)";
         
-        $updatedMsg = preg_replace('/(والمقرر بتاريخ \*[^\*]+\*)(:?)/u', '$1' . $daysPhrase . ':', $rU['message']);
+        $pattern = '/((?:والمقرر\s*)?بتاريخ\s*\*?[0-9]{1,4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,4}\*?)(:?)/u';
+        $updatedMsg = preg_replace($pattern, '$1' . $daysPhrase . ':', $rU['message']);
         if ($updatedMsg && $updatedMsg !== $rU['message']) {
             $db->prepare("UPDATE renewal_notifications SET message = ? WHERE id = ?")->execute([$updatedMsg, $rU['id']]);
         }
@@ -491,7 +492,7 @@ if ($activeTab === 'history') {
 }
 
 $depth = 1;
-$pageTitle = 'مركز التجديدات الموحد (معاينة تجريبية)';
+$pageTitle = 'مركز التجديدات الموحد';
 $activePage = 'renewals-hub';
 require_once INCLUDES_PATH . '/header.php';
 ?>
@@ -700,12 +701,14 @@ table.data-table tbody tr:hover {
 }
 .hub-modal.open { display: flex; }
 .hub-modal-content {
-  background: var(--bg-card);
-  border-radius: 12px;
-  max-width: 550px;
-  width: 90%;
-  padding: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  background: #ffffff !important;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 92%;
+  padding: 0 !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.1);
 }
 </style>
 
@@ -713,7 +716,6 @@ table.data-table tbody tr:hover {
   <div class="page-title">
     <i class="fas fa-layer-group" style="color: var(--primary);"></i>
     <span>مركز التجديدات الموحد</span>
-    <span class="hub-badge-beta">معاينة تجريبية Side-by-Side</span>
   </div>
   <div class="page-actions" style="display: flex; gap: 8px;">
     <form method="POST" style="margin: 0;">
@@ -723,9 +725,6 @@ table.data-table tbody tr:hover {
         <i class="fas fa-sync-alt"></i> فحص التجديدات الآن
       </button>
     </form>
-    <a href="renewal_reviews.php" class="btn btn-sm btn-outline" style="color: var(--text-muted);" title="فتح صفحة المراجعة القديمة">
-      الصفحة القديمة <i class="fas fa-external-link-alt"></i>
-    </a>
   </div>
 </div>
 
@@ -1208,36 +1207,36 @@ table.data-table tbody tr:hover {
 
 <!-- نافذة عرض الرسالة المنبثقة بتصميم واتساب احترافي (WhatsApp Preview Modal) -->
 <div id="hubMessageModal" class="hub-modal" onclick="closeHubMessageModal(event)">
-  <div class="hub-modal-content" style="max-width: 580px; width: 92%; padding: 22px; border-radius: 16px; box-shadow: 0 15px 40px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">
+  <div class="hub-modal-content" onclick="event.stopPropagation()">
     
-    <!-- رأس المودال -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+    <!-- رأس المودال الأخضر الاحترافي -->
+    <div style="background: #008069; color: #ffffff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
       <div style="display: flex; align-items: center; gap: 10px;">
-        <i class="fab fa-whatsapp" style="color: #25D366; font-size: 26px;"></i>
+        <i class="fab fa-whatsapp" style="font-size: 26px; color: #ffffff;"></i>
         <div>
-          <h3 style="margin: 0; font-size: 16px; color: var(--text-primary); font-weight: 800;">معاينة رسالة التجديد</h3>
-          <span style="font-size: 11.5px; color: var(--text-muted);">تنسيق مطابق لما يظهر للعميل على تطبيق الواتساب</span>
+          <h3 style="margin: 0; font-size: 15.5px; color: #ffffff; font-weight: 800;">معاينة رسالة التجديد للعميل</h3>
+          <span style="font-size: 11.5px; color: rgba(255,255,255,0.85);">تنسيق مطابق لما يظهر على تطبيق الواتساب</span>
         </div>
       </div>
       
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" id="copyMsgBtn" class="btn btn-sm btn-outline" onclick="copyMessageToClipboard()" style="font-size: 12px; font-weight: 700; color: #0d9488; border-color: #0d9488;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button type="button" id="copyMsgBtn" onclick="copyMessageToClipboard()" style="background: rgba(255,255,255,0.18); color: #ffffff; border: 1px solid rgba(255,255,255,0.4); font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-family: inherit;">
           <i class="far fa-copy"></i> نسخ النص
         </button>
-        <button type="button" class="btn btn-sm btn-outline" style="border: none; font-size: 16px; color: var(--text-muted); padding: 4px 8px;" onclick="closeHubMessageModal()">✕</button>
+        <button type="button" onclick="closeHubMessageModal()" style="background: transparent; border: none; color: #ffffff; font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;" title="إغلاق">✕</button>
       </div>
     </div>
 
     <!-- صندوق محاكاة شات الواتساب -->
-    <div style="background: #efeae2; border-radius: 12px; padding: 18px 14px; max-height: 420px; overflow-y: auto; border: 1px solid #dcd7ce; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);">
+    <div style="background: #efeae2; padding: 18px 16px; max-height: 430px; overflow-y: auto; background-image: radial-gradient(#d6cfc3 1px, transparent 1px); background-size: 16px 16px;">
       <div style="max-width: 96%; margin: 0 auto;">
-        <div id="hubMessageModalBubble" style="background: #ffffff; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.15); font-size: 14px; line-height: 1.8; color: #111b21; font-family: 'Cairo', system-ui, sans-serif; white-space: pre-wrap; word-break: break-word;"></div>
+        <div id="hubMessageModalBubble" style="background: #ffffff; border-radius: 12px 0 12px 12px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); font-size: 14px; line-height: 1.85; color: #111b21; font-family: 'Cairo', system-ui, sans-serif; white-space: pre-wrap; word-break: break-word;"></div>
       </div>
     </div>
 
     <!-- أسفل المودال -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-color);">
-      <span style="font-size: 11.5px; color: var(--text-muted);"><i class="fas fa-check-double" style="color: #53bdeb;"></i> يتم إبراز التنسيقات العريضة والأرقام بوضوح</span>
+    <div style="background: #f8fafc; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color);">
+      <span style="font-size: 12px; color: var(--text-muted);"><i class="fas fa-check-double" style="color: #53bdeb; margin-left: 4px;"></i> الرسالة بصيغة نصية مباشرة جاهزة للعميل</span>
       <button type="button" class="btn btn-sm btn-secondary" onclick="closeHubMessageModal()">إغلاق</button>
     </div>
   </div>
@@ -1253,9 +1252,10 @@ function formatWhatsappText(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Blocks
-  res = res.replace(/```([^`]+)```/g, '<code style="display:block; background:#f8fafc; padding:6px 10px; border-radius:6px; font-family:monospace; margin:4px 0;">$1</code>');
-  res = res.replace(/`([^`\n]+)`/g, '<code style="background:#f1f5f9; padding:2px 5px; border-radius:4px; font-family:monospace; color:#0f766e;">$1</code>');
+  // Blocks / Backtick quotes: Arabic-safe connected callout box (no isolated monospace glyphs)
+  res = res.replace(/```([^`]+)```/g, '<div style="background:#f0fdf4; border-right:4px solid #10b981; padding:8px 12px; border-radius:6px; margin:8px 0; color:#166534; font-size:13px; font-weight:600; line-height:1.7;">$1</div>');
+  res = res.replace(/`([^`\n]+)`/g, '<div style="background:#f0fdf4; border-right:4px solid #10b981; padding:8px 12px; border-radius:6px; margin:8px 0; color:#166534; font-size:13px; font-weight:600; line-height:1.7;">$1</div>');
+
   // Bold
   res = res.replace(/\*([^\*\n]+)\*/g, '<strong style="color: #0f172a; font-weight: 800;">$1</strong>');
   // Italic
@@ -1290,12 +1290,12 @@ function copyMessageToClipboard() {
     if (btn) {
       const orig = btn.innerHTML;
       btn.innerHTML = '<i class="fas fa-check"></i> تم النسخ!';
-      btn.style.color = '#10b981';
+      btn.style.background = '#10b981';
       btn.style.borderColor = '#10b981';
       setTimeout(() => {
         btn.innerHTML = orig;
-        btn.style.color = '#0d9488';
-        btn.style.borderColor = '#0d9488';
+        btn.style.background = 'rgba(255,255,255,0.18)';
+        btn.style.borderColor = 'rgba(255,255,255,0.4)';
       }, 2000);
     }
   });
