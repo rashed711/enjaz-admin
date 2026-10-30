@@ -206,10 +206,16 @@ try {
           `sent_at` DATETIME NULL,
           `response` TEXT NULL,
           `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           KEY `idx_client_cycle_stage` (`client_id`, `cycle_end_date`, `stage`),
           KEY `idx_status` (`status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
+
+    $desc = $db->query("SHOW COLUMNS FROM `renewal_notifications` LIKE 'updated_at'")->fetch();
+    if (!$desc) {
+        $db->exec("ALTER TABLE `renewal_notifications` ADD COLUMN `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;");
+    }
 
     $defaults = [
         'renewal_auto_review'  => '1',            // 1: مراجعة يدوية قبل الإرسال، 0: إرسال تلقائي مباشر
