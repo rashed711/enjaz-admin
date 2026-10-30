@@ -253,9 +253,11 @@ HTML;
                 'count'     => $totalClients
             ];
         } else {
+            global $lastMailLog;
+            $details = !empty($lastMailLog) ? ' [' . implode(' | ', $lastMailLog) . ']' : '';
             return [
                 'success'   => false,
-                'message'   => "تعذر إرسال البريد إلى ({$recipientEmail})، يرجى مراجعة إعدادات خادم البريد.",
+                'message'   => "تعذر إرسال البريد إلى ({$recipientEmail}){$details}، يرجى مراجعة إعدادات خادم البريد.",
                 'recipient' => $recipientEmail
             ];
         }

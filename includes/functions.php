@@ -423,14 +423,20 @@ function normalizeMobile(string $mobile): string {
 }
 
 /**
- * إرسال بريد إلكتروني عبر SMTP باستخدام المقابس (Sockets)
+ * إرسال بريد إلكتروني عبر SMTP باستخدام المقابس (Sockets) مع دعم متعدد المنافذ
  */
 function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
     try {
-        $host = 'mail.enjaz.app';
-        $port = 465;
         $username = 'noreplay@enjaz.app';
         $password = 'Aa@01028855';
+
+        $targets = [
+            ['host' => 'mail.enjaz.app', 'port' => 465, 'ssl' => true],
+            ['host' => '127.0.0.1',     'port' => 465, 'ssl' => true],
+            ['host' => 'localhost',     'port' => 465, 'ssl' => true],
+            ['host' => '127.0.0.1',     'port' => 25,  'ssl' => false],
+            ['host' => '127.0.0.1',     'port' => 587, 'ssl' => false],
+        ];
 
         $context = stream_context_create([
             'ssl' => [
@@ -439,14 +445,29 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
                 'allow_self_signed' => true,
             ]
         ]);
-        
-        $socket = @stream_socket_client('ssl://' . $host . ':' . $port, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $context);
-        if (!$socket) {
-            error_log("[SMTP Error] Connection failed: {$errno} - {$errstr}");
-            return false;
+
+        $socket = null;
+        foreach ($targets as $t) {
+            $prefix = $t['ssl'] ? 'ssl://' : 'tcp://';
+            $errno = 0;
+            $errstr = '';
+            $s = @stream_socket_client($prefix . $t['host'] . ':' . $t['port'], $errno, $errstr, 4, STREAM_CLIENT_CONNECT, $context);
+            if ($s) {
+                $socket = $s;
+                break;
+            }
         }
 
-        stream_set_timeout($socket, 10);
+        if (!$socket) {
+            $headers  = "From: " . APP_NAME . " <" . $username . ">\r\n";
+            $headers .= "Reply-To: " . $username . "\r\n";
+            $headers .= "MIME-Version: 1.0\r\n";
+            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
+            return @mail($to, $encodedSubject, $htmlMessage, $headers, "-f " . escapeshellarg($username));
+        }
+
+        stream_set_timeout($socket, 8);
 
         $readResponse = function($socket) {
             $data = '';
@@ -461,31 +482,31 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
             return $data;
         };
 
-        $readResponse($socket); // 220 Welcome
+        $readResponse($socket); // Greeting
 
-        fwrite($socket, "EHLO enjaz.app\r\n");
+        @fwrite($socket, "EHLO enjaz.app\r\n");
         $readResponse($socket);
 
-        fwrite($socket, "AUTH LOGIN\r\n");
+        @fwrite($socket, "AUTH LOGIN\r\n");
         $readResponse($socket);
 
-        fwrite($socket, base64_encode($username) . "\r\n");
+        @fwrite($socket, base64_encode($username) . "\r\n");
         $readResponse($socket);
 
-        fwrite($socket, base64_encode($password) . "\r\n");
+        @fwrite($socket, base64_encode($password) . "\r\n");
         $authRes = $readResponse($socket);
         if (strpos($authRes, '235') === false) {
             fclose($socket);
             return false;
         }
 
-        fwrite($socket, "MAIL FROM:<" . $username . ">\r\n");
+        @fwrite($socket, "MAIL FROM:<" . $username . ">\r\n");
         $readResponse($socket);
 
-        fwrite($socket, "RCPT TO:<" . $to . ">\r\n");
+        @fwrite($socket, "RCPT TO:<" . $to . ">\r\n");
         $readResponse($socket);
 
-        fwrite($socket, "DATA\r\n");
+        @fwrite($socket, "DATA\r\n");
         $readResponse($socket);
 
         $headers = "From: " . APP_NAME . " <" . $username . ">\r\n";
@@ -496,10 +517,10 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
         $headers .= "Content-Transfer-Encoding: 8bit\r\n";
         $headers .= "Date: " . date('r') . "\r\n";
 
-        fwrite($socket, $headers . "\r\n" . $htmlMessage . "\r\n.\r\n");
+        @fwrite($socket, $headers . "\r\n" . $htmlMessage . "\r\n.\r\n");
         $res = $readResponse($socket);
 
-        fwrite($socket, "QUIT\r\n");
+        @fwrite($socket, "QUIT\r\n");
         fclose($socket);
 
         return strpos($res, '250') !== false;
@@ -513,9 +534,10 @@ function sendSMTPMail(string $to, string $subject, string $htmlMessage): bool {
  * إرسال بريد إلكتروني مع مرفق عبر SMTP المقابس أو mail()
  */
 function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMessage, string $attachmentContent, string $attachmentFilename): bool {
+    global $lastMailLog;
+    $lastMailLog = [];
+
     try {
-        $host = 'mail.enjaz.app';
-        $port = 465;
         $username = 'noreplay@enjaz.app';
         $password = 'Aa@01028855';
 
@@ -548,8 +570,16 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
             $nativeHeaders .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n";
             $nativeHeaders .= "X-Mailer: PHP/" . phpversion() . "\r\n";
             $encodedSubject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
-            return @mail($to, $encodedSubject, $body, $nativeHeaders);
+            return @mail($to, $encodedSubject, $body, $nativeHeaders, "-f " . escapeshellarg($username));
         };
+
+        $targets = [
+            ['host' => 'mail.enjaz.app', 'port' => 465, 'ssl' => true],
+            ['host' => '127.0.0.1',     'port' => 465, 'ssl' => true],
+            ['host' => 'localhost',     'port' => 465, 'ssl' => true],
+            ['host' => '127.0.0.1',     'port' => 25,  'ssl' => false],
+            ['host' => '127.0.0.1',     'port' => 587, 'ssl' => false],
+        ];
 
         $context = stream_context_create([
             'ssl' => [
@@ -559,9 +589,25 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
             ]
         ]);
 
-        $socket = @stream_socket_client('ssl://' . $host . ':' . $port, $errno, $errstr, 10, STREAM_CLIENT_CONNECT, $context);
+        $socket = null;
+        $activeTarget = null;
+        foreach ($targets as $t) {
+            $prefix = $t['ssl'] ? 'ssl://' : 'tcp://';
+            $errno = 0;
+            $errstr = '';
+            $s = @stream_socket_client($prefix . $t['host'] . ':' . $t['port'], $errno, $errstr, 4, STREAM_CLIENT_CONNECT, $context);
+            if ($s) {
+                $socket = $s;
+                $activeTarget = $t;
+                $lastMailLog[] = "Connected to {$prefix}{$t['host']}:{$t['port']}";
+                break;
+            } else {
+                $lastMailLog[] = "Failed {$prefix}{$t['host']}:{$t['port']} ($errno - $errstr)";
+            }
+        }
+
         if (!$socket) {
-            error_log("[SMTP Error] Socket connect failed: {$errno} - {$errstr}");
+            $lastMailLog[] = "All socket connections failed, trying native mail()";
             return $fallbackNative();
         }
 
@@ -594,6 +640,7 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
         $res220 = $readResponse($socket);
         if (strpos($res220, '220') === false) {
             fclose($socket);
+            $lastMailLog[] = "Initial banner missing 220: " . trim($res220);
             return $fallbackNative();
         }
 
@@ -611,6 +658,7 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
 
         if (strpos($authRes, '235') === false) {
             fclose($socket);
+            $lastMailLog[] = "AUTH failed: " . trim($authRes);
             return $fallbackNative();
         }
 
@@ -624,18 +672,22 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
         $dataRes = $readResponse($socket);
         if (strpos($dataRes, '354') === false) {
             fclose($socket);
+            $lastMailLog[] = "DATA rejected: " . trim($dataRes);
             return $fallbackNative();
         }
 
         $fullPayload = $headers . "\r\n" . $body . "\r\n.\r\n";
         if (!$writeAll($socket, $fullPayload)) {
             fclose($socket);
+            $lastMailLog[] = "Payload write failed";
             return $fallbackNative();
         }
 
         $res = $readResponse($socket);
         @fwrite($socket, "QUIT\r\n");
         fclose($socket);
+
+        $lastMailLog[] = "Server response: " . trim($res);
 
         if (strpos($res, '250') !== false) {
             return true;
@@ -644,6 +696,7 @@ function sendSMTPMailWithAttachment(string $to, string $subject, string $htmlMes
         return $fallbackNative();
     } catch (\Throwable $e) {
         error_log('[SMTP Error] ' . $e->getMessage());
+        $lastMailLog[] = "Exception: " . $e->getMessage();
         return false;
     }
 }
