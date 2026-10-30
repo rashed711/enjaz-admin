@@ -734,7 +734,7 @@ function getDefaultHomePage($depth = 0) {
  * - تثبيت أسعار تجديد الدومين: 1,350 جنيه للمصري، 86 ريال للسعودي
  * - التحقق من حجز الدومين: العميل الذي ليس لديه حجز دومين مع إنجاز لا يُضاف له سطر الدومين نهائياً
  */
-function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?string $companyName = null): array {
+function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?string $companyName = null, ?int $stage = null): array {
     if ($companyName === null) {
         $companyName = getSetting('company_name', APP_NAME);
     }
@@ -921,9 +921,46 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
     // جلب بيانات الدفع المخصصة للعملة التي يدفع بها العميل (سواء دفع بالجنيه أو بالريال)
     $paymentBlock = formatRenewalPaymentText($currencyCode);
 
+    // تحديد الأيام المتبقية وصياغتها باللغة العربية بأسلوب ذكي وطبيعي
+    $daysCount = $stage;
+    if ($daysCount === null && $earliestDate) {
+        try {
+            $dToday = new DateTime(date('Y-m-d'));
+            $dEnd   = new DateTime($earliestDate);
+            $daysCount = (int)$dToday->diff($dEnd)->format('%r%a');
+        } catch (\Throwable $e) {}
+    }
+
+    $daysPhrase = '';
+    if ($daysCount !== null) {
+        if ($daysCount == 60) {
+            $daysPhrase = " (متبقي 60 يوماً)";
+        } elseif ($daysCount == 45) {
+            $daysPhrase = " (متبقي 45 يوماً)";
+        } elseif ($daysCount == 30) {
+            $daysPhrase = " (متبقي 30 يوماً)";
+        } elseif ($daysCount == 15) {
+            $daysPhrase = " (متبقي 15 يوماً)";
+        } elseif ($daysCount == 7) {
+            $daysPhrase = " (متبقي 7 أيام فقط ⚠️)";
+        } elseif ($daysCount > 10) {
+            $daysPhrase = " (متبقي {$daysCount} يوماً)";
+        } elseif ($daysCount > 2 && $daysCount <= 10) {
+            $daysPhrase = " (متبقي {$daysCount} أيام)";
+        } elseif ($daysCount == 2) {
+            $daysPhrase = " (متبقي يومان فقط)";
+        } elseif ($daysCount == 1) {
+            $daysPhrase = " (متبقي يوم واحد - ينتهي غداً)";
+        } elseif ($daysCount == 0) {
+            $daysPhrase = " (ينتهي اليوم)";
+        } elseif ($daysCount < 0) {
+            $daysPhrase = " (منتهي منذ " . abs($daysCount) . " يوم)";
+        }
+    }
+
     $message = "*السلام عليكم ورحمة الله وبركاته* 🌷\n"
              . "عميلنا العزيز، يسعدنا خدمتكم دائمًا 💚\n\n"
-             . "نود تذكيركم بقرب موعد التجديد السنوي لخدمات شركتكم، والمقرر بتاريخ *{$formattedDate}*:\n\n"
+             . "نود تذكيركم بقرب موعد التجديد السنوي لخدمات شركتكم، والمقرر بتاريخ *{$formattedDate}*{$daysPhrase}:\n\n"
              . "📋 تفاصيل التجديد:\n\n"
              . ($servicesText ? "{$servicesText}\n\n" : "")
              . "{$totalLine}\n\n"

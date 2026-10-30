@@ -289,8 +289,8 @@ function getRenewalCandidates(int $daysAhead = 1): array {
             continue;
         }
 
-        // صياغة الرسالة الذكية للعميل
-        $build = buildRenewalWhatsappMessage($cData, $cData['subscriptions'], $companyName);
+        // صياغة الرسالة الذكية للعميل متضمنة المرحلة والأيام المتبقية بدقة
+        $build = buildRenewalWhatsappMessage($cData, $cData['subscriptions'], $companyName, $stage);
 
         $candidates[] = [
             'notification_id' => 0,

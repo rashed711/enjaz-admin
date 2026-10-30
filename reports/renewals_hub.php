@@ -39,6 +39,25 @@ try {
           AND stage = 45
           AND DATEDIFF(cycle_end_date, CURDATE()) < 43
     ");
+
+    // تحديث الرسائل الحالية لتتضمن عبارة (متبقي X يوماً) بوضوح
+    $rowsNeedDays = $db->query("
+        SELECT id, message, stage, cycle_end_date 
+        FROM renewal_notifications 
+        WHERE status IN ('pending_review', 'approved') 
+          AND message NOT LIKE '%(متبقي%'
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rowsNeedDays as $rU) {
+        $stg = (int)$rU['stage'];
+        $daysPhrase = " (متبقي {$stg} يوماً)";
+        if ($stg === 7) $daysPhrase = " (متبقي 7 أيام فقط ⚠️)";
+        
+        $updatedMsg = preg_replace('/(والمقرر بتاريخ \*[^\*]+\*)(:?)/u', '$1' . $daysPhrase . ':', $rU['message']);
+        if ($updatedMsg && $updatedMsg !== $rU['message']) {
+            $db->prepare("UPDATE renewal_notifications SET message = ? WHERE id = ?")->execute([$updatedMsg, $rU['id']]);
+        }
+    }
 } catch (\Throwable $e) {}
 
 // ─────────────────────────────────────────────────────────────────
