@@ -64,7 +64,7 @@ $now = new DateTime();
 $nextRunStr = $start_date . ' ' . $send_at_time;
 $nextRun = new DateTime($nextRunStr);
 
-if ($nextRun < $now) {
+if ($frequency !== 'once' && $nextRun < $now) {
     // إذا كان الموعد والتاريخ المحددان قد فاتوا بالفعل، يتم تقديمه حسب التكرار
     if ($frequency === 'daily') {
         $nextRun = new DateTime(date('Y-m-d') . ' ' . $send_at_time);
@@ -90,14 +90,14 @@ if ($nextRun < $now) {
 $next_run_str = $nextRun->format('Y-m-d H:i:s');
 
 if ($id > 0) {
-    // Update
+    // Update - إعادة تفعيل الجدولة (status = 1) في حال كانت مكتملة أو معدّلة
     $stmt = $db->prepare("
         UPDATE whatsapp_schedules 
-        SET title = ?, message = ?, target_type = ?, target_client_ids = ?, warning_days = ?, frequency = ?, custom_interval_days = ?, send_at_time = ?, next_run = ?
+        SET title = ?, message = ?, target_type = ?, target_client_ids = ?, warning_days = ?, frequency = ?, custom_interval_days = ?, send_at_time = ?, next_run = ?, status = 1
         WHERE id = ?
     ");
     $stmt->execute([$title, $message, $target_type, $target_client_ids_str, $warning_days, $frequency, $custom_interval, $send_at_time, $next_run_str, $id]);
-    setFlash('success', 'تم تعديل الجدولة بنجاح.');
+    setFlash('success', 'تم تعديل وحفظ الجدولة بنجاح.');
 } else {
     // Insert
     $stmt = $db->prepare("

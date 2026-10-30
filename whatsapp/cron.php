@@ -104,15 +104,13 @@ $schedules = $stmtSch->fetchAll();
 
 if (empty($schedules)) {
     echo "No pending schedules to run.\n";
-    exit;
-}
+} else {
+    $apiUrl    = getSetting('whatsapp_api_url', '');
+    $apiToken  = getSetting('whatsapp_api_token', '');
+    $sessionId = getSetting('whatsapp_sender', '');
+    $companyName = getSetting('company_name', APP_NAME);
 
-$apiUrl    = getSetting('whatsapp_api_url', '');
-$apiToken  = getSetting('whatsapp_api_token', '');
-$sessionId = getSetting('whatsapp_sender', '');
-$companyName = getSetting('company_name', APP_NAME);
-
-foreach ($schedules as $sch) {
+    foreach ($schedules as $sch) {
     echo "Processing schedule: {$sch['title']} (ID: {$sch['id']})\n";
     
     // تحديد العملاء المستهدفين
@@ -264,38 +262,46 @@ foreach ($schedules as $sch) {
             echo " - Message sent to {$cl['name']} ({$status})\n";
             
             // تأخير عشوائي آمن (3 إلى 8 ثوانٍ) بين كل رسالة لمنع الحظر وتقليل الضغط
-            $randomWait = rand(3, 8);
+            $randomWait = rand(3, 15);
             echo "   (Waiting {$randomWait}s before next message...)\n";
             sleep($randomWait);
         }
     }
 
-    // حساب موعد التشغيل القادم وتحديث السجل للجدولة
-    $next = new DateTime($sch['next_run']);
-    if ($sch['frequency'] === 'daily') {
-        $next->modify('+1 day');
-    } elseif ($sch['frequency'] === 'weekly') {
-        $next->modify('+7 days');
-    } elseif ($sch['frequency'] === 'monthly') {
-        $next->modify('+1 month');
-    } elseif ($sch['frequency'] === 'interval') {
-        $next->modify('+' . $sch['custom_interval_days'] . ' days');
-    }
+    // حساب موعد التشغيل القادم أو إنهاء الجدولة إذا كانت لمرة واحدة فقط
+    if ($sch['frequency'] === 'once') {
+        // تم إرسال الرسالة بنجاح للمستهدفين لمرة واحدة، يتم وسمها كمكتملة وموقوفة (status = 0)
+        $db->prepare("UPDATE whatsapp_schedules SET last_run = ?, status = 0 WHERE id = ?")
+           ->execute([$phpNow, $sch['id']]);
+        echo "Schedule ID {$sch['id']} (One-time) completed and marked inactive (status = 0).\n\n";
+    } else {
+        $next = new DateTime($sch['next_run']);
+        if ($sch['frequency'] === 'daily') {
+            $next->modify('+1 day');
+        } elseif ($sch['frequency'] === 'weekly') {
+            $next->modify('+7 days');
+        } elseif ($sch['frequency'] === 'monthly') {
+            $next->modify('+1 month');
+        } elseif ($sch['frequency'] === 'interval') {
+            $next->modify('+' . $sch['custom_interval_days'] . ' days');
+        }
 
-    // الحماية من الدوران اللا نهائي لو كان تاريخ الاستحقاق قديماً جداً
-    $now = new DateTime();
-    while ($next <= $now) {
-        if ($sch['frequency'] === 'daily') $next->modify('+1 day');
-        elseif ($sch['frequency'] === 'weekly') $next->modify('+7 days');
-        elseif ($sch['frequency'] === 'monthly') $next->modify('+1 month');
-        elseif ($sch['frequency'] === 'interval') $next->modify('+' . $sch['custom_interval_days'] . ' days');
-    }
+        // الحماية من الدوران اللا نهائي لو كان تاريخ الاستحقاق قديماً جداً
+        $now = new DateTime();
+        while ($next <= $now) {
+            if ($sch['frequency'] === 'daily') $next->modify('+1 day');
+            elseif ($sch['frequency'] === 'weekly') $next->modify('+7 days');
+            elseif ($sch['frequency'] === 'monthly') $next->modify('+1 month');
+            elseif ($sch['frequency'] === 'interval') $next->modify('+' . $sch['custom_interval_days'] . ' days');
+        }
 
-    $nextRunStr = $next->format('Y-m-d H:i:s');
-    $db->prepare("UPDATE whatsapp_schedules SET last_run = ?, next_run = ? WHERE id = ?")
-       ->execute([$phpNow, $nextRunStr, $sch['id']]);
-       
-    echo "Schedule ID {$sch['id']} updated next run to {$nextRunStr}\n\n";
+        $nextRunStr = $next->format('Y-m-d H:i:s');
+        $db->prepare("UPDATE whatsapp_schedules SET last_run = ?, next_run = ? WHERE id = ?")
+           ->execute([$phpNow, $nextRunStr, $sch['id']]);
+           
+        echo "Schedule ID {$sch['id']} updated next run to {$nextRunStr}\n\n";
+    }
+}
 }
 
 echo "All pending schedules processed successfully.\n";

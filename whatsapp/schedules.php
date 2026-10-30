@@ -200,7 +200,8 @@ require_once INCLUDES_PATH . '/header.php';
               </td>
               <td>
                 <?php
-                if ($sch['frequency'] === 'daily') echo 'يوميًا';
+                if ($sch['frequency'] === 'once') echo '<span class="badge" style="background:#0284c7;color:#fff;"><i class="fas fa-bullseye"></i> مرة واحدة</span>';
+                elseif ($sch['frequency'] === 'daily') echo 'يوميًا';
                 elseif ($sch['frequency'] === 'weekly') echo 'أسبوعيًا';
                 elseif ($sch['frequency'] === 'monthly') echo 'شهريًا';
                 elseif ($sch['frequency'] === 'interval') echo 'كل ' . $sch['custom_interval_days'] . ' يوم';
@@ -210,10 +211,20 @@ require_once INCLUDES_PATH . '/header.php';
               <td class="text-muted"><?= $sch['last_run'] ? formatDateTime($sch['last_run']) : '—' ?></td>
               <td style="color:var(--primary-light);font-weight:700;"><?= formatDateTime($sch['next_run']) ?></td>
               <td>
-                <?php if ($sch['status']): ?>
-                  <span class="badge badge-success">نشطة</span>
+                <?php if ($sch['frequency'] === 'once'): ?>
+                  <?php if ($sch['last_run'] && !$sch['status']): ?>
+                    <span class="badge" style="background:#10b981;color:#fff;"><i class="fas fa-check-double"></i> تم الإرسال (مكتملة)</span>
+                  <?php elseif (!$sch['status']): ?>
+                    <span class="badge badge-secondary">موقوفة</span>
+                  <?php else: ?>
+                    <span class="badge badge-info"><i class="fas fa-clock"></i> بانتظار الموعد</span>
+                  <?php endif; ?>
                 <?php else: ?>
-                  <span class="badge badge-secondary">موقوفة</span>
+                  <?php if ($sch['status']): ?>
+                    <span class="badge badge-success">نشطة</span>
+                  <?php else: ?>
+                    <span class="badge badge-secondary">موقوفة</span>
+                  <?php endif; ?>
                 <?php endif; ?>
               </td>
               <td>
@@ -519,6 +530,7 @@ require_once INCLUDES_PATH . '/header.php';
           <div class="form-group">
             <label class="form-label" for="sch_frequency">تكرار الإرسال</label>
             <select id="sch_frequency" name="frequency" class="form-control" onchange="onFrequencyChange(this)">
+              <option value="once">مرة واحدة فقط (بدون تكرار)</option>
               <option value="daily">يوميًا</option>
               <option value="weekly">أسبوعيًا</option>
               <option value="monthly">شهريًا</option>
@@ -691,7 +703,7 @@ function openAddScheduleModal() {
     document.getElementById('sch_message').value = '';
     document.getElementById('sch_target_type').value = 'all';
     document.getElementById('sch_warning_days').value = '30';
-    document.getElementById('sch_frequency').value = 'daily';
+    document.getElementById('sch_frequency').value = 'once';
     document.getElementById('sch_custom_interval').value = '1';
     document.getElementById('sch_start_date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('sch_send_at_time').value = '10:00';
