@@ -9,6 +9,9 @@ requireLogin();
 requirePermission('send_whatsapp');
 require_once INCLUDES_PATH . '/renewal_automation.php';
 
+// التأكد التام من وجود جدول الإشعارات
+ensureRenewalTableExists();
+
 $db = getDB();
 $activeTab = clean($_GET['tab'] ?? 'pending');
 if (!in_array($activeTab, ['pending', 'approved', 'table', 'history'])) {
@@ -228,10 +231,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ─────────────────────────────────────────────────────────────────
 // جلب الإحصائيات العامة للمركز
 // ─────────────────────────────────────────────────────────────────
-$pendingCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'pending_review'")->fetchColumn();
-$approvedCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'approved'")->fetchColumn();
-$sentTodayCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'sent' AND DATE(sent_at) = CURDATE()")->fetchColumn();
-$urgent7DaysCount = (int)$db->query("SELECT COUNT(*) FROM client_subscriptions WHERE status = 'active' AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
+$pendingCount = 0;
+$approvedCount = 0;
+$sentTodayCount = 0;
+$urgent7DaysCount = 0;
+
+try {
+    $pendingCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'pending_review'")->fetchColumn();
+    $approvedCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'approved'")->fetchColumn();
+    $sentTodayCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'sent' AND DATE(sent_at) = CURDATE()")->fetchColumn();
+    $urgent7DaysCount = (int)$db->query("SELECT COUNT(*) FROM client_subscriptions WHERE status = 'active' AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
+} catch (\Throwable $e) {}
 
 // ─────────────────────────────────────────────────────────────────
 // تجهيز بيانات التبويب النشط
@@ -246,48 +256,52 @@ if ($activeTab === 'pending') {
     $paramsPending = [];
 
     if ($stageFilter !== null) {
-        $wherePending .= " AND rn.milestone_days = ?";
+        $wherePending .= " AND rn.stage = ?";
         $paramsPending[] = $stageFilter;
     }
 
-    $stmtPending = $db->prepare("
-        SELECT rn.*, 
-               c.name as client_name, c.company_name, c.mobile, c.country, c.domain as client_domain,
-               DATEDIFF(rn.expiry_date, CURDATE()) as days_left
-        FROM renewal_notifications rn
-        JOIN clients c ON c.id = rn.client_id
-        WHERE {$wherePending}
-        ORDER BY rn.milestone_days ASC, rn.expiry_date ASC
-    ");
-    $stmtPending->execute($paramsPending);
-    $pendingItems = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmtPending = $db->prepare("
+            SELECT rn.*, 
+                   c.name as client_name, c.company_name, c.mobile, c.country, c.domain as client_domain,
+                   DATEDIFF(rn.cycle_end_date, CURDATE()) as days_left
+            FROM renewal_notifications rn
+            JOIN clients c ON c.id = rn.client_id
+            WHERE {$wherePending}
+            ORDER BY rn.stage ASC, rn.cycle_end_date ASC
+        ");
+        $stmtPending->execute($paramsPending);
+        $pendingItems = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
 
-    // إحصائيات كل مرحلة
-    $mRows = $db->query("
-        SELECT milestone_days, COUNT(*) as cnt 
-        FROM renewal_notifications 
-        WHERE status = 'pending_review' 
-        GROUP BY milestone_days
-    ")->fetchAll(PDO::FETCH_KEY_PAIR);
-    foreach ([60, 45, 30, 15, 7] as $m) {
-        $milestoneStats[$m] = $mRows[$m] ?? 0;
-    }
+        // إحصائيات كل مرحلة
+        $mRows = $db->query("
+            SELECT stage, COUNT(*) as cnt 
+            FROM renewal_notifications 
+            WHERE status = 'pending_review' 
+            GROUP BY stage
+        ")->fetchAll(PDO::FETCH_KEY_PAIR);
+        foreach ([60, 45, 30, 15, 7] as $m) {
+            $milestoneStats[$m] = $mRows[$m] ?? 0;
+        }
+    } catch (\Throwable $e) {}
 }
 
 // 2. بيانات تبويب: معتمدة للإرسال الصباحي (approved)
 $approvedItems = [];
 if ($activeTab === 'approved') {
-    $stmtApproved = $db->query("
-        SELECT rn.*, 
-               c.name as client_name, c.company_name, c.mobile, c.country, c.domain as client_domain,
-               u.name as reviewer_name
-        FROM renewal_notifications rn
-        JOIN clients c ON c.id = rn.client_id
-        LEFT JOIN users u ON u.id = rn.reviewed_by
-        WHERE rn.status = 'approved'
-        ORDER BY rn.milestone_days ASC, rn.expiry_date ASC
-    ");
-    $approvedItems = $stmtApproved->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmtApproved = $db->query("
+            SELECT rn.*, 
+                   c.name as client_name, c.company_name, c.mobile, c.country, c.domain as client_domain,
+                   u.username as reviewer_name
+            FROM renewal_notifications rn
+            JOIN clients c ON c.id = rn.client_id
+            LEFT JOIN users u ON u.id = rn.reviewed_by
+            WHERE rn.status = 'approved'
+            ORDER BY rn.stage ASC, rn.cycle_end_date ASC
+        ");
+        $approvedItems = $stmtApproved->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) {}
 }
 
 // 3. بيانات تبويب: جدول التجديدات المتقدم والبحث (table)
@@ -397,20 +411,23 @@ if ($activeTab === 'table') {
 // 4. بيانات تبويب: سجل الإرسال والأرشيف (history)
 $historyItems = [];
 if ($activeTab === 'history') {
-    $stmtHistory = $db->query("
-        SELECT rn.*, 
-               c.name as client_name, c.company_name, c.mobile,
-               u.name as reviewer_name
-        FROM renewal_notifications rn
-        JOIN clients c ON c.id = rn.client_id
-        LEFT JOIN users u ON u.id = rn.reviewed_by
-        WHERE rn.status IN ('sent', 'failed', 'skipped')
-        ORDER BY COALESCE(rn.sent_at, rn.reviewed_at) DESC
-        LIMIT 100
-    ");
-    $historyItems = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmtHistory = $db->query("
+            SELECT rn.*, 
+                   c.name as client_name, c.company_name, c.mobile,
+                   u.username as reviewer_name
+            FROM renewal_notifications rn
+            JOIN clients c ON c.id = rn.client_id
+            LEFT JOIN users u ON u.id = rn.reviewed_by
+            WHERE rn.status IN ('sent', 'failed', 'skipped')
+            ORDER BY COALESCE(rn.sent_at, rn.reviewed_at) DESC
+            LIMIT 100
+        ");
+        $historyItems = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) {}
 }
 
+$depth = 1;
 $pageTitle = 'مركز التجديدات الموحد (معاينة تجريبية)';
 $activePage = 'renewals-hub';
 require_once INCLUDES_PATH . '/header.php';
@@ -738,7 +755,7 @@ require_once INCLUDES_PATH . '/header.php';
       <!-- شبكة الكروت -->
       <div class="review-cards-grid">
         <?php foreach ($pendingItems as $idx => $item): 
-          $stageClass = 'stage-' . $item['milestone_days'];
+          $stageClass = 'stage-' . $item['stage'];
         ?>
           <div class="review-card">
             <div class="review-card-header">
@@ -751,13 +768,13 @@ require_once INCLUDES_PATH . '/header.php';
                   <?php endif; ?>
                 </div>
               </div>
-              <span class="stage-pill <?= $stageClass ?>">مرحلة <?= $item['milestone_days'] ?> يوم</span>
+              <span class="stage-pill <?= $stageClass ?>">مرحلة <?= $item['stage'] ?> يوم</span>
             </div>
 
             <div class="review-card-body">
               <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
                 <span>📱 <?= e($item['mobile']) ?></span>
-                <span>📅 ينتهي: <strong><?= e($item['expiry_date']) ?></strong> (متبقي <?= $item['days_left'] ?> يوم)</span>
+                <span>📅 ينتهي: <strong><?= e($item['cycle_end_date']) ?></strong> (متبقي <?= $item['days_left'] ?> يوم)</span>
               </div>
 
               <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;">
@@ -837,8 +854,8 @@ require_once INCLUDES_PATH . '/header.php';
                   <?php endif; ?>
                 </td>
                 <td><span dir="ltr"><?= e($app['mobile']) ?></span></td>
-                <td><span class="stage-pill stage-<?= $app['milestone_days'] ?>">مرحلة <?= $app['milestone_days'] ?> يوم</span></td>
-                <td><?= e($app['expiry_date']) ?></td>
+                <td><span class="stage-pill stage-<?= $app['stage'] ?>">مرحلة <?= $app['stage'] ?> يوم</span></td>
+                <td><?= e($app['cycle_end_date']) ?></td>
                 <td>
                   <button type="button" class="btn btn-sm btn-outline" data-msg="<?= htmlspecialchars($app['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="openHubMessageModal(this.getAttribute('data-msg'))">
                     <i class="fas fa-eye"></i> عرض الرسالة
@@ -1011,7 +1028,7 @@ require_once INCLUDES_PATH . '/header.php';
                 <td><?= e($h['sent_at'] ?? $h['reviewed_at']) ?></td>
                 <td><strong><?= e($h['client_name']) ?></strong></td>
                 <td><span dir="ltr"><?= e($h['mobile']) ?></span></td>
-                <td><span class="stage-pill stage-<?= $h['milestone_days'] ?>">مرحلة <?= $h['milestone_days'] ?> يوم</span></td>
+                <td><span class="stage-pill stage-<?= $h['stage'] ?>">مرحلة <?= $h['stage'] ?> يوم</span></td>
                 <td>
                   <?php if ($h['status'] === 'sent'): ?>
                     <span class="badge badge-success"><i class="fas fa-check"></i> تم الإرسال</span>
