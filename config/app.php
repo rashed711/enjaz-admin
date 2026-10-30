@@ -222,6 +222,25 @@ try {
         'renewal_admin_mobile' => '201028855779', // رقم واتساب الإدمن للتنبيهات
         'renewal_alert_hour'   => '20:00',        // موعد إرسال ملخص الغد للإدمن
         'renewal_send_hour'    => '11:00',        // موعد إرسال رسائل العملاء التلقائية
+        'renewal_payment_accounts' => json_encode([
+            'EGP' => [
+                'label'    => '🇪🇬 الجنيه المصري (EGP)',
+                'header'   => 'بيانات التحويل (مصر):',
+                'accounts' => [
+                    ['name' => 'انستا باي او فودافون كاش', 'details' => '01028855779']
+                ]
+            ],
+            'SAR' => [
+                'label'    => '🇸🇦 الريال السعودي (SAR)',
+                'header'   => 'بيانات التحويل (السعودية):',
+                'accounts' => [
+                    ['name' => 'الراجحي – رقم الحساب', 'details' => '077060010006088389454'],
+                    ['name' => 'الراجحي – IBAN', 'details' => 'SA5980000866608018389454'],
+                    ['name' => 'D360 – IBAN', 'details' => 'SA3036036036065660911461'],
+                    ['name' => 'STC Pay', 'details' => '0567457572']
+                ]
+            ]
+        ], JSON_UNESCAPED_UNICODE),
     ];
     foreach ($defaults as $k => $v) {
         $chk = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key` = ?");

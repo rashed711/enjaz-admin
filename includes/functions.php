@@ -700,6 +700,9 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
     // صياغة الرسالة النهائية الاحترافية مع توضيح النطاق (الدومين) للعميل
     $domainNotice = !empty($targetDomain) ? " الخاصة بنطاق (*{$targetDomain}*)" : "";
 
+    // جلب بيانات الدفع المخصصة للعملة التي يدفع بها العميل (سواء دفع بالجنيه أو بالريال)
+    $paymentBlock = formatRenewalPaymentText($currencyCode);
+
     $message = "*السلام عليكم ورحمة الله وبركاته* 🌷\n"
              . "عميلنا العزيز، يسعدنا خدمتكم دائمًا 💚\n\n"
              . "نود تذكيركم بقرب موعد التجديد السنوي لخدمات شركتكم، والمقرر بتاريخ *{$formattedDate}*:\n\n"
@@ -707,15 +710,7 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
              . ($servicesText ? "{$servicesText}\n\n" : "")
              . "{$totalLine}\n\n"
              . "`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\n\n"
-             . "💳 *بيانات التحويل:*\n"
-             . "🇸🇦 *طرق الدفع من السعودية*\n"
-             . "• الراجحي – رقم الحساب: 077060010006088389454\n"
-             . "• الراجحي – IBAN: SA5980000866608018389454\n"
-             . "• D360 – IBAN: SA3036036036065660911461\n"
-             . "• STC Pay: 0567457572\n\n"
-             . "🇪🇬 *طرق الدفع من مصر*\n"
-             . "• انستا باي او فودافون كاش:\n"
-             . "• 01028855779\n\n"
+             . ($paymentBlock ? "{$paymentBlock}\n\n" : "")
              . "شكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\n\n"
              . "`{$companyName}`";
 
@@ -732,5 +727,76 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
         'items'            => $itemsBreakdown,
         'service_lines'    => $serviceLines
     ];
+}
+
+/**
+ * جلب قائمة حسابات وطرق الدفع المنظمة حسب العملة من الإعدادات
+ */
+function getRenewalPaymentAccounts(): array {
+    $raw = getSetting('renewal_payment_accounts', '');
+    if (!empty($raw)) {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            return $decoded;
+        }
+    }
+
+    // القيم الافتراضية المعتمدة
+    return [
+        'EGP' => [
+            'label'    => '🇪🇬 الجنيه المصري (EGP)',
+            'header'   => 'بيانات التحويل (مصر):',
+            'accounts' => [
+                ['name' => 'انستا باي او فودافون كاش', 'details' => '01028855779']
+            ]
+        ],
+        'SAR' => [
+            'label'    => '🇸🇦 الريال السعودي (SAR)',
+            'header'   => 'بيانات التحويل (السعودية):',
+            'accounts' => [
+                ['name' => 'الراجحي – رقم الحساب', 'details' => '077060010006088389454'],
+                ['name' => 'الراجحي – IBAN', 'details' => 'SA5980000866608018389454'],
+                ['name' => 'D360 – IBAN', 'details' => 'SA3036036036065660911461'],
+                ['name' => 'STC Pay', 'details' => '0567457572']
+            ]
+        ]
+    ];
+}
+
+/**
+ * تنسيق نص طرق الدفع المخصصة للعملة التي اشترك ويدفع بها العميل
+ */
+function formatRenewalPaymentText(string $currencyCode): string {
+    $allAccounts = getRenewalPaymentAccounts();
+    $curr = strtoupper(trim($currencyCode));
+
+    // مطابقة العملة أولاً
+    $group = $allAccounts[$curr] ?? null;
+
+    // إذا لم تكن موجودة، التعيين الافتراضي بناءً على EGP أو SAR
+    if (!$group) {
+        $group = ($curr === 'SAR') ? ($allAccounts['SAR'] ?? null) : ($allAccounts['EGP'] ?? null);
+    }
+
+    if (!$group || empty($group['accounts'])) {
+        return "";
+    }
+
+    $header = !empty($group['header']) ? $group['header'] : "بيانات التحويل:";
+    $lines = ["💳 *{$header}*"];
+
+    foreach ($group['accounts'] as $acc) {
+        $name = trim($acc['name'] ?? '');
+        $det  = trim($acc['details'] ?? '');
+        if (!empty($name) && !empty($det)) {
+            $lines[] = "• {$name}: {$det}";
+        } elseif (!empty($name)) {
+            $lines[] = "• {$name}";
+        } elseif (!empty($det)) {
+            $lines[] = "• {$det}";
+        }
+    }
+
+    return implode("\n", $lines);
 }
 

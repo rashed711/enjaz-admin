@@ -25,6 +25,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE settings SET value=? WHERE `key`=?")->execute([$val,$f]);
             }
         }
+
+        // حفظ حسابات وطرق الدفع المنظمة حسب عملة الاشتراك
+        if (isset($_POST['payment_accounts']) && is_array($_POST['payment_accounts'])) {
+            $cleanAccounts = [];
+            foreach ($_POST['payment_accounts'] as $curr => $data) {
+                $curr = strtoupper(clean($curr));
+                if (empty($curr)) continue;
+                $label = clean($data['label'] ?? $curr);
+                $header = clean($data['header'] ?? "بيانات التحويل ({$curr}):");
+                $accList = [];
+                if (!empty($data['accounts']) && is_array($data['accounts'])) {
+                    foreach ($data['accounts'] as $acc) {
+                        $name = clean($acc['name'] ?? '');
+                        $details = clean($acc['details'] ?? '');
+                        if (!empty($name) || !empty($details)) {
+                            $accList[] = [
+                                'name'    => $name,
+                                'details' => $details
+                            ];
+                        }
+                    }
+                }
+                $cleanAccounts[$curr] = [
+                    'label'    => $label,
+                    'header'   => $header,
+                    'accounts' => $accList
+                ];
+            }
+            $jsonVal = json_encode($cleanAccounts, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            $chkAcc = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key`='renewal_payment_accounts'");
+            $chkAcc->execute();
+            if ((int)$chkAcc->fetchColumn() === 0) {
+                $db->prepare("INSERT INTO settings (`key`, value) VALUES ('renewal_payment_accounts', ?)")->execute([$jsonVal]);
+            } else {
+                $db->prepare("UPDATE settings SET value=? WHERE `key`='renewal_payment_accounts'")->execute([$jsonVal]);
+            }
+        }
         // Reset password
         if (!empty($_POST['new_admin_password']) && strlen($_POST['new_admin_password']) >= 6) {
             $hashed = password_hash($_POST['new_admin_password'], PASSWORD_BCRYPT, ['cost'=>12]);
@@ -256,6 +293,202 @@ require_once INCLUDES_PATH . '/header.php';
     </div>
 
   </div>
+
+  <!-- Renewal Payment Accounts Manager (Full Width Card) -->
+  <?php $paymentAccounts = getRenewalPaymentAccounts(); ?>
+  <div class="card" style="margin-top:20px; border-top: 4px solid #3b82f6;">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <span class="card-title">
+        <i class="fas fa-credit-card" style="color:#3b82f6;"></i>
+        حسابات وطرق التحويل في رسائل التجديد (مخصصة حسب عملة اشتراك العميل)
+      </span>
+      <span style="font-size:12px; color:var(--text-muted);">
+        يظهر للعميل طرق الدفع الخاصة بالعملة التي اشترك بها فقط (العميل المشترك بالجنيه يرى حسابات مصر فقط، والمشترك بالريال يرى حسابات السعودية فقط)
+      </span>
+    </div>
+    <div class="card-body">
+      <!-- تبويبات العملات -->
+      <div style="display:flex; gap:8px; border-bottom:2px solid var(--border-color); margin-bottom:18px; flex-wrap:wrap;" id="currencyTabsNav">
+        <?php $activeCurrTab = array_key_first($paymentAccounts); ?>
+        <?php foreach ($paymentAccounts as $cCode => $cData): ?>
+          <button type="button" class="btn btn-sm <?= $cCode === $activeCurrTab ? 'btn-primary' : 'btn-outline-secondary' ?> currency-tab-btn" onclick="switchCurrencyTab('<?= $cCode ?>', this)" data-curr="<?= $cCode ?>" style="font-weight:700;">
+            <?= e($cData['label'] ?? $cCode) ?>
+          </button>
+        <?php endforeach; ?>
+        <button type="button" class="btn btn-sm btn-outline-success" onclick="addNewCurrencyPrompt()" style="font-weight:700;">
+          <i class="fas fa-plus"></i> إضافة عملة / دولة أخرى
+        </button>
+      </div>
+
+      <!-- محتويات كل عملة -->
+      <div id="currencyPanelsContainer">
+        <?php foreach ($paymentAccounts as $cCode => $cData): ?>
+          <div class="currency-panel" id="panel-<?= $cCode ?>" style="display: <?= $cCode === $activeCurrTab ? 'block' : 'none' ?>;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+              <div style="font-weight:800; font-size:14px; color:var(--text-primary);">
+                <?= e($cData['label'] ?? $cCode) ?>
+              </div>
+              <?php if (!in_array($cCode, ['EGP', 'SAR'])): ?>
+                <button type="button" class="btn btn-xs btn-outline-danger" onclick="removeCurrencyTab('<?= $cCode ?>')">
+                  <i class="fas fa-trash"></i> حذف هذه العملة
+                </button>
+              <?php endif; ?>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" style="font-size:12.5px;">تسمية التبويب / الدولة</label>
+                <input type="text" name="payment_accounts[<?= $cCode ?>][label]" class="form-control" value="<?= e($cData['label'] ?? $cCode) ?>" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size:12.5px;">عنوان فقرة التحويل في رسالة الواتساب</label>
+                <input type="text" name="payment_accounts[<?= $cCode ?>][header]" class="form-control" value="<?= e($cData['header'] ?? "بيانات التحويل ({$cCode}):") ?>" required>
+              </div>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:14px;">
+              <div style="font-weight:800; font-size:13px; color:var(--text-primary); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                <span>الحسابات البنكية والمحافظ المعتمدة لعملة (<?= $cCode ?>):</span>
+                <button type="button" class="btn btn-xs btn-primary" onclick="addAccountRow('<?= $cCode ?>')">
+                  <i class="fas fa-plus"></i> إضافة حساب جديد
+                </button>
+              </div>
+
+              <div id="accounts-container-<?= $cCode ?>" style="display:flex; flex-direction:column; gap:8px;">
+                <?php $accList = $cData['accounts'] ?? []; ?>
+                <?php foreach ($accList as $idx => $acc): ?>
+                  <div class="account-row" style="display:grid; grid-template-columns:1fr 1.5fr auto; gap:10px; align-items:center;">
+                    <input type="text" name="payment_accounts[<?= $cCode ?>][accounts][<?= $idx ?>][name]" class="form-control" value="<?= e($acc['name'] ?? '') ?>" placeholder="اسم البنك / المحفظة (مثال: الراجحي – رقم الحساب)">
+                    <input type="text" name="payment_accounts[<?= $cCode ?>][accounts][<?= $idx ?>][details]" class="form-control" value="<?= e($acc['details'] ?? '') ?>" placeholder="رقم الحساب / الآيبان / الهاتف" dir="ltr" style="font-family:monospace;">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.account-row').remove()" title="حذف الحساب">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  function switchCurrencyTab(currCode, btn) {
+    document.querySelectorAll('.currency-tab-btn').forEach(b => {
+      b.classList.remove('btn-primary');
+      b.classList.add('btn-outline-secondary');
+    });
+    btn.classList.remove('btn-outline-secondary');
+    btn.classList.add('btn-primary');
+
+    document.querySelectorAll('.currency-panel').forEach(p => p.style.display = 'none');
+    const targetPanel = document.getElementById('panel-' + currCode);
+    if (targetPanel) targetPanel.style.display = 'block';
+  }
+
+  function addAccountRow(currCode) {
+    const container = document.getElementById('accounts-container-' + currCode);
+    if (!container) return;
+    const idx = Date.now();
+    const row = document.createElement('div');
+    row.className = 'account-row';
+    row.style.cssText = 'display:grid; grid-template-columns:1fr 1.5fr auto; gap:10px; align-items:center;';
+    row.innerHTML = `
+      <input type="text" name="payment_accounts[${currCode}][accounts][${idx}][name]" class="form-control" placeholder="اسم البنك أو المحفظة">
+      <input type="text" name="payment_accounts[${currCode}][accounts][${idx}][details]" class="form-control" placeholder="رقم الحساب / الآيبان / الهاتف" dir="ltr" style="font-family:monospace;">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.account-row').remove()" title="حذف">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    `;
+    container.appendChild(row);
+  }
+
+  function addNewCurrencyPrompt() {
+    const code = prompt("أدخل رمز العملة بالإنجليزية (مثال: USD أو AED أو KWD):");
+    if (!code) return;
+    const cleanCode = code.trim().toUpperCase().replace(/[^A-Z]/g, '');
+    if (!cleanCode) {
+      alert("رمز العملة غير صالح.");
+      return;
+    }
+
+    if (document.getElementById('panel-' + cleanCode)) {
+      alert("هذه العملة موجودة بالفعل.");
+      return;
+    }
+
+    const label = prompt("أدخل التسمية بالعربية (مثال: 🇦🇪 الإمارات / درهم):", cleanCode);
+    const header = prompt("عنوان فقرة التحويل في الرسالة:", `بيانات التحويل (${cleanCode}):`);
+
+    // إضافة زر التبويب
+    const nav = document.getElementById('currencyTabsNav');
+    const addBtn = nav.querySelector('.btn-outline-success');
+    const newTabBtn = document.createElement('button');
+    newTabBtn.type = 'button';
+    newTabBtn.className = 'btn btn-sm btn-outline-secondary currency-tab-btn';
+    newTabBtn.style.fontWeight = '700';
+    newTabBtn.setAttribute('data-curr', cleanCode);
+    newTabBtn.textContent = label || cleanCode;
+    newTabBtn.onclick = function() { switchCurrencyTab(cleanCode, this); };
+    nav.insertBefore(newTabBtn, addBtn);
+
+    // إضافة اللوحة
+    const container = document.getElementById('currencyPanelsContainer');
+    const panel = document.createElement('div');
+    panel.className = 'currency-panel';
+    panel.id = 'panel-' + cleanCode;
+    panel.style.display = 'none';
+    panel.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div style="font-weight:800; font-size:14px; color:var(--text-primary);">${escapeHtml(label || cleanCode)}</div>
+        <button type="button" class="btn btn-xs btn-outline-danger" onclick="removeCurrencyTab('${cleanCode}')">
+          <i class="fas fa-trash"></i> حذف هذه العملة
+        </button>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" style="font-size:12.5px;">تسمية التبويب / الدولة</label>
+          <input type="text" name="payment_accounts[${cleanCode}][label]" class="form-control" value="${escapeHtml(label || cleanCode)}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="font-size:12.5px;">عنوان فقرة التحويل في رسالة الواتساب</label>
+          <input type="text" name="payment_accounts[${cleanCode}][header]" class="form-control" value="${escapeHtml(header || 'بيانات التحويل:')}" required>
+        </div>
+      </div>
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:14px;">
+        <div style="font-weight:800; font-size:13px; color:var(--text-primary); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+          <span>الحسابات البنكية والمحافظ المعتمدة لعملة (${cleanCode}):</span>
+          <button type="button" class="btn btn-xs btn-primary" onclick="addAccountRow('${cleanCode}')">
+            <i class="fas fa-plus"></i> إضافة حساب جديد
+          </button>
+        </div>
+        <div id="accounts-container-${cleanCode}" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    `;
+    container.appendChild(panel);
+
+    // الانتقال للتبويب الجديد وإضافة صف افتراضي
+    switchCurrencyTab(cleanCode, newTabBtn);
+    addAccountRow(cleanCode);
+  }
+
+  function removeCurrencyTab(currCode) {
+    if (!confirm('هل أنت متأكد من حذف هذه العملة وجميع حساباتها؟')) return;
+    const tabBtn = document.querySelector(`.currency-tab-btn[data-curr="${currCode}"]`);
+    const panel = document.getElementById('panel-' + currCode);
+    if (tabBtn) tabBtn.remove();
+    if (panel) panel.remove();
+    const firstBtn = document.querySelector('.currency-tab-btn');
+    if (firstBtn) firstBtn.click();
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, function(m) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[m];
+    });
+  }
+  </script>
 
   <div style="display:flex;justify-content:flex-end;margin-top:20px;">
     <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-save"></i> حفظ الإعدادات</button>
