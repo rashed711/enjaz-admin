@@ -25,6 +25,8 @@ if ($isPost) {
 // بناء الجلب المناسب
 if (!empty($clientIds)) {
     $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
+    $warningDays = (int)getSetting('renewal_warning_days', '60');
+    $maxDays = max($days, $warningDays, 365);
     $stmt = $db->prepare("
         SELECT c.id, c.name, c.company_name, c.domain, c.mobile, c.country, cs.end_date, s.name as service_name, cs.plan_name,
                cs.currency, cs.original_price, cs.price, cs.service_id
@@ -32,12 +34,12 @@ if (!empty($clientIds)) {
         JOIN clients c ON c.id=cs.client_id
         JOIN services s ON s.id=cs.service_id
         WHERE cs.status='active'
-          AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+          AND cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
           AND c.id IN ($placeholders)
           AND c.mobile IS NOT NULL AND c.mobile != ''
         ORDER BY cs.end_date ASC
     ");
-    $stmt->execute(array_merge([$days], $clientIds));
+    $stmt->execute(array_merge([$maxDays], $clientIds));
 } else {
     // إرسال للكل (GET)
     $stmt = $db->prepare("

@@ -10,7 +10,11 @@ requirePermission('send_whatsapp');
 header('Content-Type: application/json; charset=utf-8');
 
 $db = getDB();
-$days = (int)($_POST['days'] ?? $_GET['days'] ?? 30);
+$warningDays = (int)getSetting('renewal_warning_days', '60');
+$days = (int)($_POST['days'] ?? $_GET['days'] ?? $warningDays);
+if ($days <= 0) {
+    $days = $warningDays;
+}
 $clientIds = $_POST['client_ids'] ?? [];
 $isAll = !empty($_POST['all']) || !empty($_GET['all']);
 
@@ -20,15 +24,23 @@ if (is_string($clientIds)) {
     $clientIds = array_filter(array_map('intval', $clientIds));
 }
 
-$where = ["cs.status='active'", "cs.end_date IS NOT NULL", "cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)"];
-$params = [$days];
+$where = ["cs.status='active'", "cs.end_date IS NOT NULL"];
+$params = [];
 
 if (!empty($clientIds) && !$isAll) {
+    // تم تحديد عملاء محددين يدوياً: جلب اشتراكاتهم المستحقة دون حجبها
     $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
     $where[] = "c.id IN ($placeholders)";
-    $params = array_merge($params, $clientIds);
+    $params = $clientIds;
+
+    $maxDays = max($days, $warningDays, 365);
+    $where[] = "cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)";
+    $params[] = $maxDays;
 } else {
     // فلترة إضافية عند اختيار الكل
+    $where[] = "cs.end_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)";
+    $params[] = $days;
+
     $clientStatus = clean($_POST['status'] ?? $_GET['status'] ?? '1');
     $country      = clean($_POST['country'] ?? $_GET['country'] ?? '');
     $server       = clean($_POST['server'] ?? $_GET['server'] ?? '');

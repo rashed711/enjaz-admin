@@ -695,7 +695,7 @@ function buildRenewalWhatsappMessage(array $client, array $subscriptions, ?strin
     }
 
     $servicesText = implode("\n", $serviceLines);
-    $totalLine = "💰 *إجمالي التجديد: " . number_format($totalAmount) . " {$totalCurrency}*";
+    $totalLine = "💰 *إجمالي مبلغ التجديد: " . number_format($totalAmount) . " {$totalCurrency}*";
 
     // صياغة الرسالة النهائية الاحترافية مع توضيح النطاق (الدومين) للعميل
     $domainNotice = !empty($targetDomain) ? " الخاصة بنطاق (*{$targetDomain}*)" : "";

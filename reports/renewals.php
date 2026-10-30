@@ -566,8 +566,20 @@ require_once INCLUDES_PATH . '/header.php';
           <i class="fas fa-calendar-days" style="color: var(--warning);"></i> فترة الانتهاء
         </label>
         <select id="daysFilter" class="form-control" style="font-size: 12px; height: 38px; font-weight: 700;">
-          <?php foreach ([7,14,30,60,90,120,180,270,365] as $d): ?>
-          <option value="<?= $d ?>" <?= $filterDays == $d ? 'selected' : '' ?>>خلال <?= $d ?> يوم القادمة</option>
+          <?php 
+            $dayOptions = [7, 14, 30, 45, 60, 90, 120, 180, 270, 365];
+            if (!in_array($filterDays, $dayOptions)) {
+                $dayOptions[] = $filterDays;
+            }
+            if (!in_array($warningDays, $dayOptions)) {
+                $dayOptions[] = $warningDays;
+            }
+            sort($dayOptions);
+            foreach ($dayOptions as $d): 
+          ?>
+          <option value="<?= $d ?>" <?= $filterDays == $d ? 'selected' : '' ?>>
+            خلال <?= $d ?> يوم القادمة<?= $d == $warningDays ? ' (إعداد النظام)' : '' ?>
+          </option>
           <?php endforeach; ?>
         </select>
       </div>
@@ -765,7 +777,7 @@ function openRenewalPreviewModal(clientIds, isAll) {
     cancelBtn.className = 'btn btn-outline';
     cancelBtn.onclick = function() { closeModal('renewalPreviewModal'); };
 
-    const daysVal    = document.getElementById('daysFilter') ? document.getElementById('daysFilter').value : '60';
+    const daysVal    = document.getElementById('daysFilter') ? document.getElementById('daysFilter').value : '<?= $filterDays ?>';
     const statusVal  = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : '1';
     const countryVal = document.getElementById('countryFilter') ? document.getElementById('countryFilter').value : '';
     const serverVal  = document.getElementById('serverFilter') ? document.getElementById('serverFilter').value : '';
