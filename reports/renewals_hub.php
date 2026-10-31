@@ -74,6 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action = clean($_POST['action'] ?? '');
+    $returnTab = clean($_POST['return_tab'] ?? $_GET['tab'] ?? 'pending');
+    if (!in_array($returnTab, ['pending', 'approved', 'table', 'history'], true)) {
+        $returnTab = 'pending';
+    }
 
     // 1. تشغيل الفحص اليدوي فوراً
     if ($action === 'run_check') {
@@ -82,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $expiring = $routine['expiring_tomorrow'] ?? 0;
         $adminStatus = ($routine['admin_notification']['status'] ?? '') === 'sent' ? 'وتم إرسال ملخص لواتساب الإدمن بنجاح.' : '';
         setFlash('success', "تم فحص التجديدات بنجاح! تم رصد ({$found}) إشعار تجديد، و ({$expiring}) عميل ينتهي اشتراكه غداً. {$adminStatus}");
-        header('Location: renewals_hub.php?tab=pending');
+        header("Location: renewals_hub.php?tab={$returnTab}");
         exit;
     }
 
@@ -120,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('error', "فشل إرسال الإشعار للعميل ({$item['client_name']}): " . e($res['response']));
             }
         }
-        header('Location: renewals_hub.php?tab=pending');
+        header("Location: renewals_hub.php?tab={$returnTab}");
         exit;
     }
 
@@ -131,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("UPDATE renewal_notifications SET message = COALESCE(NULLIF(?, ''), message), status = 'approved', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?");
         $stmt->execute([$customMessage, currentUserId(), $notifId]);
         setFlash('success', 'تم اعتماد الرسالة، وسيتم إرسالها تلقائياً في موعد الإرسال الصباحي.');
-        header('Location: renewals_hub.php?tab=pending');
+        header("Location: renewals_hub.php?tab={$returnTab}");
         exit;
     }
 
@@ -141,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("UPDATE renewal_notifications SET status = 'skipped', reviewed_at = NOW(), reviewed_by = ? WHERE id = ?");
         $stmt->execute([currentUserId(), $notifId]);
         setFlash('info', 'تم تخطي هذا الإشعار.');
-        header('Location: renewals_hub.php?tab=pending');
+        header("Location: renewals_hub.php?tab={$returnTab}");
         exit;
     }
 
@@ -151,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $db->prepare("UPDATE renewal_notifications SET status = 'pending_review', reviewed_at = NULL, reviewed_by = NULL WHERE id = ?");
         $stmt->execute([$notifId]);
         setFlash('info', 'تمت إعادة الإشعار إلى قائمة بانتظار المراجعة بنجاح.');
-        header('Location: renewals_hub.php?tab=pending');
+        header("Location: renewals_hub.php?tab={$returnTab}");
         exit;
     }
 
@@ -160,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $selectedIds = $_POST['selected_ids'] ?? [];
         if (empty($selectedIds)) {
             setFlash('error', 'يرجى تحديد إشعار واحد على الأقل.');
-            header('Location: renewals_hub.php?tab=pending');
+            header("Location: renewals_hub.php?tab={$returnTab}");
             exit;
         }
 
@@ -287,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         setFlash('success', "تم إرسال ({$sentCount}) رسالة معتمدة فوراً للعملاء بنجاح!");
-        header('Location: renewals_hub.php?tab=history');
+        header("Location: renewals_hub.php?tab={$returnTab}");
         exit;
     }
 }
@@ -723,6 +727,7 @@ table.data-table tbody tr:hover {
     <form method="POST" style="margin: 0;">
       <?= csrfField() ?>
       <input type="hidden" name="action" value="run_check">
+      <input type="hidden" name="return_tab" value="<?= e($activeTab) ?>">
       <button type="submit" class="btn btn-outline" style="font-weight: 700;">
         <i class="fas fa-sync-alt"></i> فحص التجديدات الآن
       </button>
@@ -925,6 +930,7 @@ table.data-table tbody tr:hover {
       <form method="POST" onsubmit="return confirm('إرسال الرسائل المستحقة لليوم فقط (<?= $dueCount ?> عميل) الآن عبر الواتساب؟')">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="send_all_approved">
+        <input type="hidden" name="return_tab" value="approved">
         <button type="submit" class="btn btn-success" style="font-weight: 700;">
           <i class="fab fa-whatsapp"></i> إرسال المستحقين لليوم (<?= $dueCount ?>)
         </button>
@@ -999,6 +1005,7 @@ table.data-table tbody tr:hover {
                   <form method="POST" style="margin: 0; display: inline;">
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="send_single">
+                    <input type="hidden" name="return_tab" value="approved">
                     <input type="hidden" name="notification_id" value="<?= $app['id'] ?>">
                     <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('إرسال الآن مباشرة عبر الواتساب؟')" title="إرسال فوري الآن">
                       <i class="fab fa-whatsapp"></i> إرسال الآن
@@ -1007,6 +1014,7 @@ table.data-table tbody tr:hover {
                   <form method="POST" style="margin: 0; display: inline;" onsubmit="return confirm('إعادة هذا الإشعار إلى قائمة بانتظار المراجعة؟')">
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="revert_to_pending">
+                    <input type="hidden" name="return_tab" value="approved">
                     <input type="hidden" name="notification_id" value="<?= $app['id'] ?>">
                     <button type="submit" class="btn btn-sm btn-outline" title="إعادة للمراجعة">
                       <i class="fas fa-undo"></i>
