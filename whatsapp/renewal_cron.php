@@ -25,17 +25,26 @@ if (!$isCli && !isLoggedIn()) {
     }
 }
 
-echo "=== [ENJAZ] Starting Renewal Automation Check: " . date('Y-m-d H:i:s') . " ===\n";
+echo "=== [ENJAZ] Starting Renewal Automation: " . date('Y-m-d H:i:s') . " ===\n";
 
+// 1. تشغيل الإرسال الصباحي للرسائل المعتمدة
+$dispatchRes = runDailyRenewalDispatch(false);
+if (!empty($dispatchRes['skipped'])) {
+    echo "Morning Dispatch: " . $dispatchRes['reason'] . "\n";
+} else {
+    $d = $dispatchRes['dispatch_result'];
+    echo "Morning Dispatch Executed: {$d['sent']} sent, {$d['failed']} failed (Eligible: {$d['count']})\n";
+}
+
+// 2. تشغيل الفحص المسائي للمرشحين الجدد وتنبيه الإدمن
 $result = runRenewalDailyRoutine(false);
-
-echo "Mode: " . ($result['is_review_mode'] ? "Manual Review (Alert Admin First)" : "Direct Auto-Send") . "\n";
-echo "Candidates found for tomorrow: " . $result['candidates_count'] . "\n";
-echo "Expiring tomorrow (1-day left): " . $result['expiring_tomorrow'] . "\n";
-echo "Admin WhatsApp alert status: " . ($result['admin_notification']['status'] ?? 'none') . "\n";
-
-if (!$result['is_review_mode']) {
-    echo "Dispatched approved messages: " . $result['dispatch_result']['sent'] . " sent, " . $result['dispatch_result']['failed'] . " failed\n";
+if (!empty($result['skipped'])) {
+    echo "Evening Routine: " . $result['reason'] . "\n";
+} else {
+    echo "Mode: " . ($result['is_review_mode'] ? "Manual Review (Alert Admin First)" : "Direct Auto-Send") . "\n";
+    echo "Candidates found for tomorrow: " . $result['candidates_count'] . "\n";
+    echo "Expiring tomorrow (1-day left): " . $result['expiring_tomorrow'] . "\n";
+    echo "Admin WhatsApp alert status: " . ($result['admin_notification']['status'] ?? 'none') . "\n";
 }
 
 echo "=== [ENJAZ] Renewal Automation Finished Successfully ===\n";

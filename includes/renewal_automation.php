@@ -495,6 +495,55 @@ function dispatchApprovedRenewalMessages(): array {
 }
 
 /**
+ * إرسال رسائل التجديد المعتمدة للعملاء في موعد الإرسال الصباحي (الافتراضي 11:00 صباحاً)
+ * يفحص التوقيت وحالة الرسائل وتواريخ استحقاق المراحل
+ */
+function runDailyRenewalDispatch(bool $isManual = false): array {
+    $db = getDB();
+    $sendHour     = getSetting('renewal_send_hour', '11:00');
+    $lastDispatch = getSetting('renewal_last_dispatch_date', '');
+    $todayDate    = date('Y-m-d');
+    $currentTime  = date('H:i');
+
+    if (!$isManual) {
+        // تأكد أنه لم ينفذ الإرسال الصباحي اليوم بالفعل
+        if (!empty($lastDispatch) && substr($lastDispatch, 0, 10) === $todayDate) {
+            return [
+                'skipped' => true,
+                'reason'  => 'تم تنفيذ الإرسال الصباحي للتجديدات المعتمدة اليوم بالفعل بتاريخ: ' . $lastDispatch
+            ];
+        }
+
+        // إذا لم يحن موعد الإرسال الصباحي المحدد بعد
+        if ($currentTime < $sendHour) {
+            return [
+                'skipped' => true,
+                'reason'  => "لم يحن موعد الإرسال الصباحي بعد (الموعد المحدد: {$sendHour}، الوقت الحالي: {$currentTime})"
+            ];
+        }
+    }
+
+    // إرسال الرسائل المعتمدة التي حان موعد استحقاقها اليوم أو سابقاً
+    $dispatchResult = dispatchApprovedRenewalMessages();
+
+    // تحديث تاريخ آخر إرسال صباحي
+    try {
+        $chk = $db->prepare("SELECT COUNT(*) FROM settings WHERE `key` = 'renewal_last_dispatch_date'");
+        $chk->execute();
+        if ((int)$chk->fetchColumn() === 0) {
+            $db->prepare("INSERT INTO settings (`key`, `value`) VALUES ('renewal_last_dispatch_date', ?)")->execute([date('Y-m-d H:i:s')]);
+        } else {
+            $db->prepare("UPDATE settings SET value = ? WHERE `key` = 'renewal_last_dispatch_date'")->execute([date('Y-m-d H:i:s')]);
+        }
+    } catch (Exception $e) {}
+
+    return [
+        'skipped'         => false,
+        'dispatch_result' => $dispatchResult
+    ];
+}
+
+/**
  * تشغيل دورة الفحص الكاملة (تنفذ عبر الـ Cron Job أو يدوياً عبر زر الفحص)
  *
  * @param bool $isManual إذا كان تشغيلاً يدوياً يتم تنفيذه فوراً متجاوزاً فحص التوقيت اليومي

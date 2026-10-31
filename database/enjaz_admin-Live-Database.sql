@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 30, 2026 at 12:47 PM
+-- Generation Time: Oct 31, 2026 at 08:11 AM
 -- Server version: 8.0.46-0ubuntu0.22.04.4
 -- PHP Version: 8.3.31
 
@@ -662,8 +662,8 @@ INSERT INTO `expenses` (`id`, `title`, `amount`, `expense_date`, `category`, `no
 (121, 'حجز دومين samaalttaqa.com', 625.00, '2026-10-13', 'دومين', '', 1, '2026-10-16 11:18:50', '2026-10-16 11:18:50'),
 (122, 'حجز دومين kemet-sa.com', 628.00, '2026-10-19', 'دومين', '', 1, '2026-10-19 15:00:49', '2026-10-19 15:00:49'),
 (123, 'حجز دومين egy-star.com', 555.00, '2026-10-23', 'دومين', '', 1, '2026-10-22 22:03:05', '2026-10-22 22:03:05'),
-(124, 'حجز دومين powersaving-sa.com', 555.00, '2026-10-28', 'دومين', '', 1, '2026-10-29 09:12:07', '2026-10-29 09:12:17'),
-(125, 'حجز دومين albashamodern.com', 555.00, '2026-10-29', 'دومين', '', 1, '2026-10-29 09:17:43', '2026-10-29 09:17:43');
+(124, 'حجز دومين powersaving-sa.com', 570.00, '2026-10-28', 'دومين', '', 1, '2026-10-29 09:12:07', '2026-10-30 23:16:06'),
+(125, 'حجز دومين albashamodern.com', 570.00, '2026-10-29', 'دومين', '', 1, '2026-10-29 09:17:43', '2026-10-30 23:16:16');
 
 -- --------------------------------------------------------
 
@@ -974,6 +974,42 @@ INSERT INTO `payments` (`id`, `client_id`, `subscription_id`, `amount`, `payment
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `renewal_notifications`
+--
+
+CREATE TABLE `renewal_notifications` (
+  `id` int UNSIGNED NOT NULL,
+  `client_id` int UNSIGNED NOT NULL,
+  `cycle_end_date` date NOT NULL,
+  `stage` int NOT NULL COMMENT '60, 45, 30, 15, 7',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending_review' COMMENT 'pending_review, approved, sent, skipped, failed',
+  `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `admin_notified_at` datetime DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `reviewed_by` int UNSIGNED DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `response` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `renewal_notifications`
+--
+
+INSERT INTO `renewal_notifications` (`id`, `client_id`, `cycle_end_date`, `stage`, `status`, `message`, `admin_notified_at`, `reviewed_at`, `reviewed_by`, `sent_at`, `response`, `created_at`, `updated_at`) VALUES
+(1, 2, '2026-12-06', 30, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*kentrotfm.com*) بتاريخ *06/12/2026* (متبقي 30 يوماً):\r\n\r\n🌐 *الدومين:* kentrotfm.com\r\n📧 *استضافة البريد الإلكتروني – باقة 5 جيجا:* 2,000 جنيه\r\n\r\n💰 *إجمالي التجديد: 2,000 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 21:28:49', '2026-10-30 17:10:53', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36'),
+(2, 3, '2026-12-10', 30, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*servot.co*) بتاريخ *10/12/2026* (متبقي 30 يوماً):\r\n\r\n🌐 *الدومين:* servot.co\r\n📧 *استضافة البريد الإلكتروني – باقة 1 جيجا:* 800 جنيه\r\n\r\n💰 *إجمالي التجديد: 800 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 21:28:49', '2026-10-30 17:11:03', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36'),
+(3, 4, '2026-12-20', 45, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*nexforges.com*) بتاريخ *20/12/2026* (متبقي 45 يوماً):\r\n\r\n🌐 *الدومين:* nexforges.com\r\n📧 *استضافة البريد الإلكتروني – باقة 1 جيجا:* 800 جنيه\r\n\r\n💰 *إجمالي التجديد: 800 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 13:28:53', '2026-10-30 17:11:15', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36'),
+(4, 5, '2026-12-21', 45, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*flourish-landscaping.com*) بتاريخ *21/12/2026* (متبقي 45 يوماً):\r\n\r\n🌐 *الدومين:* flourish-landscaping.com\r\n📧 *استضافة البريد الإلكتروني – باقة 5 جيجا:* 2,000 جنيه\r\n\r\n💰 *إجمالي التجديد: 2,000 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 13:28:53', '2026-10-30 17:11:27', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36'),
+(5, 6, '2026-12-27', 45, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*smartsource-eg.com*) بتاريخ *27/12/2026* (متبقي 60 يوماً):\r\n\r\n🌐 *حجز الدومين (smartsource-eg.com):* 1,350 جنيه\r\n📧 *استضافة البريد الإلكتروني – باقة 5 جيجا:* 2,000 جنيه\r\n\r\n💰 *إجمالي التجديد: 3,350 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 13:28:53', '2026-10-30 17:11:38', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-31 08:09:11'),
+(6, 7, '2026-12-29', 60, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*royalsmart-rs.com*) بتاريخ *29/12/2026* (متبقي 60 يوماً):\r\n\r\n🌐 *حجز الدومين (royalsmart-rs.com):* 1,350 جنيه\r\n📧 *استضافة البريد الإلكتروني – باقة 1 جيجا:* 800 جنيه\r\n\r\n💰 *إجمالي التجديد: 2,150 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 13:28:53', '2026-10-30 17:11:48', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36'),
+(7, 8, '2026-12-29', 60, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*stars-smcs.com*) بتاريخ *29/12/2026* (متبقي 60 يوماً):\r\n\r\n🌐 *حجز الدومين (stars-smcs.com):* 1,350 جنيه\r\n📧 *استضافة البريد الإلكتروني – باقة 5 جيجا:* 2,000 جنيه\r\n\r\n💰 *إجمالي التجديد: 3,350 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 13:28:53', '2026-10-30 17:11:58', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36'),
+(8, 9, '2026-12-30', 60, 'approved', '*السلام عليكم ورحمة الله وبركاته* 🌷\r\n\r\nعميلنا العزيز، نود تذكيركم بقرب موعد تجديد اشتراكاتكم الخاصة بنطاق (*namaa-invests.com*) بتاريخ *30/12/2026* (متبقي 60 يوماً):\r\n\r\n🌐 *حجز الدومين (namaa-invests.com):* 1,350 جنيه\r\n📧 *استضافة البريد الإلكتروني – باقة 1 جيجا:* 800 جنيه\r\n\r\n💰 *إجمالي التجديد: 2,150 جنيه مصري*\r\n\r\n`نرجو إتمام التحويل قبل موعد الانتهاء لضمان استمرار الخدمة دون انقطاع، مع إرسال صورة التحويل بعد السداد.`\r\n\r\n💳 *بيانات التحويل:*\r\n🇪🇬 *مصر*\r\n• انستا باي او فودافون كاش:\r\n• 01028855779\r\n\r\nشكرًا لثقتكم بنا، ونسعد دائمًا بخدمتكم 💚\r\n\r\n`إنجاز للحلول الذكية`', '2026-10-30 13:28:53', '2026-10-30 17:10:24', 1, NULL, NULL, '2026-10-30 13:28:52', '2026-10-30 22:27:36');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `services`
 --
 
@@ -1059,7 +1095,7 @@ CREATE TABLE `settings` (
 INSERT INTO `settings` (`id`, `key`, `value`, `updated_at`) VALUES
 (1, 'company_name', 'إنجاز للحلول الذكية', '2026-06-04 12:49:30'),
 (2, 'company_phone', '201225251888', '2026-06-04 13:39:11'),
-(3, 'company_email', 'info@enjaz.app', '2026-06-04 13:39:11'),
+(3, 'company_email', 'rashed1711@gmail.com', '2026-10-30 17:55:55'),
 (4, 'company_address', 'Bearer Token\r\n\r\nBearer ak_de6fe9510afd4967e0046ea921e81007a56e259d7e428dad', '2026-06-05 19:07:43'),
 (5, 'invoice_prefix', 'INV', '2026-06-04 12:49:30'),
 (6, 'invoice_counter', '2', '2026-07-17 19:55:49'),
@@ -1067,11 +1103,21 @@ INSERT INTO `settings` (`id`, `key`, `value`, `updated_at`) VALUES
 (8, 'whatsapp_api_token', 'ak_de6fe9510afd4967e0046ea921e81007a56e259d7e428dad', '2026-06-05 19:19:48'),
 (9, 'whatsapp_sender', '201225251888', '2026-06-04 22:14:06'),
 (10, 'currency', 'جنيه', '2026-06-04 12:49:30'),
-(11, 'renewal_warning_days', '60', '2026-10-12 14:16:31'),
+(11, 'renewal_warning_days', '60', '2026-10-30 14:51:43'),
 (12, 'payment_methods', 'انستا باي,فودافون كاش', '2026-06-04 14:43:05'),
 (13, 'default_home_page', 'dashboard.php', '2026-08-22 12:22:18'),
 (14, 'renewal_domain_price_egp', '1350', '2026-10-12 13:13:03'),
-(15, 'renewal_domain_price_sar', '86', '2026-10-12 13:13:03');
+(15, 'renewal_domain_price_sar', '86', '2026-10-12 13:13:03'),
+(16, 'renewal_auto_review', '1', '2026-10-30 13:20:23'),
+(17, 'renewal_admin_mobile', '201028855779', '2026-10-30 13:20:23'),
+(18, 'renewal_alert_hour', '20:00', '2026-10-30 13:20:23'),
+(19, 'renewal_send_hour', '11:00', '2026-10-30 13:20:23'),
+(20, 'renewal_last_check_date', '2026-10-30 23:28:49', '2026-10-30 21:28:49'),
+(21, 'renewal_payment_accounts', '{\n    \"EGP\": {\n        \"label\": \"🇪🇬 الجنيه المصري (EGP)\",\n        \"header\": \"بيانات التحويل (مصر):\",\n        \"accounts\": [\n            {\n                \"name\": \"انستا باي او فودافون كاش\",\n                \"details\": \"01028855779 *- (الإسم : احمد ع )*\",\n                \"is_active\": 1\n            }\n        ]\n    },\n    \"SAR\": {\n        \"label\": \"🇸🇦 الريال السعودي (SAR)\",\n        \"header\": \"بيانات التحويل (السعودية):\",\n        \"accounts\": [\n            {\n                \"name\": \"الراجحي – رقم الحساب\",\n                \"details\": \"077060010006088389454 *- (اسم المستفيد : محمد عبدالناصر )*\",\n                \"is_active\": 0\n            },\n            {\n                \"name\": \"الراجحي – IBAN\",\n                \"details\": \"SA5980000866608018389454 *- (اسم المستفيد : محمد عبدالناصر )*\",\n                \"is_active\": 0\n            },\n            {\n                \"name\": \"الراجحي – رقم الحساب\",\n                \"details\": \"330000010006086146244 *- (اسم المستفيد : مؤسسة مشعل )*\",\n                \"is_active\": 1\n            },\n            {\n                \"name\": \"الراجحي – IBAN\",\n                \"details\": \"SA0680000330608016146244 *- (اسم المستفيد : مؤسسة مشعل )*\",\n                \"is_active\": 1\n            },\n            {\n                \"name\": \"D360 – IBAN\",\n                \"details\": \"SA3036036036065660911461 *- (اسم المستفيد : محمد راضي )*\",\n                \"is_active\": 0\n            },\n            {\n                \"name\": \"STC Pay\",\n                \"details\": \"0567457572 *- (اسم المستفيد : محمد راضي )*\",\n                \"is_active\": 0\n            }\n        ]\n    }\n}', '2026-10-30 14:51:26'),
+(22, 'backup_email', 'rashed1711@gmail.com', '2026-10-30 17:50:30'),
+(23, 'backup_clients_enabled', '1', '2026-10-30 17:34:36'),
+(24, 'backup_clients_hour', '00:00', '2026-10-30 17:34:36'),
+(25, 'backup_clients_last_date', '2026-10-31', '2026-10-30 22:00:02');
 
 -- --------------------------------------------------------
 
@@ -1097,7 +1143,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `full_name`, `role`, `permissions`, `status`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin', '$2y$10$HMgtq.XGLFO2GvH.eXtLku86XWVJPJnv9sFEfgU29.yq0SfF1BN0W', 'مدير النظام', 'admin', NULL, 1, '2026-10-30 12:27:15', '2026-06-04 12:49:30', '2026-10-30 12:27:15');
+(1, 'admin', '$2y$10$HMgtq.XGLFO2GvH.eXtLku86XWVJPJnv9sFEfgU29.yq0SfF1BN0W', 'مدير النظام', 'admin', NULL, 1, '2026-10-31 08:09:05', '2026-06-04 12:49:30', '2026-10-31 08:09:05');
 
 -- --------------------------------------------------------
 
@@ -1342,6 +1388,7 @@ CREATE TABLE `whatsapp_schedules` (
   `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `target_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'all' COMMENT 'all, active, suspended, debt, expiring',
+  `target_client_ids` text COLLATE utf8mb4_unicode_ci,
   `warning_days` int NOT NULL DEFAULT '30',
   `frequency` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'daily' COMMENT 'daily, weekly, monthly, interval',
   `custom_interval_days` int NOT NULL DEFAULT '1',
@@ -1351,6 +1398,13 @@ CREATE TABLE `whatsapp_schedules` (
   `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=active, 0=paused',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `whatsapp_schedules`
+--
+
+INSERT INTO `whatsapp_schedules` (`id`, `title`, `message`, `target_type`, `target_client_ids`, `warning_days`, `frequency`, `custom_interval_days`, `send_at_time`, `last_run`, `next_run`, `status`, `created_at`) VALUES
+(3, 'المتابعة الشهرية', '*صباح الخير* 🌿\r\n\r\n*نحب نطمئن أن الخدمة شغالة بشكل مناسب لحضراتكم،*\r\n> وفي حال وجود أي ملاحظات أو مقترحات تطوير نرحّب بها في أي وقت.\r\n\r\n*وجودكم معانا محل تقدير*🤝\r\n\r\n🎗️ `إنجاز للحلول الذكية.`', 'active', '', 30, 'monthly', 1, '10:00:00', NULL, '2026-11-01 10:00:00', 1, '2026-10-30 15:13:59');
 
 --
 -- Indexes for dumped tables
@@ -1397,6 +1451,14 @@ ALTER TABLE `payments`
   ADD KEY `client_id` (`client_id`),
   ADD KEY `subscription_id` (`subscription_id`),
   ADD KEY `created_by` (`created_by`);
+
+--
+-- Indexes for table `renewal_notifications`
+--
+ALTER TABLE `renewal_notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_client_cycle_stage` (`client_id`,`cycle_end_date`,`stage`),
+  ADD KEY `idx_status` (`status`);
 
 --
 -- Indexes for table `services`
@@ -1483,6 +1545,12 @@ ALTER TABLE `payments`
   MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=257;
 
 --
+-- AUTO_INCREMENT for table `renewal_notifications`
+--
+ALTER TABLE `renewal_notifications`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
 -- AUTO_INCREMENT for table `services`
 --
 ALTER TABLE `services`
@@ -1498,7 +1566,7 @@ ALTER TABLE `service_plans`
 -- AUTO_INCREMENT for table `settings`
 --
 ALTER TABLE `settings`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT for table `users`
@@ -1522,7 +1590,7 @@ ALTER TABLE `whatsapp_queue`
 -- AUTO_INCREMENT for table `whatsapp_schedules`
 --
 ALTER TABLE `whatsapp_schedules`
-  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- Constraints for dumped tables

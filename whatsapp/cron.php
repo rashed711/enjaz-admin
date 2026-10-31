@@ -306,7 +306,20 @@ if (empty($schedules)) {
 
 echo "All pending schedules processed successfully.\n";
 
-// ── تشغيل الفحص اليومي للتجديدات التلقائية وإشعار الإدمن ─────────
+// ── 1. تشغيل إرسال رسائل التجديد المعتمدة للعملاء (الموعد الصباحي مثلاً 11:00 صباحاً) ──
+if (file_exists(INCLUDES_PATH . '/renewal_automation.php')) {
+    echo "\nChecking Morning Renewal Messages Dispatch...\n";
+    require_once INCLUDES_PATH . '/renewal_automation.php';
+    $dispatchRes = runDailyRenewalDispatch(false);
+    if (!empty($dispatchRes['skipped'])) {
+        echo " - Renewal Morning Dispatch: {$dispatchRes['reason']}\n";
+    } else {
+        $d = $dispatchRes['dispatch_result'];
+        echo " - Renewal Morning Dispatch Executed: {$d['sent']} sent, {$d['failed']} failed (Total eligible: {$d['count']})\n";
+    }
+}
+
+// ── 2. تشغيل الفحص اليومي للمرشحين الجدد وإشعار الإدمن (المسائي 20:00 مساءً) ─────────
 if (file_exists(__DIR__ . '/renewal_cron.php')) {
     echo "\nChecking Renewal Automation Routine...\n";
     require_once INCLUDES_PATH . '/renewal_automation.php';
