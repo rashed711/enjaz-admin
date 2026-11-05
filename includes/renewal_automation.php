@@ -215,22 +215,35 @@ function getRenewalCandidates(int $daysAhead = 1): array {
         $daysLeft = $cData['min_days_left'];
         $cycleEndDate = $cData['min_end_date'];
 
-        // تحديد المرحلة المناسبة بدقة عند بلوغ المحطة الزمنية المحددة (نافذة 2 يوم كحد أقصى)
+        // تحديد المرحلة المناسبة بدقة (نطاقات زمنية متكاملة لضمان عدم سقوط أي عميل حتى لو تأخر الفحص)
         $stage = null;
-        if ($daysLeft <= 60 && $daysLeft >= 58) {
+        if ($daysLeft > 45 && $daysLeft <= 60) {
             $stage = 60;
-        } elseif ($daysLeft <= 45 && $daysLeft >= 43) {
+        } elseif ($daysLeft > 30 && $daysLeft <= 45) {
             $stage = 45;
-        } elseif ($daysLeft <= 30 && $daysLeft >= 28) {
+        } elseif ($daysLeft > 15 && $daysLeft <= 30) {
             $stage = 30;
-        } elseif ($daysLeft <= 15 && $daysLeft >= 13) {
+        } elseif ($daysLeft > 7 && $daysLeft <= 15) {
             $stage = 15;
-        } elseif ($daysLeft <= 7 && $daysLeft >= 0) {
+        } elseif ($daysLeft >= 0 && $daysLeft <= 7) {
             $stage = 7;
         }
 
         if ($stage === null) {
-            continue; // العميل بين مرحلتين، ينتظر النظام حتى يصل لمحطته القادمة
+            continue; // العميل لم يدخل بعد في نطاق الـ 60 يوماً
+        }
+
+        // فحص هل للعميل إشعار نشط بالفعل (معتمد للجدولة أو بانتظار المراجعة) لنفس دورة الاشتراك الحالية
+        $chkAnyActive = $db->prepare("
+            SELECT id FROM renewal_notifications
+            WHERE client_id = ?
+              AND cycle_end_date = ?
+              AND status IN ('pending_review', 'approved')
+            LIMIT 1
+        ");
+        $chkAnyActive->execute([$cId, $cycleEndDate]);
+        if ($chkAnyActive->fetchColumn()) {
+            continue; // العميل مدرج بالفعل في خط التجديدات المعتمدة أو بانتظار الاعتماد
         }
 
         // فحص قاعدة الاستثناء الذكية:
@@ -246,7 +259,7 @@ function getRenewalCandidates(int $daysAhead = 1): array {
         $has60Approved = ((int)$chk60->fetchColumn() > 0);
 
         if ($has60Approved) {
-            // إذا كان قد اعتمد في الـ 60 يوم، يتم استبعاد مراحل 45 و 30 و 15 تماماً
+            // إذا كان قد اعتمد أو أرسل في الـ 60 يوم، يتم استبعاد مراحل 45 و 30 و 15 تماماً
             if ($daysLeft > 7) {
                 continue; // تخطي حتى يصل إلى 7 أيام
             }
@@ -344,6 +357,17 @@ function syncCandidatesToDatabase(array &$candidates, bool $isAutoReview): array
     }
 
     return ['new_count' => $newCount];
+}
+
+/**
+ * مزامنة المرشحين الجدد وإدراجهم في قائمة بانتظار المراجعة فوراً
+ * تُستدعى تلقائياً عند فتح مركز التجديدات لضمان التحديث اللحظي دائماً
+ */
+function syncRenewalCandidates(): int {
+    $candidates = getRenewalCandidates(1);
+    $isAutoReview = (getSetting('renewal_auto_review', '1') === '1');
+    $res = syncCandidatesToDatabase($candidates, $isAutoReview);
+    return $res['new_count'] ?? 0;
 }
 
 /**

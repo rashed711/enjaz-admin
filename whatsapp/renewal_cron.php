@@ -6,11 +6,15 @@
  * أو استدعاؤه تلقائياً من whatsapp/cron.php
  */
 
+ignore_user_abort(true);
 if (php_sapi_name() !== 'cli') {
     set_time_limit(300);
 }
 
 require_once dirname(__DIR__) . '/config/app.php';
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 require_once INCLUDES_PATH . '/renewal_automation.php';
 
 $isCli = (php_sapi_name() === 'cli');

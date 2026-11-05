@@ -6,12 +6,18 @@
  */
 
 // السماح بالتشغيل عبر الويب أو CLI
+ignore_user_abort(true);
 if (php_sapi_name() !== 'cli') {
     // تحديد وقت أقصى للتشغيل لمنع انتهاء وقت الاستضافة
-    set_time_limit(180); 
+    set_time_limit(300); 
 }
 
 require_once dirname(__DIR__) . '/config/app.php';
+
+// فك قفل الجلسة فوراً لضمان عدم تجميد أو تعليق تصفح لوحة التحكم أثناء عمل الكرون
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 
 $db = getDB();
 $phpNow = date('Y-m-d H:i:s');
@@ -79,13 +85,15 @@ if (!empty($pendingMessages)) {
            ->execute([$status, $response, $msg['id']]);
            
         // تسجيل السجل العام
-        $db->prepare("INSERT INTO whatsapp_logs (client_id, mobile, message, msg_type, status, response, sent_by) VALUES (?,?,?, 'bulk_scheduled', ?,?, ?)")
-           ->execute([$msg['client_id'], $msg['mobile'], $msg['message'], $status, $response, $msg['sent_by']]);
+        try {
+            $db->prepare("INSERT INTO whatsapp_logs (client_id, mobile, message, msg_type, status, response, sent_by) VALUES (?,?,?, 'bulk', ?,?, ?)")
+               ->execute([$msg['client_id'], $msg['mobile'], $msg['message'], $status, $response, $msg['sent_by']]);
+        } catch (\Throwable $e) {}
            
         echo " - Queued message ID {$msg['id']}: {$status}\n";
         
-        // تطبيق الفاصل الزمني العشوائي المجدول للرسالة
-        $delaySec = rand($msg['min_delay'], $msg['max_delay']);
+        // تطبيق الفاصل الزمني المجدول للرسالة
+        $delaySec = (php_sapi_name() === 'cli') ? rand($msg['min_delay'], $msg['max_delay']) : 1;
         echo " - Waiting delay: {$delaySec} seconds before next queue message...\n";
         sleep($delaySec);
     }
@@ -255,14 +263,16 @@ if (empty($schedules)) {
                 $response = 'API not configured — logged only';
             }
 
-            // تسجيل السجل
-            $db->prepare("INSERT INTO whatsapp_logs (client_id, mobile, message, msg_type, status, response, sent_by) VALUES (?,?,?, 'scheduled', ?,?, NULL)")
-               ->execute([$cl['id'], $mobile, $message, $status, $response]);
+            // تسجيل السجل العام
+            try {
+                $db->prepare("INSERT INTO whatsapp_logs (client_id, mobile, message, msg_type, status, response, sent_by) VALUES (?,?,?, 'custom', ?,?, NULL)")
+                   ->execute([$cl['id'], $mobile, $message, $status, $response]);
+            } catch (\Throwable $e) {}
 
             echo " - Message sent to {$cl['name']} ({$status})\n";
             
-            // تأخير عشوائي آمن (3 إلى 8 ثوانٍ) بين كل رسالة لمنع الحظر وتقليل الضغط
-            $randomWait = rand(3, 15);
+            // فاصل زمني آمن بين الرسائل لتجنب الحظر
+            $randomWait = (php_sapi_name() === 'cli') ? rand(2, 5) : 1;
             echo "   (Waiting {$randomWait}s before next message...)\n";
             sleep($randomWait);
         }
