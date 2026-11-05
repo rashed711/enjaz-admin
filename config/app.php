@@ -21,7 +21,7 @@ if (session_status() === PHP_SESSION_NONE) {
 define('APP_NAME',     'إنجاز للحلول الذكية');
 define('APP_VERSION',  '1.0.0');
 define('APP_URL',      '');             // ← رابط السيرفر إذا أردت (اختياري)
-define('APP_TIMEZONE', 'Africa/Cairo');
+define('APP_TIMEZONE', 'Asia/Riyadh');  // توقيت النظام المعتمد (UTC+3 متطابق مع ساعتك)
 
 // ── إعداد التوقيت ────────────────────────────────────────────────
 date_default_timezone_set(APP_TIMEZONE);
