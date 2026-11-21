@@ -121,6 +121,7 @@ function getExpiringTomorrowClients(): array {
         JOIN clients c ON c.id = cs.client_id
         JOIN services s ON s.id = cs.service_id
         WHERE cs.status = 'active'
+          AND c.status = 1
           AND cs.end_date IS NOT NULL
           AND DATEDIFF(cs.end_date, CURDATE()) = 1
         ORDER BY c.name ASC
@@ -171,6 +172,7 @@ function getRenewalCandidates(int $daysAhead = 1): array {
         JOIN clients c ON c.id = cs.client_id
         JOIN services s ON s.id = cs.service_id
         WHERE cs.status = 'active'
+          AND c.status = 1
           AND cs.end_date IS NOT NULL
           AND DATEDIFF(cs.end_date, DATE_ADD(CURDATE(), INTERVAL {$daysAheadInt} DAY)) BETWEEN 0 AND 60
           AND c.mobile IS NOT NULL AND c.mobile != ''
@@ -482,6 +484,7 @@ function dispatchApprovedRenewalMessages(): array {
         FROM renewal_notifications rn
         JOIN clients c ON c.id = rn.client_id
         WHERE rn.status = 'approved'
+          AND c.status = 1
           AND CURDATE() >= DATE_SUB(rn.cycle_end_date, INTERVAL rn.stage DAY)
         ORDER BY rn.id ASC
     ");

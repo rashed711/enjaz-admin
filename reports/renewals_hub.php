@@ -251,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             SELECT rn.*, c.mobile, c.name as client_name
             FROM renewal_notifications rn
             JOIN clients c ON c.id = rn.client_id
-            WHERE rn.status = 'approved'
+            WHERE rn.status = 'approved' AND c.status = 1 AND c.status = 1
         ";
         if (!$sendAllForced) {
             $sql .= " AND CURDATE() >= DATE_SUB(rn.cycle_end_date, INTERVAL rn.stage DAY)";
@@ -313,30 +313,36 @@ $sentTodayCount = 0;
 $urgent7DaysCount = 0;
 
 try {
-    $pendingCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'pending_review'")->fetchColumn();
-    $approvedCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'approved'")->fetchColumn();
-    $sentTodayCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications WHERE status = 'sent' AND DATE(sent_at) = CURDATE()")->fetchColumn();
-    $urgent7DaysCount = (int)$db->query("SELECT COUNT(*) FROM client_subscriptions WHERE status = 'active' AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
+    $pendingCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications rn JOIN clients c ON c.id = rn.client_id WHERE rn.status = 'pending_review' AND c.status = 1")->fetchColumn();
+    $approvedCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications rn JOIN clients c ON c.id = rn.client_id WHERE rn.status = 'approved' AND c.status = 1")->fetchColumn();
+    $sentTodayCount = (int)$db->query("SELECT COUNT(*) FROM renewal_notifications rn JOIN clients c ON c.id = rn.client_id WHERE rn.status = 'sent' AND c.status = 1 AND DATE(rn.sent_at) = CURDATE()")->fetchColumn();
+    $urgent7DaysCount = (int)$db->query("SELECT COUNT(DISTINCT cs.client_id) FROM client_subscriptions cs JOIN clients c ON c.id = cs.client_id WHERE cs.status = 'active' AND c.status = 1 AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)")->fetchColumn();
 } catch (\Throwable $e) {}
 
 // ─────────────────────────────────────────────────────────────────
 // تجهيز بيانات التبويب النشط
 // ─────────────────────────────────────────────────────────────────
 
-// 1. بيانات تبويب: بانتظار المراجعة (pending)
+// 1. بيانات تبويب: بانتظار المراجعة ودليل المراحل الدائم (pending)
 $pendingItems = [];
-$milestoneStats = [];
-if ($activeTab === 'pending') {
-    $stageFilter = isset($_GET['stage']) && $_GET['stage'] !== '' ? (int)$_GET['stage'] : null;
-    $wherePending = "rn.status = 'pending_review'";
-    $paramsPending = [];
+$directoryClients = [];
+$stageCounts = [60 => 0, 45 => 0, 30 => 0, 15 => 0, 7 => 0];
+$totalDirectoryCount = 0;
+$sentCountInDirectory = 0;
 
-    if ($stageFilter !== null) {
-        $wherePending .= " AND rn.stage = ?";
-        $paramsPending[] = $stageFilter;
-    }
+if ($activeTab === 'pending') {
+    $stageFilter  = isset($_GET['stage']) && $_GET['stage'] !== '' ? (int)$_GET['stage'] : null;
+    $statusFilter = clean($_GET['status_filter'] ?? ''); // 'all', 'pending', 'sent'
 
     try {
+        // جلب الرسائل المعلقة للمراجعة الحالية (للعملاء النشطين فقط)
+        $wherePending = "rn.status = 'pending_review' AND c.status = 1";
+        $paramsPending = [];
+        if ($stageFilter !== null) {
+            $wherePending .= " AND rn.stage = ?";
+            $paramsPending[] = $stageFilter;
+        }
+
         $stmtPending = $db->prepare("
             SELECT rn.*, 
                    c.name as client_name, c.company_name, c.mobile, c.country, c.domain as client_domain,
@@ -349,16 +355,108 @@ if ($activeTab === 'pending') {
         $stmtPending->execute($paramsPending);
         $pendingItems = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
 
-        // إحصائيات كل مرحلة
-        $mRows = $db->query("
-            SELECT stage, COUNT(*) as cnt 
-            FROM renewal_notifications 
-            WHERE status = 'pending_review' 
-            GROUP BY stage
-        ")->fetchAll(PDO::FETCH_KEY_PAIR);
-        foreach ([60, 45, 30, 15, 7] as $m) {
-            $milestoneStats[$m] = $mRows[$m] ?? 0;
+        // جلب دليل مراحل جميع العملاء النشطين (خريطة المتابعة الدائمة لجميع المشتركين خلال 60 يوماً)
+        $stmtAll = $db->query("
+            SELECT cs.id as sub_id, cs.client_id, cs.price, cs.currency, cs.end_date, cs.plan_name,
+                   c.name as client_name, c.mobile, c.company_name, c.country, c.domain as client_domain,
+                   s.name as service_name,
+                   DATEDIFF(cs.end_date, CURDATE()) as days_left
+            FROM client_subscriptions cs
+            JOIN clients c ON c.id = cs.client_id
+            JOIN services s ON s.id = cs.service_id
+            WHERE cs.status = 'active'
+              AND c.status = 1
+              AND cs.end_date IS NOT NULL
+              AND DATEDIFF(cs.end_date, CURDATE()) BETWEEN 0 AND 60
+            ORDER BY cs.end_date ASC
+        ");
+        $allSubRows = $stmtAll->fetchAll(PDO::FETCH_ASSOC);
+
+        $groupedDir = [];
+        foreach ($allSubRows as $r) {
+            $cId = (int)$r['client_id'];
+            if (!isset($groupedDir[$cId])) {
+                $groupedDir[$cId] = [
+                    'client_id'     => $cId,
+                    'client_name'   => $r['client_name'],
+                    'mobile'        => $r['mobile'],
+                    'company_name'  => $r['company_name'],
+                    'country'       => $r['country'] ?? 'EG',
+                    'client_domain' => $r['client_domain'],
+                    'min_end_date'  => $r['end_date'],
+                    'min_days_left' => (int)$r['days_left'],
+                    'services'      => [],
+                    'stage'         => null,
+                    'notif'         => null,
+                ];
+            }
+            if ((int)$r['days_left'] < $groupedDir[$cId]['min_days_left']) {
+                $groupedDir[$cId]['min_days_left'] = (int)$r['days_left'];
+                $groupedDir[$cId]['min_end_date']  = $r['end_date'];
+            }
+            $groupedDir[$cId]['services'][] = $r['service_name'] . (!empty($r['plan_name']) ? " ({$r['plan_name']})" : "");
         }
+
+        if (!empty($groupedDir)) {
+            $clientIds = array_keys($groupedDir);
+            $inPlaceholders = implode(',', array_fill(0, count($clientIds), '?'));
+            $stmtNotifs = $db->prepare("
+                SELECT rn.* 
+                FROM renewal_notifications rn
+                WHERE rn.client_id IN ($inPlaceholders)
+                ORDER BY rn.id DESC
+            ");
+            $stmtNotifs->execute($clientIds);
+            $allNotifs = $stmtNotifs->fetchAll(PDO::FETCH_ASSOC);
+
+            $notifMap = [];
+            foreach ($allNotifs as $n) {
+                $k = $n['client_id'] . '_' . $n['cycle_end_date'];
+                if (!isset($notifMap[$k])) {
+                    $notifMap[$k] = $n;
+                }
+            }
+
+            foreach ($groupedDir as $cId => &$item) {
+                $days = $item['min_days_left'];
+                $st = null;
+                if ($days > 45 && $days <= 60) $st = 60;
+                elseif ($days > 30 && $days <= 45) $st = 45;
+                elseif ($days > 15 && $days <= 30) $st = 30;
+                elseif ($days > 7 && $days <= 15) $st = 15;
+                elseif ($days >= 0 && $days <= 7) $st = 7;
+
+                $item['stage'] = $st;
+                if ($st) {
+                    $stageCounts[$st]++;
+                }
+
+                $k = $cId . '_' . $item['min_end_date'];
+                $item['notif'] = $notifMap[$k] ?? null;
+
+                if (!empty($item['notif']) && $item['notif']['status'] === 'sent') {
+                    $sentCountInDirectory++;
+                }
+            }
+            unset($item);
+        }
+
+        $totalDirectoryCount = count($groupedDir);
+
+        // تصفية القائمة المعروضة حسب المرحلة والحالة المختارة
+        $directoryClients = array_values(array_filter($groupedDir, function($it) use ($stageFilter, $statusFilter) {
+            if ($stageFilter !== null && $it['stage'] !== $stageFilter) {
+                return false;
+            }
+            if ($statusFilter !== '') {
+                $st = $it['notif']['status'] ?? 'not_due';
+                if ($statusFilter === 'sent' && $st !== 'sent') return false;
+                if ($statusFilter === 'pending' && $st !== 'pending_review') return false;
+                if ($statusFilter === 'approved' && $st !== 'approved') return false;
+            }
+            return true;
+        }));
+
     } catch (\Throwable $e) {}
 }
 
@@ -375,7 +473,7 @@ if ($activeTab === 'approved') {
             FROM renewal_notifications rn
             JOIN clients c ON c.id = rn.client_id
             LEFT JOIN users u ON u.id = rn.reviewed_by
-            WHERE rn.status = 'approved'
+            WHERE rn.status = 'approved' AND c.status = 1
             ORDER BY scheduled_date ASC, rn.cycle_end_date ASC
         ");
         $approvedItems = $stmtApproved->fetchAll(PDO::FETCH_ASSOC);
@@ -484,6 +582,34 @@ if ($activeTab === 'table') {
     $renewalsTableData = $groupedClients;
     $totalClientsTable = count($groupedClients);
     $totalExpectedRevenue = array_sum(array_column($groupedClients, 'total_price'));
+
+    // ربط حالة آخر إشعار تجديد لكل عميل في الجدول
+    if (!empty($renewalsTableData)) {
+        try {
+            $cIds = array_keys($renewalsTableData);
+            $inP = implode(',', array_fill(0, count($cIds), '?'));
+            $stmtNotifTable = $db->prepare("
+                SELECT rn.* 
+                FROM renewal_notifications rn
+                WHERE rn.client_id IN ($inP)
+                ORDER BY rn.id DESC
+            ");
+            $stmtNotifTable->execute($cIds);
+            $tableNotifs = $stmtNotifTable->fetchAll(PDO::FETCH_ASSOC);
+            $tab3NotifMap = [];
+            foreach ($tableNotifs as $tn) {
+                $k = $tn['client_id'] . '_' . $tn['cycle_end_date'];
+                if (!isset($tab3NotifMap[$k])) {
+                    $tab3NotifMap[$k] = $tn;
+                }
+            }
+            foreach ($renewalsTableData as $cid => &$cData) {
+                $k = $cid . '_' . $cData['min_end_date'];
+                $cData['notif'] = $tab3NotifMap[$k] ?? null;
+            }
+            unset($cData);
+        } catch (\Throwable $e) {}
+    }
 }
 
 // 4. بيانات تبويب: سجل الإرسال والأرشيف (history)
@@ -815,59 +941,101 @@ table.data-table tbody tr:hover {
 </div>
 
 <!-- ───────────────────────────────────────────────────────────── -->
-<!-- محتوى التبويب 1: بانتظار المراجعة والاعتماد -->
+<!-- محتوى التبويب 1: بانتظار المراجعة ودليل المراحل الدائم -->
 <!-- ───────────────────────────────────────────────────────────── -->
-<?php if ($activeTab === 'pending'): ?>
-  <!-- فلترة المراحل -->
-  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-    <a href="renewals_hub.php?tab=pending" class="btn btn-sm <?= (!isset($_GET['stage']) || $_GET['stage'] === '') ? 'btn-primary' : 'btn-outline' ?>">
-      الكل (<?= $pendingCount ?>)
+<?php if ($activeTab === 'pending'): 
+  $pendingInDirectoryCount = count(array_filter($directoryClients, fn($d) => ($d['notif']['status'] ?? '') === 'pending_review'));
+?>
+  <!-- شريط فلترة المراحل (دليل دائم لجميع المشتركين حسب المرحلة) -->
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;">
+    <span style="font-size: 13px; font-weight: 700; color: var(--text-muted); margin-left: 4px;">
+      <i class="fas fa-layer-group"></i> المراحل:
+    </span>
+    <a href="renewals_hub.php?tab=pending<?= $statusFilter !== '' ? '&status_filter=' . urlencode($statusFilter) : '' ?>" class="btn btn-sm <?= ($stageFilter === null) ? 'btn-primary' : 'btn-outline' ?>">
+      جميع المراحل (<?= $totalDirectoryCount ?>)
     </a>
     <?php foreach ([60, 45, 30, 15, 7] as $m): ?>
-      <a href="renewals_hub.php?tab=pending&stage=<?= $m ?>" class="btn btn-sm <?= (isset($_GET['stage']) && $_GET['stage'] == $m) ? 'btn-primary' : 'btn-outline' ?>">
-        مرحلة <?= $m ?> يوم (<?= $milestoneStats[$m] ?? 0 ?>)
+      <a href="renewals_hub.php?tab=pending&stage=<?= $m ?><?= $statusFilter !== '' ? '&status_filter=' . urlencode($statusFilter) : '' ?>" class="btn btn-sm <?= ($stageFilter === $m) ? 'btn-primary' : 'btn-outline' ?>">
+        مرحلة <?= $m ?> يوم (<?= $stageCounts[$m] ?? 0 ?>)
       </a>
     <?php endforeach; ?>
   </div>
 
-  <?php if (empty($pendingItems)): ?>
+  <!-- شريط فلترة الحالة داخل المرحلة -->
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; background: var(--bg-card, #fff); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color, #e2e8f0);">
+    <span style="font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-left: 4px;">
+      <i class="fas fa-filter"></i> فلترة الحالة:
+    </span>
+    <a href="renewals_hub.php?tab=pending<?= $stageFilter !== null ? '&stage=' . $stageFilter : '' ?>" 
+       class="badge" 
+       style="font-size: 12px; padding: 6px 12px; text-decoration: none; cursor: pointer; <?= $statusFilter === '' ? 'background: #2563eb; color: #fff;' : 'background: #f1f5f9; color: #475569;' ?>">
+      الكل (<?= count($directoryClients) ?>)
+    </a>
+    <a href="renewals_hub.php?tab=pending&status_filter=pending<?= $stageFilter !== null ? '&stage=' . $stageFilter : '' ?>" 
+       class="badge" 
+       style="font-size: 12px; padding: 6px 12px; text-decoration: none; cursor: pointer; <?= $statusFilter === 'pending' ? 'background: #f59e0b; color: #fff;' : 'background: #fef3c7; color: #92400e;' ?>">
+      ⏳ بانتظار المراجعة (<?= $pendingCount ?>)
+    </a>
+    <a href="renewals_hub.php?tab=pending&status_filter=sent<?= $stageFilter !== null ? '&stage=' . $stageFilter : '' ?>" 
+       class="badge" 
+       style="font-size: 12px; padding: 6px 12px; text-decoration: none; cursor: pointer; <?= $statusFilter === 'sent' ? 'background: #10b981; color: #fff;' : 'background: #dcfce7; color: #166534;' ?>">
+      ✅ تم الإرسال (<?= $sentCountInDirectory ?>)
+    </a>
+    <?php if ($approvedCount > 0): ?>
+      <a href="renewals_hub.php?tab=pending&status_filter=approved<?= $stageFilter !== null ? '&stage=' . $stageFilter : '' ?>" 
+         class="badge" 
+         style="font-size: 12px; padding: 6px 12px; text-decoration: none; cursor: pointer; <?= $statusFilter === 'approved' ? 'background: #0284c7; color: #fff;' : 'background: #e0f2fe; color: #0369a1;' ?>">
+        📅 معتمد للجدولة (<?= $approvedCount ?>)
+      </a>
+    <?php endif; ?>
+  </div>
+
+  <?php if (empty($directoryClients)): ?>
     <div class="card" style="text-align: center; padding: 48px 24px;">
-      <i class="fas fa-check-circle" style="font-size: 48px; color: var(--success); margin-bottom: 12px;"></i>
-      <h3 style="margin: 0 0 6px 0;">رائع! لا توجد إشعارات بانتظار المراجعة</h3>
-      <p style="color: var(--text-muted); margin: 0;">جميع العملاء المستحقين للتنبيه تمت مراجعتهم أو لا توجد اشتراكات مستحقة حالياً.</p>
+      <i class="fas fa-info-circle" style="font-size: 48px; color: var(--text-muted); opacity: 0.6; margin-bottom: 12px;"></i>
+      <h3 style="margin: 0 0 6px 0;">لا توجد اشتراكات في هذه المرحلة حالياً</h3>
+      <p style="color: var(--text-muted); margin: 0;">لا توجد اشتراكات نشطة تنتهي خلال هذا النطاق الزمني المحدد.</p>
     </div>
   <?php else: ?>
-    <!-- شريط الإجراءات الجماعية -->
     <form id="bulkForm" method="POST" action="renewals_hub.php?tab=pending">
       <?= csrfField() ?>
-      <div class="batch-bar">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 700; margin: 0;">
-            <input type="checkbox" id="selectAllReviews" onclick="toggleSelectAllReviews(this)">
-            <span>تحديد الكل</span>
-          </label>
-          <span style="font-size: 13px; color: var(--text-muted);">(المحدد: <strong id="selectedReviewsCount">0</strong>)</span>
-        </div>
 
-        <div style="display: flex; gap: 8px;">
-          <button type="submit" name="action" value="bulk_approve" class="btn btn-sm btn-primary" id="bulkApproveBtn" disabled onclick="return confirm('هل أنت متأكد من اعتماد ونقل المحدد للإرسال الصباحي المجدول؟')">
-            <i class="fas fa-calendar-check"></i> اعتماد للجدولة الصباحية
-          </button>
-          <button type="submit" name="action" value="bulk_send" class="btn btn-sm btn-success" id="bulkSendBtn" disabled onclick="return confirm('تحذير: هل أنت متأكد من إرسال رسائل الواتساب للمحددين فوراً الآن؟')">
-            <i class="fab fa-whatsapp"></i> إرسال الآن مباشرة
-          </button>
-        </div>
-      </div>
+      <?php if ($pendingInDirectoryCount > 0): ?>
+        <!-- شريط الإجراءات الجماعية للمراجعات المعلقة -->
+        <div class="batch-bar" style="margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 700; margin: 0;">
+              <input type="checkbox" id="selectAllReviews" onclick="toggleSelectAllReviews(this)">
+              <span>تحديد الكل بانتظار المراجعة</span>
+            </label>
+            <span style="font-size: 13px; color: var(--text-muted);">(المحدد: <strong id="selectedReviewsCount">0</strong>)</span>
+          </div>
 
-      <!-- شبكة الكروت -->
+          <div style="display: flex; gap: 8px;">
+            <button type="submit" name="action" value="bulk_approve" class="btn btn-sm btn-primary" id="bulkApproveBtn" disabled onclick="return confirm('هل أنت متأكد من اعتماد ونقل المحدد للإرسال الصباحي المجدول؟')">
+              <i class="fas fa-calendar-check"></i> اعتماد للجدولة الصباحية
+            </button>
+            <button type="submit" name="action" value="bulk_send" class="btn btn-sm btn-success" id="bulkSendBtn" disabled onclick="return confirm('تحذير: هل أنت متأكد من إرسال رسائل الواتساب للمحددين فوراً الآن؟')">
+              <i class="fab fa-whatsapp"></i> إرسال الآن مباشرة
+            </button>
+          </div>
+        </div>
+      <?php endif; ?>
+
+      <!-- شبكة الكروت: دليل شامل ودائم لكل عميل وحالة إشعاره بدقة -->
       <div class="review-cards-grid">
-        <?php foreach ($pendingItems as $idx => $item): 
-          $stageClass = 'stage-' . $item['stage'];
+        <?php foreach ($directoryClients as $item): 
+          $notif = $item['notif'];
+          $notifStatus = $notif['status'] ?? 'not_due';
+          $stage = $item['stage'] ?? 60;
+          $stageClass = 'stage-' . $stage;
         ?>
-          <div class="review-card">
+          <div class="review-card" style="<?= $notifStatus === 'sent' ? 'border-top: 3px solid #10b981;' : ($notifStatus === 'approved' ? 'border-top: 3px solid #0284c7;' : ($notifStatus === 'pending_review' ? 'border-top: 3px solid #f59e0b;' : '')) ?>">
             <div class="review-card-header">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" name="selected_ids[]" value="<?= $item['id'] ?>" class="review-item-checkbox" onchange="updateReviewSelectionCount()">
+                <?php if ($notifStatus === 'pending_review' && !empty($notif['id'])): ?>
+                  <input type="checkbox" name="selected_ids[]" value="<?= $notif['id'] ?>" class="review-item-checkbox" onchange="updateReviewSelectionCount()">
+                <?php endif; ?>
                 <div>
                   <div style="display: flex; align-items: center; gap: 6px;">
                     <?= getCountryFlagSvg($item['country'] ?? 'EG', 18, 13) ?>
@@ -878,31 +1046,108 @@ table.data-table tbody tr:hover {
                   <?php endif; ?>
                 </div>
               </div>
-              <span class="stage-pill <?= $stageClass ?>">مرحلة <?= $item['stage'] ?> يوم</span>
+              <span class="stage-pill <?= $stageClass ?>">مرحلة <?= $stage ?> يوم</span>
             </div>
 
             <div class="review-card-body">
-              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
                 <span>📱 <?= e($item['mobile']) ?></span>
-                <span>📅 ينتهي: <strong><?= e($item['cycle_end_date']) ?></strong> (متبقي <?= $item['days_left'] ?> يوم)</span>
+                <span>📅 ينتهي: <strong><?= e($item['min_end_date']) ?></strong> (متبقي <?= $item['min_days_left'] ?> يوم)</span>
               </div>
 
-              <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;">
-                نص الرسالة المخصص للعميل:
-              </label>
-              <textarea name="message_<?= $item['id'] ?>" class="form-control" style="font-size: 12.5px; height: 130px; resize: vertical; line-height: 1.5; font-family: inherit;"><?= e($item['message']) ?></textarea>
+              <?php if (!empty($item['services'])): ?>
+                <div style="font-size: 11.5px; margin-bottom: 10px; background: rgba(0,0,0,0.02); padding: 6px 10px; border-radius: 6px;">
+                  <strong style="color: var(--text-muted);">الاشتراكات:</strong>
+                  <span><?= e(implode(' + ', $item['services'])) ?></span>
+                </div>
+              <?php endif; ?>
+
+              <!-- شريط حالة إشعار التجديد -->
+              <div style="margin-bottom: 8px;">
+                <?php if ($notifStatus === 'sent'): ?>
+                  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 10px 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <i class="fas fa-check-circle" style="color: #10b981; font-size: 18px;"></i>
+                      <div>
+                        <strong style="font-size: 13px;">✅ تم إرسال رسالة التجديد</strong>
+                        <div style="font-size: 11px; color: #15803d; margin-top: 2px;">
+                          <?= !empty($notif['sent_at']) ? 'أُرسلت: ' . e($notif['sent_at']) : 'تم الإرسال عبر الواتساب' ?>
+                          (مرحلة <?= $notif['stage'] ?? $stage ?> يوم)
+                        </div>
+                      </div>
+                    </div>
+                    <?php if (!empty($notif['message'])): ?>
+                      <button type="button" class="btn btn-sm btn-outline" style="background:#fff; border-color:#86efac; color:#166534; padding: 4px 8px; font-size: 11.5px; white-space: nowrap;" data-msg="<?= htmlspecialchars($notif['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="openHubMessageModal(this.getAttribute('data-msg'))">
+                        <i class="fas fa-eye"></i> عرض الرسالة
+                      </button>
+                    <?php endif; ?>
+                  </div>
+                <?php elseif ($notifStatus === 'approved'): ?>
+                  <div style="background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 10px 12px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <i class="fas fa-calendar-check" style="color: #0284c7; font-size: 18px;"></i>
+                      <div>
+                        <strong style="font-size: 13px;">📅 معتمد للإرسال الصباحي</strong>
+                        <div style="font-size: 11px; color: #0284c7; margin-top: 2px;">
+                          مجدول للمرحلة (مرحلة <?= $notif['stage'] ?? $stage ?> يوم)
+                        </div>
+                      </div>
+                    </div>
+                    <?php if (!empty($notif['message'])): ?>
+                      <button type="button" class="btn btn-sm btn-outline" style="background:#fff; border-color:#7dd3fc; color:#0369a1; padding: 4px 8px; font-size: 11.5px; white-space: nowrap;" data-msg="<?= htmlspecialchars($notif['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="openHubMessageModal(this.getAttribute('data-msg'))">
+                        <i class="fas fa-eye"></i> عرض الرسالة
+                      </button>
+                    <?php endif; ?>
+                  </div>
+                <?php elseif ($notifStatus === 'pending_review'): ?>
+                  <div style="background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px;">
+                    <strong style="font-size: 12.5px;"><i class="fas fa-clock"></i> إشعار مستحق بانتظار المراجعة والاعتماد</strong>
+                  </div>
+                  <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;">
+                    نص الرسالة المخصص للعميل:
+                  </label>
+                  <textarea name="message_<?= $notif['id'] ?>" class="form-control" style="font-size: 12.5px; height: 110px; resize: vertical; line-height: 1.5; font-family: inherit;"><?= e($notif['message'] ?? '') ?></textarea>
+                <?php elseif ($notifStatus === 'skipped'): ?>
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; padding: 8px 12px; border-radius: 8px;">
+                    <i class="fas fa-forward"></i> <strong>تم تخطي إشعار التجديد</strong> لهذه المرحلة
+                  </div>
+                <?php else: ?>
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; padding: 8px 12px; border-radius: 8px;">
+                    <i class="fas fa-hourglass-half"></i> <strong>قيد المتابعة الدورية</strong> (متبقي <?= $item['min_days_left'] ?> يوم حتى انتهاء الاشتراك)
+                  </div>
+                <?php endif; ?>
+              </div>
             </div>
 
             <div class="review-card-footer">
-              <button type="button" class="btn btn-sm btn-success" style="flex: 1;" onclick="sendSingleFromCard(<?= $item['id'] ?>, this)">
-                <i class="fab fa-whatsapp"></i> إرسال الآن
-              </button>
-              <button type="button" class="btn btn-sm btn-outline" style="flex: 1;" onclick="approveSingleFromCard(<?= $item['id'] ?>, this)">
-                <i class="fas fa-check"></i> اعتماد للجدولة
-              </button>
-              <button type="button" class="btn btn-sm btn-outline" style="color: var(--danger); border-color: var(--danger);" onclick="skipSingleFromCard(<?= $item['id'] ?>)" title="تخطي العميل لهذه المرحلة">
-                <i class="fas fa-times"></i>
-              </button>
+              <?php if ($notifStatus === 'pending_review' && !empty($notif['id'])): ?>
+                <button type="button" class="btn btn-sm btn-success" style="flex: 1;" onclick="sendSingleFromCard(<?= $notif['id'] ?>, this)">
+                  <i class="fab fa-whatsapp"></i> إرسال الآن
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" style="flex: 1;" onclick="approveSingleFromCard(<?= $notif['id'] ?>, this)">
+                  <i class="fas fa-check"></i> اعتماد للجدولة
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" style="color: var(--danger); border-color: var(--danger);" onclick="skipSingleFromCard(<?= $notif['id'] ?>)" title="تخطي العميل لهذه المرحلة">
+                  <i class="fas fa-times"></i>
+                </button>
+              <?php elseif ($notifStatus === 'approved' && !empty($notif['id'])): ?>
+                <form method="POST" style="margin: 0; flex: 1;">
+                  <?= csrfField() ?>
+                  <input type="hidden" name="action" value="send_single">
+                  <input type="hidden" name="return_tab" value="pending">
+                  <input type="hidden" name="notification_id" value="<?= $notif['id'] ?>">
+                  <button type="submit" class="btn btn-sm btn-success" style="width: 100%;" onclick="return confirm('إرسال الآن مباشرة عبر الواتساب؟')">
+                    <i class="fab fa-whatsapp"></i> إرسال فوري الآن
+                  </button>
+                </form>
+                <a href="https://wa.me/<?= preg_replace('/\D/', '', $item['mobile']) ?>" target="_blank" class="btn btn-sm btn-outline" style="color: #2563eb; border-color: #93c5fd;">
+                  <i class="fab fa-whatsapp"></i> فتح شات
+                </a>
+              <?php else: ?>
+                <a href="https://wa.me/<?= preg_replace('/\D/', '', $item['mobile']) ?>" target="_blank" class="btn btn-sm btn-outline" style="width: 100%; color: #10b981; border-color: #10b981;">
+                  <i class="fab fa-whatsapp"></i> فتح شات واتساب مع العميل
+                </a>
+              <?php endif; ?>
             </div>
           </div>
         <?php endforeach; ?>
@@ -1108,13 +1353,14 @@ table.data-table tbody tr:hover {
             <th>الخدمات المستحقة</th>
             <th>أقرب انتهاء</th>
             <th>المبلغ المتوقع</th>
+            <th>حالة إشعار التجديد</th>
             <th>الإجراء السريع</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($renewalsTableData)): ?>
             <tr>
-              <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+              <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
                 لا توجد اشتراكات تنتهي خلال الفترة المحددة.
               </td>
             </tr>
@@ -1147,6 +1393,40 @@ table.data-table tbody tr:hover {
                 </td>
                 <td>
                   <strong style="color: var(--primary);"><?= number_format($c['total_price']) ?> <?= e($c['currency']) ?></strong>
+                </td>
+                <td>
+                  <?php 
+                    $tNotif = $c['notif'] ?? null;
+                    $tStatus = $tNotif['status'] ?? null;
+                  ?>
+                  <?php if ($tStatus === 'sent'): ?>
+                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                      <span class="badge badge-success" style="font-size: 11px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-check-circle"></i> تم الإرسال (مرحلة <?= $tNotif['stage'] ?? '—' ?> يوم)
+                      </span>
+                      <?php if (!empty($tNotif['message'])): ?>
+                        <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 6px; font-size: 10.5px; border-color: #86efac; color: #166534;" data-msg="<?= htmlspecialchars($tNotif['message'], ENT_QUOTES, 'UTF-8') ?>" onclick="openHubMessageModal(this.getAttribute('data-msg'))">
+                          <i class="fas fa-eye"></i> عرض الرسالة
+                        </button>
+                      <?php endif; ?>
+                    </div>
+                  <?php elseif ($tStatus === 'approved'): ?>
+                    <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 11px; padding: 4px 8px;">
+                      <i class="fas fa-calendar-check"></i> معتمد للجدولة
+                    </span>
+                  <?php elseif ($tStatus === 'pending_review'): ?>
+                    <span class="badge badge-warning" style="font-size: 11px; padding: 4px 8px;">
+                      <i class="fas fa-clock"></i> بانتظار الاعتماد
+                    </span>
+                  <?php elseif ($tStatus === 'skipped'): ?>
+                    <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 11px; padding: 4px 8px;">
+                      <i class="fas fa-forward"></i> تم التخطي
+                    </span>
+                  <?php else: ?>
+                    <span style="font-size: 11.5px; color: var(--text-muted);">
+                      <i class="fas fa-hourglass-start"></i> لم يُرسل بعد
+                    </span>
+                  <?php endif; ?>
                 </td>
                 <td>
                   <a href="https://wa.me/<?= preg_replace('/\D/', '', $c['mobile']) ?>" target="_blank" class="btn btn-sm btn-outline" style="color: #10b981; border-color: #10b981;">

@@ -26,9 +26,11 @@ try {
     $db   = getDB();
     $days = (int)getSetting('renewal_warning_days', '60');
     $stmt = $db->prepare("
-        SELECT COUNT(DISTINCT client_id) FROM client_subscriptions
-        WHERE status = 'active'
-          AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
+        SELECT COUNT(DISTINCT cs.client_id) FROM client_subscriptions cs
+        JOIN clients c ON c.id = cs.client_id
+        WHERE cs.status = 'active'
+          AND c.status = 1
+          AND cs.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL ? DAY)
     ");
     $stmt->execute([$days]);
     $renewalCount = (int)$stmt->fetchColumn();
